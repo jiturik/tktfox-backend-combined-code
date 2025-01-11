@@ -1,30 +1,32 @@
-import http from "http";
-import express, { Router } from "express";
-import cors from "cors";
-import bodyParser from "body-parser";
-import helmet from "helmet";
-import { jwtDecode } from "jwt-decode";
-import { v4 } from "uuid";
-import bcrypt from "bcryptjs";
-import jwt_token from "jsonwebtoken";
-import moment from "moment";
-import nodemailer from "nodemailer";
-import momentTimeZone from "moment-timezone";
-import _ from "lodash";
-import NodeCache from "node-cache";
-import zlib from "zlib";
-import path from "path";
-import fs from "fs";
-import excel from "exceljs";
-import ejs from "ejs";
-import pdf from "html-pdf";
-import QRCode from "qrcode";
-import axios from "axios";
-import { SeatsioClient, Region } from "seatsio";
-import { createHash } from "crypto";
-import { attachPaginate } from "knex-paginate";
-import knex from "knex";
-import dotenv from "dotenv";
+import http from 'http';
+import express, { Router } from 'express';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+import helmet from 'helmet';
+import { jwtDecode } from 'jwt-decode';
+import jwt from 'jsonwebtoken';
+import { v4 } from 'uuid';
+import bcrypt from 'bcryptjs';
+import moment from 'moment';
+import nodemailer from 'nodemailer';
+import momentTimeZone from 'moment-timezone';
+import _ from 'lodash';
+import NodeCache from 'node-cache';
+import zlib from 'zlib';
+import path, { dirname } from 'path';
+import fs from 'fs';
+import multer from 'multer';
+import excel from 'exceljs';
+import ejs from 'ejs';
+import pdf from 'html-pdf';
+import QRCode from 'qrcode';
+import axios from 'axios';
+import { SeatsioClient, Region } from 'seatsio';
+import { createHash } from 'crypto';
+import { fileURLToPath } from 'url';
+import { attachPaginate } from 'knex-paginate';
+import knex from 'knex';
+import dotenv from 'dotenv';
 
 /**
  * Helper function to validate token and retrieve user information.
@@ -184,7 +186,7 @@ const CREATE_TOKEN_FOR_USER = async ({ user_id, role_id, org_id }) => {
     await global.knexConnection("user_token").insert(create_user_token);
 
     // Generate the JWT token
-    let token = jwt_token.sign(
+    let token = jwt.sign(
       { token: random },
       process.env.JWTSECRET || "welcomeuser"
     );
@@ -469,7 +471,7 @@ function sendEmailClient(from, subject, body, attachment) {
       html: body,
     };
 
-    if (attachment);
+    if (attachment) ;
 
     mail.sendMail(mailOptions, (error, info) => {
       if (error) {
@@ -662,7 +664,7 @@ async function getCinemaList(req, res) {
 
   try {
     // Build query dynamically with filters
-    const query = global
+    const CinemaList = await global
       .knexConnection("ms_cinemas")
       .select([
         "ms_cinemas.*",
@@ -1532,6 +1534,7 @@ const EVENT_DATA = async (reqbody) => {
     isWebsiteUser,
     event_sch_id,
   } = reqbody;
+
   const currentDateTimeNew = currentDateTime(null, "YYYY-MM-DD HH:mm:ss", null);
 
   // Step 1: Fetch event list
@@ -1547,7 +1550,7 @@ const EVENT_DATA = async (reqbody) => {
   );
 
   // Step 3: Process event schedules if needed
-  processEventSchedules(newArray, isWebsiteUser);
+  processEventSchedules(newArray, reqbody.isWebsiteUser);
 
   return {
     message: "Event List",
@@ -1569,8 +1572,8 @@ async function getEventList(req, res) {
       ...query,
       ...body,
       ...params,
-      org_id,
-      is_website_user: req.is_website_user || false,
+      //org_id,
+      isWebsiteUser: req.is_website_user || false,
     };
 
     // Fetch event data
@@ -1774,11 +1777,11 @@ async function getEventExtraInfoList(req, res) {
       reqbody;
 
     // Handle pagination parameters
-    const limit = req.query.limit || 100;
+    const limit = req.query.limit || 10;
     const currentPage = req.query.currentPage || 1;
 
     // Building the query
-    const query = global
+    const EventExtraInfoList = await global
       .knexConnection("ms_event_extra_info")
       .select("ms_event_extra_info.*")
       .where((builder) => {
@@ -1805,7 +1808,6 @@ async function getEventExtraInfoList(req, res) {
       message: "Event Extra Info List",
       status: true,
       Records: EventExtraInfoList,
-      Pagination: EventExtraInfoList.pagination, // Assuming pagination is included
     });
   } catch (error) {
     console.error("Error in getEventExtraInfoList:", error);
@@ -2128,11 +2130,7 @@ function ScannerRoutes() {
     checkSessionExist,
     getScannedTicketById
   );
-  router$7.get(
-    "/getScannedTicketList",
-    checkSessionExist,
-    getScannedTicketList
-  );
+  router$7.get("/getScannedTicketList", checkSessionExist, getScannedTicketList);
 
   // POST Routes
   router$7.post(
@@ -3116,7 +3114,7 @@ async function getBannerList(req, res) {
     const isWebsiteUser = req["is_website_user"] || false;
     const { user_info } = req;
 
-    const queryBuilder = global
+    const BannerList = await global
       .knexConnection("ms_banner")
       .leftJoin("ms_event", "ms_event.event_id", "ms_banner.event_id")
       .select([
@@ -3144,7 +3142,7 @@ async function getBannerList(req, res) {
     return res.send({
       message: "Banner List",
       status: true,
-      Records: queryBuilder,
+      Records: BannerList,
     });
   } catch (error) {
     console.error("Error in getBannerList:", error);
@@ -4005,10 +4003,104 @@ async function getContactUsList(req, res) {
   }
 }
 
-// uploadSingleFile
-var { uploadSingleFile, uploadImage, uploadToS3 } = import(
-  "./MulterHelper-YYVnDSxB.js"
-);
+// import AWS from "aws-sdk";
+// import s3 from "@auth0/s3";
+
+// Define storage configuration with error handling for directory creation
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.normalize(global.__base + "/public/uploads");
+    try {
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      cb(null, uploadDir);
+    } catch (error) {
+      console.error("Error creating upload directory:", error);
+      cb(new Error("Failed to create upload directory"), null);
+    }
+  },
+});
+
+// Utility for file type validation
+const validateFileType = (file, allowedExtensions, callback) => {
+  try {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!allowedExtensions.includes(ext) && !file.mimetype.includes("image")) {
+      return callback(
+        `Only the following file types are allowed: ${allowedExtensions.join(
+          ", "
+        )}`
+      );
+    }
+    callback(null, true);
+  } catch (error) {
+    console.error("Error validating file type:", error);
+    callback("Error validating file type");
+  }
+};
+
+// Single file upload with error handling for XLS/XLSX files
+multer({
+  storage,
+  fileFilter: (req, file, callback) => {
+    validateFileType(file, [".xls", ".xlsx"], callback);
+  },
+}).single("file");
+
+// Single image upload with error handling
+const uploadImage = multer({
+  storage,
+  fileFilter: (req, file, callback) => {
+    validateFileType(file, [".png", ".jpg", ".jpeg", ".gif", ".svg"], callback);
+  },
+}).single("image");
+
+// Upload file to AWS S3 with robust error handling
+// export const uploadToS3 = (dirPath, originalFileName, callback) => {
+//   try {
+//     const folder = path.normalize(`${global.__base}/public${dirPath}`);
+//     const sanitizedFileName = originalFileName.replace(/[/\\?%*:|"<>]/g, "-");
+//     const finalUploadPath = `S3${dirPath}${sanitizedFileName}`;
+
+//     const params = {
+//       localFile: path.join(folder, originalFileName),
+//       s3Params: {
+//         Bucket: global.config.configuration.awsConfig.bucketName,
+//         Key: finalUploadPath,
+//       },
+//     };
+
+//     const awsS3Client = new AWS.S3(global.config.configuration.awsConfig);
+//     const client = s3.createClient({
+//       s3Client: awsS3Client,
+//       maxAsyncS3: 20,
+//       s3RetryCount: 3,
+//       s3RetryDelay: 1000,
+//       multipartUploadThreshold: 20971520, // 20 MB
+//       multipartUploadSize: 15728640, // 15 MB
+//     });
+
+//     const uploader = client.uploadFile(params);
+
+//     uploader.on("progress", () => {
+//       console.log("Upload in progress...");
+//     });
+
+//     uploader.on("error", (error) => {
+//       console.error("Error during S3 upload:", error.stack);
+//       callback(new Error("Failed to upload file to S3"), null);
+//     });
+
+//     uploader.on("end", () => {
+//       console.log("File successfully uploaded to S3:", finalUploadPath);
+//       callback(null, finalUploadPath);
+//     });
+//   } catch (error) {
+//     console.error("Unexpected error in uploadToS3:", error);
+//     callback(new Error("Unexpected error during upload"), null);
+//   }
+// };
 
 async function uploadImageController(req, res) {
   try {
@@ -4605,7 +4697,11 @@ const defaultOpts = {
   },
 };
 
-async function createQRCode(qrcode_data, returnType = "buffer", logo = null) {
+async function createQRCode(
+  qrcode_data,
+  returnType = "buffer",
+  logo = null
+) {
   try {
     if (!qrcode_data) {
       throw new Error("QR code data is required.");
@@ -5517,11 +5613,7 @@ function ReportRoutes() {
     checkSessionExist,
     getReservationBookingList
   );
-  router$3.get(
-    "/getEventHomeDataById",
-    checkSessionExist,
-    getEventHomeDataById
-  );
+  router$3.get("/getEventHomeDataById", checkSessionExist, getEventHomeDataById);
   router$3.get("/exportBookingReport", checkSessionExist, exportBookingReport);
   router$3.get(
     "/exportReservationReport",
@@ -8152,19 +8244,19 @@ const checkSeatsAvailableWithoutSL = async ({
     }
 
     // Calculate total booked seats
-    const totalBookedSeats = checkBookedSeats.reduce(
+    let totalBookedSeats = checkBookedSeats.reduce(
       (n, { total_seats }) => n + parseInt(total_seats),
       0
     );
-    const totalScheduleMaxSeats = parseInt(
+    let totalScheduleMaxSeats = parseInt(
       event_data_sch[0].sch_max_capacity || 0
     );
 
     // Create a map of seat_type_id to available seats, considering booked seats
-    const seatAvailabilityMap = new Map();
+    let seatAvailabilityMap = new Map();
     seatTypeData.forEach(({ available_seats, sct_id }) => {
       let bookedSeats = 0;
-      const bookedData = checkBookedSeats.find(
+      let bookedData = checkBookedSeats.find(
         ({ seat_type_id }) => seat_type_id === sct_id
       );
       if (bookedData) {
@@ -8494,7 +8586,7 @@ const addReservationSeatWithoutSeatlayout = async (req, res) => {
     };
 
     // Prepare data for bulk insertion
-    const insertData = arrayData.map((z) => ({
+    let insertData = arrayData.map((z) => ({
       ...z,
       ...duplicateData,
     }));
@@ -8575,15 +8667,6 @@ const getReservationSeat = async (req, res) => {
       event_sch_id: getReservationDetail[0].event_sch_id,
     });
 
-    const discountDataPromises = [
-      global
-        .knexConnection("ms_reserve_vouchers")
-        .where({ reservation_id, rv_is_active: "Y" }),
-      global
-        .knexConnection("ms_reserve_pass")
-        .where({ reservation_id, rp_is_active: "Y" }),
-    ];
-
     const cinemaPaymentGatewayPromise = global
       .knexConnection("organization_setting")
       .where({ org_id: getReservationDetail[0].event_id })
@@ -8594,20 +8677,32 @@ const getReservationSeat = async (req, res) => {
       );
 
     // Wait for all promises to resolve
-    const [event_data, [voucherData, passData], cinemaPaymentGateway] =
-      await Promise.all([
-        eventDataPromise,
-        discountDataPromises,
-        cinemaPaymentGatewayPromise,
-      ]);
+    const [event_data, cinemaPaymentGateway] = await Promise.all([
+      eventDataPromise,
+      cinemaPaymentGatewayPromise,
+    ]);
 
     // Process reservation details
     getReservationDetail.forEach((z) => {
       obj.seat_name.push(z.seat_name);
       const seatPrice = parseFloat(z.seat_price);
       const noOfSeats = parseFloat(z.no_of_seats) || 1;
-      obj.totalprice += seatPrice * noOfSeats;
-      obj.priceBeforeDiscount += seatPrice;
+      obj.priceBeforeDiscount += parseFloat(seatPrice) * noOfSeats;
+      //check for voucher discount here
+      let discountedAmount =
+        z.voucher_applied == "Y" ? parseFloat(z.voucher_discount_amount) : 0;
+
+      //check for pass discount here
+      if (z.pass_applied == "Y") {
+        discountedAmount =
+          parseFloat(z.voucher_discount_amount) + parseFloat(discountedAmount);
+        obj.pass_applied = true;
+        obj.discountPercent = `${z.pass_discount_percent}%`;
+        obj.discountValue = parseFloat(z.pass_discount_amount);
+      }
+
+      obj.totalprice +=
+        (parseFloat(seatPrice) - parseFloat(discountedAmount)) * noOfSeats;
       obj.reserved_time = moment(z.created_at).format("YYYY-MM-DD HH:mm:ss");
       obj.release_time = moment(z.created_at)
         .add(z.seat_release_time || Booking_time, "minutes")
@@ -8622,30 +8717,13 @@ const getReservationSeat = async (req, res) => {
       moment(obj.release_time).diff(moment(obj.currentDateTime), "minutes") %
       60;
 
-    // Apply voucher discount if available
-    if (voucherData.length) {
-      obj.voucher_code = voucherData[0].voucher_code;
-      obj.discountPercent = `${voucherData[0].voucher_discount_percent}%`;
-      obj.discountValue =
-        (parseFloat(voucherData[0].voucher_discount_percent) / 100) *
-        obj.totalprice;
-      obj.totalprice -= obj.discountValue;
-    }
-
-    // Apply pass discount if available
-    if (passData.length) {
-      const validSeatType = getReservationDetail.filter(
-        (z) => z.seat_type_id === passData[0].seat_type_id
+    // add voucher discount details in response if available
+    if (getReservationDetail[0].voucher_applied == "Y") {
+      obj.voucher_code = getReservationDetail[0].voucher_code;
+      obj.discountPercent = `${getReservationDetail[0].voucher_discount_percent}%`;
+      obj.discountValue = parseFloat(
+        getReservationDetail[0].voucher_discount_amount
       );
-      if (validSeatType.length) {
-        const singleTicketPrice = parseFloat(validSeatType[0].seat_price);
-        obj.pass_applied = true;
-        obj.discountPercent = `${passData[0].pass_discount_percent}%`;
-        obj.discountValue =
-          (parseFloat(passData[0].pass_discount_percent) / 100) *
-          singleTicketPrice;
-        obj.totalprice -= obj.discountValue;
-      }
     }
 
     // Get cinema payment gateway information
@@ -8930,6 +9008,29 @@ async function applyVoucher(req, res) {
 
     // Insert the voucher application into the database
     await global.knexConnection("ms_reserve_vouchers").insert(voucherObj);
+
+    //get reservation data
+    const reservation = await global
+      .knexConnection("ms_reservation")
+      .select("seat_price", "r_id")
+      .where({ reservation_id, is_reserved: "Y" });
+
+    //update voucher data in reservation table
+    for (let item of reservation) {
+      let update_obj = {
+        voucher_applied: "Y",
+        voucher_code: voucher_code,
+        voucher_discount_percent:
+          parseFloat(getVoucher[0].voucher_discount_value) || 0,
+        voucher_discount_amount:
+          (parseFloat(getVoucher[0].voucher_discount_percent || 0) / 100) *
+          parseFloat(item.seat_price),
+      };
+      await global
+        .knexConnection("ms_reservation")
+        .update(update_obj)
+        .where({ r_id: item.r_id });
+    }
 
     // Send success response
     return res.send({
@@ -9409,7 +9510,7 @@ async function applyPass(req, res) {
     // Get reservation details
     const getReservationDetail = await global
       .knexConnection("ms_reservation")
-      .select("seat_type_id", "event_id")
+      .select("reservation_id", "seat_type_id", "event_id", "seat_price")
       .where({
         reservation_id,
         is_reserved: "Y",
@@ -9469,7 +9570,7 @@ async function applyPass(req, res) {
       if (getAlreadyBoughtUserPass.length >= maxPerUser) {
         return res.send({
           status: false,
-          message: "Pass limit exceeded for user",
+          message: "Pass limit exceed!",
         });
       }
 
@@ -9482,7 +9583,7 @@ async function applyPass(req, res) {
       if (filterForPerDayPass.length >= maxPerDay) {
         return res.send({
           status: false,
-          message: "Per day pass limit exceeded for user",
+          message: "Per day pass limit exceed!",
         });
       }
     }
@@ -9498,6 +9599,26 @@ async function applyPass(req, res) {
     };
 
     await global.knexConnection("ms_reserve_pass").insert(obj);
+
+    //update pass data in reservation table
+
+    const getvalidSeatType = getReservationDetail.filter(
+      (z) => z.seat_type_id === passData[0].seat_type_id
+    );
+    if (getvalidSeatType.length) {
+      let update_obj = {
+        pass_applied: "Y",
+        pass_code: getPass[0].pass_name,
+        pass_discount_percent: parseFloat(getPass[0].pass_discount_value) || 0,
+        pass_discount_amount:
+          (parseFloat(getPass[0].pass_discount_value) / 100) *
+          parseFloat(item.seat_price),
+      };
+      await global
+        .knexConnection("ms_reservation")
+        .update(update_obj)
+        .where({ reservation_id: getvalidSeatType[0].reservation_id });
+    }
 
     return res.send({
       status: true,
@@ -9897,12 +10018,21 @@ function RootRouter() {
 }
 
 const app = express();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 app.use(cors());
+app.use(helmet());
+app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
 app.use(bodyParser.json({ limit: "10mb" }));
 app.use(bodyParser.urlencoded({ limit: "10mb", extended: true }));
 app.use(RootRouter());
-app.use(helmet());
+
+app.use(
+  express.static(__dirname + "/public", {
+    maxAge: "7d",
+  })
+);
 
 dotenv.config();
 const KnexConfig = {
@@ -9982,12 +10112,21 @@ Promise.all([
     //attach knex pagination
     attachPaginate();
 
+    //global path
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    global.__base = __dirname;
+    const globalOptionsMap = {};
+
     //global from DB
     const globalOptions = await global.knexConnection("global_options");
-    global.globalOptions = globalOptions;
+    globalOptions.forEach((row) => {
+      globalOptionsMap[row.go_key] = row.go_value;
+    });
+    global.globalOptions = globalOptionsMap;
 
     //cron scripts
-    import("./index-C08pTiYk.js");
+    import('./index-C08pTiYk.js');
 
     //start server
     httpServer.listen(EXPRESS_PORT, () => {
