@@ -7,7 +7,7 @@ import { jwtDecode } from 'jwt-decode';
 import jwt from 'jsonwebtoken';
 import { v4 } from 'uuid';
 import bcrypt from 'bcryptjs';
-import moment from 'moment';
+import moment$1 from 'moment';
 import nodemailer from 'nodemailer';
 import momentTimeZone from 'moment-timezone';
 import _ from 'lodash';
@@ -20,13 +20,14 @@ import excel from 'exceljs';
 import ejs from 'ejs';
 import pdf from 'html-pdf';
 import QRCode from 'qrcode';
-import axios from 'axios';
 import { SeatsioClient, Region } from 'seatsio';
 import { createHash } from 'crypto';
+import axios$1 from 'axios';
 import { fileURLToPath } from 'url';
 import { attachPaginate } from 'knex-paginate';
-import knex from 'knex';
-import dotenv from 'dotenv';
+import { KnexConnection } from './knex/knex.js';
+import 'knex';
+import 'dotenv';
 
 /**
  * Helper function to validate token and retrieve user information.
@@ -318,16 +319,16 @@ async function checkLogin(req, res) {
   }
 }
 
-const router$b = Router();
+const router$c = Router();
 
 function LoginRoutes() {
   // POST Routes
-  router$b.post("/login", login);
+  router$c.post("/login", login);
 
   // GET Routes
-  router$b.get("/check-login-access", checkSessionExist, checkLogin);
+  router$c.get("/check-login-access", checkSessionExist, checkLogin);
 
-  return router$b;
+  return router$c;
 }
 
 // Current DateTime Utility with Error Handling
@@ -338,7 +339,7 @@ const currentDateTime = (
 ) => {
   try {
     const { TIME_ZONE } = global.globalOptions || {};
-    let currentDateTime = moment().format(format);
+    let currentDateTime = moment$1().format(format);
     const TIME_ZON_VALUE = TIME_ZONE_SET || TIME_ZONE;
 
     if (TIME_ZON_VALUE) {
@@ -346,7 +347,7 @@ const currentDateTime = (
     }
 
     if (date) {
-      currentDateTime = moment(date).format(format);
+      currentDateTime = moment$1(date).format(format);
     }
 
     return currentDateTime;
@@ -435,7 +436,7 @@ function sendEmail(to, subject, body, attachment) {
   return new Promise((resolve, reject) => {
     try {
       const mailOptions = {
-        from: "support@tktfox.com",
+        from: `${process.env.TICKET_EMAIL_FROM}`,
         to,
         subject,
         html: body,
@@ -465,8 +466,8 @@ function sendEmail(to, subject, body, attachment) {
 function sendEmailClient(from, subject, body, attachment) {
   try {
     const mailOptions = {
-      from: "info@tktfox.com",
-      to: "support@tktfox.com",
+      from: `${process.env.CONTACT_US_EMAIL_FROM}`,
+      to: `${process.env.CONTACT_US_EMAIL_TO}`,
       subject,
       html: body,
     };
@@ -726,16 +727,16 @@ async function getCinemaList(req, res) {
   }
 }
 
-const router$a = Router();
+const router$b = Router();
 
 function CinemaRoutes() {
   // POST Routes
-  router$a.post("/add-edit-cinema", checkSessionExist, addEditCinema);
+  router$b.post("/add-edit-cinema", checkSessionExist, addEditCinema);
 
   // GET Routes
-  router$a.get("/getcinemalist", checkSessionExist, getCinemaList);
+  router$b.get("/getcinemalist", checkSessionExist, getCinemaList);
 
-  return router$a;
+  return router$b;
 }
 
 // Add or Edit Customer
@@ -978,16 +979,16 @@ async function signInCustomer(req, res) {
   }
 }
 
-const router$9 = Router();
+const router$a = Router();
 
 function CustomerRoutes() {
   // POST Routes
-  router$9.post("/add-edit-customer", checkSessionExist, addEditCustomer);
+  router$a.post("/add-edit-customer", checkSessionExist, addEditCustomer);
 
   // GET Routes
-  router$9.get("/getcustomerlist", checkSessionExist, getCustomerList);
+  router$a.get("/getcustomerlist", checkSessionExist, getCustomerList);
 
-  return router$9;
+  return router$a;
 }
 
 async function addEditEvent(req, res) {
@@ -1048,7 +1049,7 @@ async function addEditEvent(req, res) {
     }
 
     // Validate event dates
-    if (moment(event_end_date).isBefore(event_start_date)) {
+    if (moment$1(event_end_date).isBefore(event_start_date)) {
       return res.send({
         status: false,
         message: "Event Start Date should be less than Event End Date",
@@ -1068,9 +1069,9 @@ async function addEditEvent(req, res) {
 
         // Validate schedule date is between event start and end date
         if (
-          !moment(schedule.sch_date).isBetween(
-            moment(event_start_date),
-            moment(event_end_date),
+          !moment$1(schedule.sch_date).isBetween(
+            moment$1(event_start_date),
+            moment$1(event_end_date),
             undefined,
             "[]"
           )
@@ -1454,22 +1455,22 @@ const processEventDetails = async (
     if (event_id && extraData.event_sch_array.length) {
       const nextSchedule = extraData.event_sch_array[0];
       scheduleStart.second =
-        moment(nextSchedule.sch_date_time).diff(
-          moment(currentDateTimeNew),
+        moment$1(nextSchedule.sch_date_time).diff(
+          moment$1(currentDateTimeNew),
           "seconds"
         ) % 60;
       scheduleStart.minute =
-        moment(nextSchedule.sch_date_time).diff(
-          moment(currentDateTimeNew),
+        moment$1(nextSchedule.sch_date_time).diff(
+          moment$1(currentDateTimeNew),
           "minute"
         ) % 60;
-      scheduleStart.days = moment(nextSchedule.sch_date_time).diff(
-        moment(currentDateTimeNew),
+      scheduleStart.days = moment$1(nextSchedule.sch_date_time).diff(
+        moment$1(currentDateTimeNew),
         "days"
       );
       scheduleStart.hours =
-        moment(nextSchedule.sch_date_time).diff(
-          moment(currentDateTimeNew),
+        moment$1(nextSchedule.sch_date_time).diff(
+          moment$1(currentDateTimeNew),
           "hour"
         ) % 24;
     }
@@ -1496,7 +1497,7 @@ const processEventSchedules = (newArray, isWebsiteUser) => {
           event_sch_id: z.event_sch_id,
           sch_date_time: z.sch_date_time,
           seatsio_eventkey: z.seatsio_eventkey,
-          sch_date_unix: moment(z.sch_date_time).unix(),
+          sch_date_unix: moment$1(z.sch_date_time).unix(),
         });
       } else {
         array.push({
@@ -1506,7 +1507,7 @@ const processEventSchedules = (newArray, isWebsiteUser) => {
               sch_time: z.sch_time,
               event_sch_id: z.event_sch_id,
               sch_date_time: z.sch_date_time,
-              sch_date_unix: moment(z.sch_date_time).unix(),
+              sch_date_unix: moment$1(z.sch_date_time).unix(),
               seatsio_eventkey: z.seatsio_eventkey,
             },
           ],
@@ -1818,22 +1819,22 @@ async function getEventExtraInfoList(req, res) {
   }
 }
 
-const router$8 = Router();
+const router$9 = Router();
 
 function EventRoutes() {
   // POST Routes
-  router$8.post("/add-edit-event", checkSessionExist, addEditEvent);
-  router$8.post("/add-edit-eventExtra", checkSessionExist, addEditEventExtra);
+  router$9.post("/add-edit-event", checkSessionExist, addEditEvent);
+  router$9.post("/add-edit-eventExtra", checkSessionExist, addEditEventExtra);
 
   // GET Routes
-  router$8.get("/getEventList", checkSessionExist, getEventList);
-  router$8.get(
+  router$9.get("/getEventList", checkSessionExist, getEventList);
+  router$9.get(
     "/get-event-extraInfoList",
     checkSessionExist,
     getEventExtraInfoList
   );
 
-  return router$8;
+  return router$9;
 }
 
 async function getTransactionByCodeScanner(req, res) {
@@ -2116,30 +2117,30 @@ async function addEditScanTicket(req, res) {
   }
 }
 
-const router$7 = Router();
+const router$8 = Router();
 
 function ScannerRoutes() {
   // GET Routes
-  router$7.get(
+  router$8.get(
     "/getTransactionByCode/:booking_code",
     checkSessionExist,
     getTransactionByCodeScanner
   );
-  router$7.get(
+  router$8.get(
     "/getScannedTicketById/:booking_id",
     checkSessionExist,
     getScannedTicketById
   );
-  router$7.get("/getScannedTicketList", checkSessionExist, getScannedTicketList);
+  router$8.get("/getScannedTicketList", checkSessionExist, getScannedTicketList);
 
   // POST Routes
-  router$7.post(
+  router$8.post(
     "/add-edit-scanTicket/:booking_id",
     checkSessionExist,
     addEditScanTicket
   );
 
-  return router$7;
+  return router$8;
 }
 
 async function addEditGuest(req, res) {
@@ -2315,7 +2316,12 @@ async function addSubscriber(req, res) {
         <p>Message : ${subscriber_message}</p>
         </body>
         </html>`;
-        await sendEmailClient(null, "Rainbow- Contact Us", emailHtml, null);
+        await sendEmailClient(
+          null,
+          `${process.env.CLIENT_NAME}- Contact Us`,
+          emailHtml,
+          null
+        );
       }
     }
 
@@ -2340,16 +2346,16 @@ async function addSubscriber(req, res) {
   }
 }
 
-const router$6 = Router();
+const router$7 = Router();
 
 function GuestRoutes() {
   // POST Routes
-  router$6.post("/add-edit-guest", checkSessionExist, addEditGuest);
+  router$7.post("/add-edit-guest", checkSessionExist, addEditGuest);
 
   // GET Routes
-  router$6.get("/getGuestList", checkSessionExist, getGuestList);
+  router$7.get("/getGuestList", checkSessionExist, getGuestList);
 
-  return router$6;
+  return router$7;
 }
 
 const eventCache = new NodeCache();
@@ -4212,46 +4218,46 @@ async function uploadImageController(req, res) {
   }
 }
 
-const router$5 = Router();
+const router$6 = Router();
 
 function MasterRoutes() {
   // POST Routes
-  router$5.post("/add-edit-countries", checkSessionExist, addEditCountries);
-  router$5.post("/add-edit-cities", checkSessionExist, addEditCities);
-  router$5.post("/add-edit-languages", checkSessionExist, addEditLanguages);
-  router$5.post("/add-edit-genres", checkSessionExist, addEditGenre);
-  router$5.post("/add-edit-seattype", checkSessionExist, addEditSeatType);
-  router$5.post("/add-edit-currency", checkSessionExist, addEditCurrency);
-  router$5.post("/add-edit-banner", checkSessionExist, addEditBanner);
-  router$5.post("/add-edit-seatlayout", addEditSeatLayout);
-  router$5.post("/add-edit-roles", checkSessionExist, addEditRoles);
-  router$5.post("/add-edit-org", checkSessionExist, addEditOrg);
-  router$5.post("/add-edit-vouchers", checkSessionExist, addEditVouchers);
-  router$5.post("/add-edit-orgwebsite", checkSessionExist, addEditOrgWebsite);
-  router$5.post("/add-edit-blockseats", checkSessionExist, addEditBlockedSeats);
-  router$5.route("/uploadimage").post(uploadImageController);
+  router$6.post("/add-edit-countries", checkSessionExist, addEditCountries);
+  router$6.post("/add-edit-cities", checkSessionExist, addEditCities);
+  router$6.post("/add-edit-languages", checkSessionExist, addEditLanguages);
+  router$6.post("/add-edit-genres", checkSessionExist, addEditGenre);
+  router$6.post("/add-edit-seattype", checkSessionExist, addEditSeatType);
+  router$6.post("/add-edit-currency", checkSessionExist, addEditCurrency);
+  router$6.post("/add-edit-banner", checkSessionExist, addEditBanner);
+  router$6.post("/add-edit-seatlayout", addEditSeatLayout);
+  router$6.post("/add-edit-roles", checkSessionExist, addEditRoles);
+  router$6.post("/add-edit-org", checkSessionExist, addEditOrg);
+  router$6.post("/add-edit-vouchers", checkSessionExist, addEditVouchers);
+  router$6.post("/add-edit-orgwebsite", checkSessionExist, addEditOrgWebsite);
+  router$6.post("/add-edit-blockseats", checkSessionExist, addEditBlockedSeats);
+  router$6.route("/uploadimage").post(uploadImageController);
 
   // GET Routes
-  router$5.get("/getcountrylist", checkSessionExist, getCountryList);
-  router$5.get("/getcitylist", checkSessionExist, getCityList);
-  router$5.get("/getlanguageslist", checkSessionExist, getLanguageList);
-  router$5.get("/getgenreslist", checkSessionExist, getGenreList);
-  router$5.get("/getseattypelist", getSeatTypeList);
-  router$5.get("/getcurrencylist", checkSessionExist, getCurrencyList);
-  router$5.get("/getbannerlist", checkSessionExist, getBannerList);
-  router$5.get("/getSeatLayoutList", getSeatLayoutList);
-  router$5.get("/gettimezonelist", checkSessionExist, getTimeZoneList);
-  router$5.get("/getroleslist", checkSessionExist, getRolesList);
-  router$5.get("/getOrgList", checkSessionExist, getOrgList);
-  router$5.get("/getVoucherList", checkSessionExist, getVoucherList);
-  router$5.get("/getContactUsList", checkSessionExist, getContactUsList);
-  router$5.get(
+  router$6.get("/getcountrylist", checkSessionExist, getCountryList);
+  router$6.get("/getcitylist", checkSessionExist, getCityList);
+  router$6.get("/getlanguageslist", checkSessionExist, getLanguageList);
+  router$6.get("/getgenreslist", checkSessionExist, getGenreList);
+  router$6.get("/getseattypelist", getSeatTypeList);
+  router$6.get("/getcurrencylist", checkSessionExist, getCurrencyList);
+  router$6.get("/getbannerlist", checkSessionExist, getBannerList);
+  router$6.get("/getSeatLayoutList", getSeatLayoutList);
+  router$6.get("/gettimezonelist", checkSessionExist, getTimeZoneList);
+  router$6.get("/getroleslist", checkSessionExist, getRolesList);
+  router$6.get("/getOrgList", checkSessionExist, getOrgList);
+  router$6.get("/getVoucherList", checkSessionExist, getVoucherList);
+  router$6.get("/getContactUsList", checkSessionExist, getContactUsList);
+  router$6.get(
     "/getEventBlockedSeats/:event_id/:event_sch_id",
     checkSessionExist,
     getEventBlockedSeats
   );
 
-  return router$5;
+  return router$6;
 }
 
 async function addEditPass(req, res) {
@@ -4321,7 +4327,7 @@ async function addEditPass(req, res) {
     }
 
     // Validate date range
-    if (moment(pass_validity_to).isBefore(pass_validity_from)) {
+    if (moment$1(pass_validity_to).isBefore(pass_validity_from)) {
       return res.status(400).send({
         status: false,
         message: "Pass from date should be less than pass to date",
@@ -4667,22 +4673,22 @@ async function getPassDiscountList(req, res) {
   }
 }
 
-const router$4 = Router();
+const router$5 = Router();
 
 function PassRoutes() {
   // POST Routes
-  router$4.post("/add-edit-pass", checkSessionExist, addEditPass);
-  router$4.post(
+  router$5.post("/add-edit-pass", checkSessionExist, addEditPass);
+  router$5.post(
     "/add-edit-pass-discount",
     checkSessionExist,
     addEditPassDiscount
   );
 
   // GET Routes
-  router$4.get("/getPassList", checkSessionExist, getPassList);
-  router$4.get("/getPassDiscountList", checkSessionExist, getPassDiscountList);
+  router$5.get("/getPassList", checkSessionExist, getPassList);
+  router$5.get("/getPassDiscountList", checkSessionExist, getPassDiscountList);
 
-  return router$4;
+  return router$5;
 }
 
 const defaultOpts = {
@@ -4777,7 +4783,7 @@ const CreateInvSendTicketEmail = async (reqbody) => {
       const emailData = {
         booking_id: booking.booking_id,
         booking_code: booking.booking_code,
-        booking_date_time: moment(booking.booking_date_time).format(
+        booking_date_time: moment$1(booking.booking_date_time).format(
           "DD/MM/YYYY hh:mm:ss"
         ),
         event_name: booking.event_name,
@@ -4788,10 +4794,10 @@ const CreateInvSendTicketEmail = async (reqbody) => {
         cinema_name: booking.cinema_name,
         city_name: booking.city_name,
         country_name: booking.country_name,
-        event_date_time: `${moment(booking.event_date).format("DD/MM/YYYY")} ${
+        event_date_time: `${moment$1(booking.event_date).format("DD/MM/YYYY")} ${
           booking.event_time
         }`,
-        event_date_body: moment(booking.event_date).format("DD/MM/YYYY"),
+        event_date_body: moment$1(booking.event_date).format("DD/MM/YYYY"),
         event_time_body: booking.event_time,
         seats: booking.seat_names,
         totalPrice: booking.total_price,
@@ -4840,7 +4846,7 @@ const sendTicketEmail = async (emailData) => {
 
     await sendEmail(
       emailData.customer_email,
-      `RAINBOW-: ${emailData.booking_code} - ${emailData.event_name}`,
+      `${process.env.CLIENT_NAME} -: ${emailData.booking_code} - ${emailData.event_name}`,
       emailHtml,
       attachments
     );
@@ -5598,37 +5604,37 @@ async function getPassTransactionList(req, res) {
   }
 }
 
-const router$3 = Router();
+const router$4 = Router();
 
 function ReportRoutes() {
   // GET Routes
-  router$3.get("/getTransactionList", checkSessionExist, getTransactionList);
-  router$3.get(
+  router$4.get("/getTransactionList", checkSessionExist, getTransactionList);
+  router$4.get(
     "/getPassTransactionList",
     checkSessionExist,
     getPassTransactionList
   );
-  router$3.get(
+  router$4.get(
     "/getReservationBookingList",
     checkSessionExist,
     getReservationBookingList
   );
-  router$3.get("/getEventHomeDataById", checkSessionExist, getEventHomeDataById);
-  router$3.get("/exportBookingReport", checkSessionExist, exportBookingReport);
-  router$3.get(
+  router$4.get("/getEventHomeDataById", checkSessionExist, getEventHomeDataById);
+  router$4.get("/exportBookingReport", checkSessionExist, exportBookingReport);
+  router$4.get(
     "/exportReservationReport",
     checkSessionExist,
     exportReservationReport
   );
 
   // POST Routes
-  router$3.post(
+  router$4.post(
     "/resend-ticket-customer",
     checkSessionExist,
     resendTicketCustomer
   );
 
-  return router$3;
+  return router$4;
 }
 
 async function addEdtUser(req, res) {
@@ -6253,1073 +6259,16 @@ async function getUserList(req, res) {
   }
 }
 
-const router$2 = Router();
+const router$3 = Router();
 
 function UserRoutes() {
   // POST Routes
-  router$2.post("/add-edit-users", checkSessionExist, addEdtUser);
+  router$3.post("/add-edit-users", checkSessionExist, addEdtUser);
 
   // GET Routes
-  router$2.get("/getuserlist", checkSessionExist, getUserList);
+  router$3.get("/getuserlist", checkSessionExist, getUserList);
 
-  return router$2;
-}
-
-async function tapPaymentCheckout(req, res) {
-  const {
-    reservation_id,
-    customer_name,
-    customer_id,
-    customer_email,
-    customer_mobile,
-    country_code,
-    is_guest,
-    success_frontend_url,
-    failed_frontend_url,
-  } = req.body;
-
-  try {
-    // Validate required fields
-    const requiredFields = [
-      "reservation_id",
-      "customer_email",
-      "customer_mobile",
-      "is_guest",
-      "success_frontend_url",
-      "failed_frontend_url",
-    ];
-    const validationResult = await checkValidation(requiredFields, req.body);
-    if (!validationResult.status) {
-      return res.send(validationResult);
-    }
-
-    // Check if payment has already been initiated for this reservation
-    const paymentDetailExists = await global
-      .knexConnection("ms_payment_booking_detail")
-      .where({ reservation_id });
-
-    if (paymentDetailExists.length) {
-      return res.send({
-        status: false,
-        message: "Payment Already Initiated with reservation id",
-      });
-    }
-
-    // Check reservation status
-    const checkReservation = await global
-      .knexConnection("ms_reservation")
-      .where({ is_reserved: "Y", reservation_id });
-
-    if (checkReservation.length === 0) {
-      return res.send({
-        status: false,
-        message: "Seat Already Reserved or Booked",
-      });
-    }
-
-    // Get event data
-    const event_data_all = await EVENT_DATA({
-      event_id: checkReservation[0].event_id,
-      event_sch_id: checkReservation[0].event_sch_id,
-    });
-
-    let event_data = event_data_all.Records;
-
-    // Retrieve backend URL for redirection
-    const [BACKEND_URL] = await global
-      .knexConnection("global_options")
-      .where({ go_key: "BASE_URL_BACKEND" });
-    const webtoken = req.header("authorization");
-    const BASEURL = BACKEND_URL.go_value;
-    const redirectUrl = `${BASEURL}/api/confirmTapPayment?reservation_id=${reservation_id}&event_token=${webtoken}`;
-
-    // Check if organization data exists
-    if (!event_data[0].org_id) {
-      return res.send({
-        status: false,
-        message: "Invalid organization",
-      });
-    }
-
-    // Fetch payment credentials
-    const payment_credential = await PaymentCredentialFunction({
-      org_id: event_data[0].org_id,
-      setting_key: "tap_pay_payment",
-    });
-
-    if (payment_credential.false) {
-      return res.send({
-        status: false,
-        message: "Invalid Payment Mode",
-      });
-    }
-
-    const { MERCHANT_ID, SOURCE_ID, URL, PAYTAP_SECRET_KEY } =
-      payment_credential.data;
-
-    if (!MERCHANT_ID || !SOURCE_ID || !URL || !PAYTAP_SECRET_KEY) {
-      return res.send({
-        status: false,
-        message: "Missing Payment Data",
-        data: payment_credential.data,
-      });
-    }
-
-    // Get payment currency
-    const paymentCurrencyData = await global
-      .knexConnection("ms_currencies")
-      .select("curr_code")
-      .where({ curr_id: event_data[0].pay_currency_id, curr_is_active: "Y" });
-
-    if (!paymentCurrencyData.length) {
-      return res.send({
-        status: false,
-        message: "Add Payment Currency in cinema",
-        data: [],
-      });
-    }
-
-    let paymentCurrency = paymentCurrencyData[0].curr_code;
-
-    // Calculate total amount
-    let totalAmount = checkReservation.reduce((sum, reservation) => {
-      if (event_data[0].event_seating_type === "N") {
-        return (
-          sum +
-          parseFloat(reservation.seat_price) *
-            (reservation.no_of_seats ? parseFloat(reservation.no_of_seats) : 1)
-        );
-      } else {
-        return sum + parseFloat(reservation.seat_price);
-      }
-    }, 0);
-
-    // Apply discount if applicable
-    const discountData = await global
-      .knexConnection("ms_reserve_vouchers")
-      .where({ reservation_id, rv_is_active: "Y" });
-
-    if (discountData.length) {
-      const discountValue =
-        (parseFloat(discountData[0].voucher_discount_percent) / 100) *
-        totalAmount;
-      totalAmount -= discountValue;
-    }
-
-    totalAmount *= event_data[0].exchange_rate
-      ? parseFloat(event_data[0].exchange_rate)
-      : 1;
-
-    // Skip payment if total amount is zero
-    if (totalAmount <= 0) {
-      const skipBookingData = await SKIP_PAYMENT({
-        reservation_id,
-        event_data,
-        is_guest,
-        customer_id,
-        success_frontend_url,
-        failed_frontend_url,
-        customer_name,
-        customer_email,
-        customer_mobile,
-        country_code,
-        webtoken,
-      });
-
-      return res.send({
-        status: skipBookingData.status ? true : false,
-        data: skipBookingData.status
-          ? skipBookingData.redirectTo
-          : failed_frontend_url,
-      });
-    }
-
-    // Prepare the payment request object
-    const tapPaymentObject = {
-      amount: totalAmount.toFixed(2),
-      currency: paymentCurrency,
-      threeDSecure: true,
-      save_card: false,
-      customer_initiated: true,
-      description: "",
-      statement_descriptor: "Sample",
-      metadata: { udf1: "test 1", udf2: "test 2" },
-      reference: {
-        transaction: `trx_${reservation_id}`,
-        order: reservation_id,
-      },
-      receipt: { email: true, sms: false },
-      customer: {
-        first_name: "-",
-        last_name: "-",
-        email: customer_email,
-        phone: { country_code, number: customer_mobile },
-      },
-      merchant: { id: MERCHANT_ID },
-      source: { id: SOURCE_ID },
-      redirect: { url: redirectUrl },
-    };
-
-    const paymentData = JSON.stringify(tapPaymentObject);
-    const config = {
-      method: "post",
-      url: URL,
-      headers: {
-        Authorization: `Bearer ${PAYTAP_SECRET_KEY}`,
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      data: paymentData,
-    };
-
-    // Make the API request to TapPay
-    const response = await axios.request(config);
-
-    // Handle customer verification and insert payment details
-    let currentDateTimeNew = currentDateTime(
-      null,
-      "YYYY-MM-DD HH:mm:ss",
-      event_data[0].tz_name
-    );
-    let checkGuest = is_guest;
-    let checkCustomerId = customer_id;
-
-    if (is_guest === "N" && customer_id) {
-      const getLoggedUser = await global
-        .knexConnection("ms_customers")
-        .select("customer_id")
-        .where({ customer_id, customer_is_active: "Y" });
-
-      if (!getLoggedUser.length) {
-        checkGuest = "Y";
-        checkCustomerId = 0;
-      } else {
-        checkGuest = "N";
-        checkCustomerId = getLoggedUser[0].customer_id;
-      }
-    } else {
-      checkGuest = "Y";
-      checkCustomerId = 0;
-    }
-
-    const insertPaymentDetail = {
-      reservation_id,
-      success_frontend_url,
-      failed_frontend_url,
-      c_name: customer_name,
-      email: customer_email,
-      phone_number: customer_mobile,
-      country_code,
-      is_guest: checkGuest,
-      customer_id: checkCustomerId,
-      created_at: currentDateTimeNew,
-      pm_id: 1,
-      payment_request: paymentData,
-    };
-
-    await global
-      .knexConnection("ms_payment_booking_detail")
-      .insert(insertPaymentDetail);
-
-    return res.send({
-      status: true,
-      payment_mode: "tappay",
-      data: response.data.transaction.url,
-    });
-  } catch (error) {
-    console.error("Error in tapPaymentCheckout:", error);
-    return res.send({
-      status: false,
-      message: "An error occurred during the payment process.",
-    });
-  }
-}
-
-async function confirmTapPayment(req, res) {
-  const { reservation_id, event_token, tap_id } = req.query;
-
-  try {
-    // Fetch payment and reservation details
-    const [detailPayment] = await global
-      .knexConnection("ms_payment_booking_detail")
-      .where({ reservation_id });
-    const [reservationDetail] = await global
-      .knexConnection("ms_reservation")
-      .select("ms_reservation.*", "ms_event.org_id", "ms_event.event_is_active")
-      .leftJoin("ms_event", "ms_event.event_id", "ms_reservation.event_id")
-      .where({ reservation_id, event_is_active: "Y" });
-
-    if (!detailPayment || !reservationDetail) {
-      return res.send({ status: false, message: "Detail Not Found" });
-    }
-
-    const { success_frontend_url, failed_frontend_url } = detailPayment;
-    const { org_id } = reservationDetail;
-
-    // Fetch payment credentials
-    const paymentCredential = await PaymentCredentialFunction({
-      org_id,
-      setting_key: "tap_pay_payment",
-    });
-
-    if (paymentCredential.false) {
-      return res.send({ status: false, message: "Invalid Payment Mode" });
-    }
-
-    const { MERCHANT_ID, SOURCE_ID, URL, PAYTAP_SECRET_KEY } =
-      paymentCredential.data;
-
-    if (!MERCHANT_ID || !SOURCE_ID || !URL || !PAYTAP_SECRET_KEY) {
-      return res.send({ status: false, message: "Missing Payment Data" });
-    }
-
-    // Make the API request to TapPay to get payment status
-    const paymentStatusResponse = await axios.get(`${URL}/${tap_id}`, {
-      headers: {
-        Authorization: `Bearer ${PAYTAP_SECRET_KEY}`,
-        Accept: "application/json",
-      },
-    });
-
-    const paymentStatus = paymentStatusResponse.data.status.toUpperCase();
-
-    if (paymentStatus === "CAPTURED") {
-      // Payment successful, update payment details
-      await global
-        .knexConnection("ms_payment_booking_detail")
-        .where({ reservation_id })
-        .update({
-          is_paid: "Y",
-          payment_capture: JSON.stringify(paymentStatusResponse.data),
-        });
-
-      // Prepare the redirect URL for successful payment
-      const [BACKEND_URL] = await global
-        .knexConnection("global_options")
-        .where({ go_key: "BASE_URL_BACKEND" });
-
-      const BASEURL = BACKEND_URL.go_value;
-      const transactionResponse = await axios.post(
-        `${BASEURL}/api/createTransation/${reservation_id}`,
-        {},
-        { headers: { Authorization: event_token } }
-      );
-
-      if (transactionResponse?.data?.status) {
-        return res.redirect(
-          `${success_frontend_url}/${transactionResponse.data.booking_code}`
-        );
-      } else {
-        console.log("Failed to create transaction");
-        return res.redirect(failed_frontend_url);
-      }
-    } else {
-      // Payment failed, update payment capture and redirect to failure URL
-      await global
-        .knexConnection("ms_payment_booking_detail")
-        .where({ reservation_id })
-        .update({
-          payment_capture: JSON.stringify({
-            ...paymentStatusResponse.data,
-            queryData: req.query,
-          }),
-        });
-
-      return res.redirect(failed_frontend_url);
-    }
-  } catch (error) {
-    console.error("Error in confirmTapPayment:", error);
-
-    // If an error occurs, update payment capture and redirect to failure URL
-    await global
-      .knexConnection("ms_payment_booking_detail")
-      .where({ reservation_id })
-      .update({
-        payment_capture: JSON.stringify(req.query),
-      });
-
-    return res.redirect(failed_frontend_url);
-  }
-}
-
-//PayOne payment
-
-async function payonePaymentCheckout(req, res) {
-  const {
-    reservation_id,
-    customer_name,
-    customer_id,
-    customer_email,
-    customer_mobile,
-    country_code,
-    is_guest,
-    success_frontend_url,
-    failed_frontend_url,
-  } = req.body;
-  const webtoken = req.header("authorization");
-
-  // Check for required fields
-  const requiredFields = [
-    "reservation_id",
-    "customer_email",
-    "customer_mobile",
-    "is_guest",
-    "success_frontend_url",
-    "failed_frontend_url",
-  ];
-  const validationResult = await checkValidation(requiredFields, req.body);
-
-  if (!validationResult.status) {
-    return res.send(validationResult);
-  }
-
-  try {
-    // Check if payment has already been initiated
-    const paymentDetail = await global
-      .knexConnection("ms_payment_booking_detail")
-      .where({ reservation_id });
-    if (paymentDetail.length) {
-      return res.send({
-        status: false,
-        message: "Payment Already Initiated with reservation id",
-      });
-    }
-
-    // Validate reservation
-    const reservation = await global
-      .knexConnection("ms_reservation")
-      .where({ is_reserved: "Y", reservation_id });
-    if (reservation.length === 0) {
-      return res.send({
-        status: false,
-        message: "Seat Already Reserved or Booked",
-      });
-    }
-
-    // Fetch event data
-    const event_data_all = await EVENT_DATA({
-      event_id: reservation[0].event_id,
-      event_sch_id: reservation[0].event_sch_id,
-    });
-    const event_data = event_data_all.Records;
-    if (!event_data[0].org_id) {
-      return res.send({ status: false, message: "Invalid organization" });
-    }
-
-    // Get payment credentials
-    const paymentCredential = await PaymentCredentialFunction({
-      org_id: event_data[0].org_id,
-      setting_key: "payone_payment",
-    });
-    if (paymentCredential.false) {
-      return res.send({ status: false, message: "Invalid Payment Mode" });
-    }
-
-    const { MERCHANT_ID, URL, SECRET_KEY } = paymentCredential.data;
-    if (!MERCHANT_ID || !URL || !SECRET_KEY) {
-      return res.send({
-        status: false,
-        message: "Missing Payment Data",
-        data: paymentCredential.data,
-      });
-    }
-
-    // Calculate total amount
-    let totalAmount = 0;
-    reservation.forEach((z) => {
-      if (event_data[0].event_seating_type === "N") {
-        totalAmount +=
-          parseFloat(z.seat_price) *
-          (z.no_of_seats ? parseFloat(z.no_of_seats) : 1);
-      } else {
-        totalAmount += parseFloat(z.seat_price);
-      }
-    });
-
-    // Apply discounts (voucher)
-    const getDiscountData = await global
-      .knexConnection("ms_reserve_vouchers")
-      .where({ reservation_id, rv_is_active: "Y" });
-    if (getDiscountData.length) {
-      const discountValue =
-        (parseFloat(getDiscountData[0].voucher_discount_percent) / 100) *
-        totalAmount;
-      totalAmount -= discountValue;
-    }
-
-    // Apply discounts (pass)
-    const getDiscountPassData = await global
-      .knexConnection("ms_reserve_pass")
-      .where({ reservation_id, rp_is_active: "Y" });
-    if (getDiscountPassData.length) {
-      const discountValue =
-        (parseFloat(getDiscountPassData[0].pass_discount_percent) / 100) *
-        parseFloat(getDiscountPassData[0].seat_price);
-      totalAmount -= discountValue;
-    }
-
-    // Skip payment if total amount is zero
-    if (totalAmount <= 0) {
-      const skipBookingData = await SKIP_PAYMENT({
-        reservation_id,
-        event_data,
-        is_guest,
-        customer_id,
-        success_frontend_url,
-        failed_frontend_url,
-        customer_name,
-        customer_email,
-        customer_mobile,
-        country_code,
-        webtoken,
-      });
-
-      return res.send({
-        status: true,
-        data: skipBookingData.status
-          ? skipBookingData.redirectTo
-          : failed_frontend_url,
-      });
-    }
-
-    // Fetch payment currency data
-    const paymentCurrencyData = await global
-      .knexConnection("ms_currencies")
-      .select("curr_code", "curr_id", "curr_name", "curr_iso")
-      .where({ curr_id: event_data[0].pay_currency_id, curr_is_active: "Y" });
-    if (!paymentCurrencyData.length) {
-      return res.send({
-        status: false,
-        message: "Add Payment Currency in cinema",
-        data: [],
-      });
-    }
-
-    const paymentCurrencyIso = paymentCurrencyData[0].curr_iso;
-
-    // Create payment object
-    const redirectUrl = `${BASEURL}/api/confirmPayonePayment?reservation_id_token=${reservation_id}///${webtoken}`;
-    const PaymentObject = {
-      Amount: totalAmount * 1000,
-      Channel: 0,
-      CurrencyISOCode: parseInt(paymentCurrencyIso),
-      MerchantID: MERCHANT_ID,
-      MessageID: 1,
-      ResponseBackURL: redirectUrl,
-      TransactionID: "RESERVEID" + reservation_id,
-    };
-
-    // Generate hash code for security
-    const hashCodeString =
-      SECRET_KEY +
-      PaymentObject.Amount +
-      PaymentObject.Channel +
-      PaymentObject.CurrencyISOCode +
-      PaymentObject.MerchantID +
-      PaymentObject.MessageID +
-      PaymentObject.ResponseBackURL +
-      PaymentObject.TransactionID;
-    const hashCode = createHash("sha256").update(hashCodeString).digest("hex");
-    PaymentObject["hashCode"] = hashCode;
-
-    // Build the payment form
-    const formbody = `<form id="nonseamless" method="post" action="${URL}" name="redirectForm">
-      <input name="Amount" type="hidden" value="${PaymentObject.Amount}"/>
-      <input name="Channel" type="hidden" value="${PaymentObject.Channel}"/>
-      <input name="CurrencyISOCode" type="hidden" value="${PaymentObject.CurrencyISOCode}"/>
-      <input name="MerchantID" type="hidden" value="${PaymentObject.MerchantID}"/>
-      <input name="MessageID" type="hidden" value="${PaymentObject.MessageID}"/>
-      <input name="ResponseBackURL" type="hidden" value="${PaymentObject.ResponseBackURL}"/>
-      <input name="TransactionID" type="hidden" value="${PaymentObject.TransactionID}"/>
-      <input name="SecureHash" type="hidden" value="${hashCode}"/>
-    </form>`;
-
-    // Insert payment details into DB
-    const currentDateTimeNew = currentDateTime(
-      null,
-      "YYYY-MM-DD HH:mm:ss",
-      event_data[0].tz_name
-    );
-    let checkGuest = is_guest;
-    let checkCustomerId = customer_id;
-
-    const getLoggedUser = await global
-      .knexConnection("ms_customers")
-      .select("customer_id")
-      .where({ email: customer_email, customer_is_active: "Y" });
-    if (!getLoggedUser.length) {
-      checkGuest = "Y";
-      checkCustomerId = 0;
-    } else {
-      checkGuest = "N";
-      checkCustomerId = getLoggedUser[0].customer_id;
-    }
-
-    const paymentDetails = {
-      reservation_id,
-      success_frontend_url,
-      failed_frontend_url,
-      c_name: customer_name,
-      email: customer_email,
-      phone_number: customer_mobile,
-      country_code,
-      is_guest: checkGuest,
-      customer_id: checkCustomerId,
-      created_at: currentDateTimeNew,
-      pm_id: 2,
-      payment_request: JSON.stringify(PaymentObject),
-      payment_transaction_id: PaymentObject.TransactionID,
-    };
-
-    await global
-      .knexConnection("ms_payment_booking_detail")
-      .insert(paymentDetails);
-
-    return res.send({ status: true, payment_mode: "payone", data: formbody });
-  } catch (error) {
-    console.error("Error during Payone payment checkout:", error);
-    return res.send({
-      status: false,
-      message: "An error occurred",
-      error: error.message,
-    });
-  }
-}
-
-async function confirmPayonePayment(req, res) {
-  const { reservation_id_token } = req.query;
-  const reservation_id = reservation_id_token.split("///")[0];
-  const event_token = reservation_id_token.split("///")[1];
-
-  const body = req.body;
-
-  try {
-    // Get payment booking detail and reservation details
-    const detailPayment = await global
-      .knexConnection("ms_payment_booking_detail")
-      .where({ reservation_id });
-
-    if (!detailPayment.length) {
-      throw new Error("Payment detail not found");
-    }
-
-    const reservation_detail = await global
-      .knexConnection("ms_reservation")
-      .select("ms_reservation.*", "ms_event.org_id", "ms_event.event_is_active")
-      .leftJoin("ms_event", "ms_event.event_id", "ms_reservation.event_id")
-      .where({ reservation_id, event_is_active: "Y" });
-
-    if (!reservation_detail.length) {
-      throw new Error("Reservation detail not found or event is inactive");
-    }
-
-    // Extract necessary fields from payment detail
-    const {
-      success_frontend_url,
-      failed_frontend_url,
-      payment_request,
-      payment_transaction_id,
-    } = detailPayment[0];
-    const success_redirect_url = success_frontend_url;
-    const failed_redirect_url = failed_frontend_url;
-
-    // Parse payment request and calculate values
-    const requestedPayload = JSON.parse(payment_request);
-    const requestHash = requestedPayload.hashCode;
-    const requestPaymentAmt =
-      parseFloat(requestedPayload.Amount) / 1000 + " JOD";
-    const transaction_date_frontend = moment().format("DD/MM/YYYY, h:mm:ss");
-
-    const getPaymentStatusCode = body["Response.StatusCode"];
-    const getGatewayStatusDescription =
-      body["Response.GatewayStatusDescription"];
-    const responseHash = body["Response.SecureHash"];
-    const paymentMessage = body["Response.StatusDescription"];
-
-    // Check if payment is approved
-    if (
-      (getGatewayStatusDescription === "APPROVED" ||
-        getGatewayStatusDescription === "approved") &&
-      getPaymentStatusCode === "00000"
-    ) {
-      await global
-        .knexConnection("ms_payment_booking_detail")
-        .where({ reservation_id })
-        .update({
-          is_paid: "Y",
-          recheck_payment: "N",
-          payment_capture: JSON.stringify(body),
-        });
-
-      const [BACKEND_URL] = await global
-        .knexConnection("global_options")
-        .where({ go_key: "BASE_URL_BACKEND" });
-
-      if (!BACKEND_URL) {
-        throw new Error("Backend URL not found");
-      }
-
-      const BASEURL = BACKEND_URL.go_value;
-
-      // Make the transaction request
-      const config = {
-        method: "post",
-        url: `${BASEURL}/api/createTransation/${reservation_id}`,
-        headers: {
-          Authorization: event_token,
-        },
-      };
-
-      const transactionResponse = await axios(config);
-
-      if (transactionResponse.data && transactionResponse.data.status) {
-        return res.redirect(
-          `${success_redirect_url}/${transactionResponse.data.booking_code}?message=${paymentMessage}`
-        );
-      } else {
-        throw new Error("Transaction creation failed");
-      }
-    } else {
-      // If payment is not approved
-      await global
-        .knexConnection("ms_payment_booking_detail")
-        .where({ reservation_id })
-        .update({
-          recheck_payment: "N",
-          payment_capture: JSON.stringify({
-            ...body,
-            queryData: req.query,
-          }),
-        });
-
-      return res.redirect(
-        `${failed_redirect_url}?message=${paymentMessage}&amount=${requestPaymentAmt}&transaction_id=${payment_transaction_id}&date=${transaction_date_frontend}`
-      );
-    }
-  } catch (error) {
-    console.error("Error during Payone payment confirmation:", error.message);
-    await global
-      .knexConnection("ms_payment_booking_detail")
-      .where({ reservation_id })
-      .update({
-        payment_capture: JSON.stringify(req.query),
-      });
-
-    return res.redirect(
-      `${failed_redirect_url}?message=${error.message}&amount=${
-        body["Response.Amount"]
-      }&transaction_id=${body["Response.TransactionID"]}&date=${moment().format(
-        "DD/MM/YYYY, h:mm:ss"
-      )}`
-    );
-  }
-}
-
-async function createTransation(req, res) {
-  let reqbody = { ...req.body, ...req.params };
-  const { user_info } = req;
-  const isWebsiteUser = req["is_website_user"] || false;
-  const { reservation_id } = reqbody;
-  let checkFields = ["reservation_id"];
-
-  // Validate incoming data
-  let result = await checkValidation(checkFields, reqbody);
-  if (!result.status) {
-    return res.send(result);
-  }
-
-  try {
-    // Fetch reservation details
-    let getReservationDetail = await global
-      .knexConnection("ms_reservation")
-      .where({ reservation_id, is_reserved: "Y" });
-
-    if (!getReservationDetail.length) {
-      throw new Error("Reservation not found or seat is released/booked");
-    }
-
-    let getPaymentDetail = [];
-    let qrUrl = "";
-
-    // If the user is from the website, get payment details
-    if (isWebsiteUser) {
-      getPaymentDetail = await global
-        .knexConnection("ms_payment_booking_detail")
-        .select(
-          "c_name",
-          "email",
-          "phone_number",
-          "country_code",
-          "is_booked",
-          "is_guest",
-          "customer_id",
-          "payment_mode_name",
-          "success_frontend_url",
-          "failed_frontend_url",
-          "payment_transaction_id"
-        )
-        .leftJoin(
-          "ms_payment_mode",
-          "ms_payment_mode.pm_id",
-          "ms_payment_booking_detail.pm_id"
-        )
-        .where({ reservation_id, is_paid: "Y" });
-
-      if (!getPaymentDetail.length) {
-        return res.send({
-          status: false,
-          message: "Payment Not Done from Website",
-        });
-      }
-    }
-
-    let currentDateTimeNew = currentDateTime(
-      null,
-      "YYYY-MM-DD HH:mm:ss",
-      getReservationDetail[0].timezone_name
-    );
-
-    let event_data_all = await EVENT_DATA({
-      event_id: getReservationDetail[0].event_id,
-      event_sch_id: getReservationDetail[0].event_sch_id,
-    });
-
-    let event_data = event_data_all.Records[0];
-    qrUrl = getPaymentDetail[0].success_frontend_url;
-    let insertObj = {
-      event_id: getReservationDetail[0].event_id,
-      schedule_id: getReservationDetail[0].event_sch_id,
-      c_email: getPaymentDetail[0]?.email || null,
-      c_name: getPaymentDetail[0]?.c_name || null,
-      c_country_code: getPaymentDetail[0]?.country_code || null,
-      is_guest: getPaymentDetail[0]?.is_guest || null,
-      customer_id: getPaymentDetail[0]?.customer_id || 0,
-      c_phone_number: getPaymentDetail[0]?.phone_number || null,
-      event_name: event_data.event_name,
-      cinema_name: event_data.cinema_name,
-      cinema_email: event_data.cinema_email || null,
-      city_name: event_data.city_name || null,
-      country: event_data.country_name || null,
-      timezone: event_data.tz_name || null,
-      currency: event_data.curr_code || null,
-      payment_mode_id: getPaymentDetail[0]?.pm_id || null,
-      payment_mode: getPaymentDetail[0]?.payment_mode_name || null,
-      booking_type_name: isWebsiteUser ? "Website" : "Box Office",
-      event_date: event_data.event_sch_array
-        ? event_data.event_sch_array[0].sch_date
-        : null,
-      event_time: event_data.event_sch_array
-        ? event_data.event_sch_array[0].sch_time
-        : null,
-      booking_date_time: currentDateTimeNew,
-      created_by: (user_info && user_info.user_id) || null,
-      total_seats: 0,
-      seats_scanned: 0,
-      seats_tobe_scanned: 0,
-      reservation_id,
-      payment_transaction_id: getPaymentDetail[0].payment_transaction_id,
-      exchange_rate: event_data.exchange_rate || 1,
-      pay_currency_id: event_data.pay_currency_id || null,
-    };
-
-    let checkExistingBooking = await global.knexConnection("ms_booking").where({
-      reservation_id,
-    });
-
-    if (checkExistingBooking && checkExistingBooking.length) {
-      return res.send({
-        status: false,
-        message: "Transaction already initiated",
-      });
-    }
-
-    // Handle seat booking for event seating type "seats_io"
-    if (event_data.event_seating_type === "seats_io") {
-      let bookSeatsArray = [];
-      getReservationDetail.forEach((z) => {
-        if (z.row_name && z.row_name === "GA-") {
-          bookSeatsArray.push({
-            objectId: z.seat_type,
-            quantity: parseInt(z.column_name),
-          });
-        } else {
-          bookSeatsArray.push(
-            z.seat_type + "-" + z.row_name + "-" + z.column_name
-          );
-        }
-      });
-
-      const seatsio_credential = await SeatsIoCredentialFunction({
-        org_id: event_data.org_id,
-        setting_key: "seats_io",
-      });
-
-      if (seatsio_credential.false) {
-        return res.send({
-          status: false,
-          message: "Invalid Payment Mode",
-        });
-      }
-
-      const { SEATSIO_SECRET_WORKSPACE_KEY } = seatsio_credential.data;
-
-      let client = new SeatsioClient(Region.EU(), SEATSIO_SECRET_WORKSPACE_KEY);
-
-      try {
-        const bookResponse = await client.events.book(
-          getReservationDetail[0].seatsio_eventkey,
-          bookSeatsArray,
-          getReservationDetail[0].seatsio_holdtoken
-        );
-
-        for (const key in bookResponse.objects) {
-          if (bookResponse.objects.hasOwnProperty(key)) {
-            const value = bookResponse.objects[key];
-            if (
-              value.status.toLowerCase() !== "booked" &&
-              value.objectType !== "generalAdmission"
-            ) {
-              return res.send({
-                status: false,
-                message: "Seat Booking failed at Seats.io",
-              });
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Seats.io Booking Error: ", error);
-        return res.send({
-          status: false,
-          message: "Issue in Seats.io Booking",
-        });
-      }
-    }
-
-    // Insert booking record into the database
-    let insertBookingId = await global
-      .knexConnection("ms_booking")
-      .insert(insertObj);
-
-    let transaction_array = [];
-    let seatNames = [];
-    let totalSeats = 0;
-    let totalAmount = 0;
-    let singleTicketPrice = 0;
-
-    getReservationDetail.forEach((z) => {
-      if (event_data.event_seating_type === "N") {
-        seatNames.push(z.seat_type + "-" + z.no_of_seats);
-        totalAmount +=
-          parseFloat(z.seat_price) *
-          (z.no_of_seats ? parseFloat(z.no_of_seats) : 1);
-        totalSeats += parseInt(z.no_of_seats);
-      } else {
-        seatNames.push(z.seat_type + "-" + z.seat_name);
-        totalAmount += parseFloat(z.seat_price);
-      }
-
-      let obj = {
-        booking_id: insertBookingId[0],
-        seat_name: z.seat_name,
-        seat_type: z.seat_type,
-        seat_group_id: z.seat_group_id,
-        seat_price: z.seat_price,
-        no_of_seats: z.no_of_seats,
-      };
-      transaction_array.push({ ...obj });
-    });
-
-    if (event_data.event_seating_type === "N") {
-      console.log(totalSeats, "totalSeats");
-    } else {
-      totalSeats = seatNames.length;
-    }
-
-    await global
-      .knexConnection("ms_booking_transaction")
-      .insert(transaction_array);
-
-    const getDiscountData = await global
-      .knexConnection("ms_reserve_vouchers")
-      .where({ reservation_id: reservation_id, rv_is_active: "Y" });
-
-    let voucher_code = "";
-    let discountValue = 0;
-    let discountPercent = "";
-    let totalBeforeDiscount = totalAmount;
-
-    if (getDiscountData.length) {
-      voucher_code = getDiscountData[0].voucher_code;
-      discountPercent = getDiscountData[0].voucher_discount_percent;
-      discountValue =
-        (parseFloat(getDiscountData[0].voucher_discount_percent) / 100) *
-        totalAmount;
-
-      totalAmount = totalAmount - discountValue;
-    }
-
-    const getDiscountPassData = await global
-      .knexConnection("ms_reserve_pass")
-      .where({ reservation_id: reservation_id });
-
-    if (getDiscountPassData.length) {
-      discountPercent = getDiscountPassData[0].pass_discount_percent;
-      discountValue =
-        (parseFloat(getDiscountPassData[0].pass_discount_percent) / 100) *
-        singleTicketPrice;
-
-      totalAmount = totalAmount - discountValue;
-    }
-
-    let booking_code = event_data.event_prefix_code
-      ? event_data.event_prefix_code
-      : "TKT";
-    let prefix_array = ["00000", "0000", "000", "00", "0"];
-    let string_length = String(insertBookingId[0]).length - 1;
-    let booking_number_new = prefix_array[string_length]
-      ? `${prefix_array[string_length]}${insertBookingId[0]}`
-      : insertBookingId[0];
-    booking_code += booking_number_new;
-
-    // Update relevant tables after booking
-    await global
-      .knexConnection("ms_reservation")
-      .where({ reservation_id })
-      .update({ is_booked: "Y" });
-
-    await global
-      .knexConnection("ms_payment_booking_detail")
-      .where({ reservation_id })
-      .update({ is_booked: "Y" });
-
-    await global
-      .knexConnection("ms_booking")
-      .where({ booking_id: insertBookingId[0] })
-      .update({
-        booking_code,
-        total_seats: totalSeats,
-        seats_tobe_scanned: totalSeats,
-        seat_names: seatNames.join(", "),
-        total_price: totalAmount.toFixed(3),
-        voucher_code: voucher_code,
-        discount_percent: discountPercent,
-        discount_value: discountValue,
-        total_before_discount: totalBeforeDiscount,
-      });
-
-    return res.send({
-      status: true,
-      message: "Transaction created successfully",
-      booking_code,
-    });
-  } catch (error) {
-    console.error("Transaction creation failed: ", error);
-    return res.send({
-      status: false,
-      message:
-        error.message || "An error occurred while processing the transaction.",
-    });
-  }
+  return router$3;
 }
 
 async function getTransactionByCode(req, res) {
@@ -7416,757 +6365,6 @@ async function getTransactionByCode(req, res) {
         "An error occurred while fetching the transaction details.",
     });
   }
-}
-
-//Skip Payment Gateway when payment amount is 0
-
-const SKIP_PAYMENT = async (reqbody) => {
-  const {
-    reservation_id,
-    event_data,
-    is_guest,
-    customer_id,
-    success_frontend_url,
-    failed_frontend_url,
-    customer_name,
-    customer_email,
-    customer_mobile,
-    country_code,
-    webtoken,
-  } = reqbody;
-
-  // Validation for required fields
-  if (
-    !reservation_id ||
-    !event_data ||
-    !success_frontend_url ||
-    !failed_frontend_url
-  ) {
-    return { status: false, message: "Missing required fields." };
-  }
-
-  const currentDateTimeNew = currentDateTime(
-    null,
-    "YYYY-MM-DD HH:mm:ss",
-    event_data[0].tz_name
-  );
-
-  // Check if the customer exists in the database
-  let checkGuest = is_guest;
-  let checkCustomerId = customer_id;
-
-  try {
-    const getLoggedUser = await global
-      .knexConnection("ms_customers")
-      .select("customer_id")
-      .where({
-        email: customer_email,
-        customer_is_active: "Y",
-      });
-
-    if (!getLoggedUser.length) {
-      checkGuest = "Y";
-      checkCustomerId = 0;
-    } else {
-      checkGuest = "N";
-      checkCustomerId = getLoggedUser[0].customer_id;
-    }
-
-    // Insert payment details into the database
-    const insertPaymentDetail = {
-      reservation_id,
-      success_frontend_url,
-      failed_frontend_url,
-      c_name: customer_name,
-      email: customer_email,
-      phone_number: customer_mobile,
-      country_code,
-      is_guest: checkGuest,
-      customer_id: checkCustomerId,
-      created_at: currentDateTimeNew,
-      pm_id: 1,
-      is_booked: "Y",
-      is_paid: "Y",
-    };
-
-    await global
-      .knexConnection("ms_payment_booking_detail")
-      .insert(insertPaymentDetail);
-
-    // Get the base URL for the backend
-    const [BACKEND_URL] = await global.knexConnection("global_options").where({
-      go_key: "BASE_URL_BACKEND",
-    });
-    const BASEURL = BACKEND_URL ? BACKEND_URL.go_value : "";
-
-    if (!BASEURL) {
-      return { status: false, message: "Backend URL not found." };
-    }
-
-    // Make the request to the transaction API
-    const config = {
-      method: "post",
-      url: `${BASEURL}/api/createTransation/${reservation_id}`,
-      headers: {
-        Authorization: webtoken,
-      },
-    };
-
-    const transactionResponse = await axios(config);
-
-    // Handle the transaction response and determine the redirect URL
-    let redirectToUrl = failed_frontend_url; // Default to failed URL
-    if (
-      transactionResponse?.data?.status &&
-      transactionResponse.data.booking_code
-    ) {
-      redirectToUrl = `${success_frontend_url}/${transactionResponse.data.booking_code}`;
-    } else {
-      console.log("Transaction failed:", transactionResponse?.data);
-    }
-
-    return {
-      message: "Payment skipped successfully",
-      status: true,
-      redirectTo: redirectToUrl,
-    };
-  } catch (error) {
-    // Log the error and return an error message
-    console.error("Error in SKIP_PAYMENT:", error);
-    return {
-      status: false,
-      message:
-        error.message || "An error occurred while processing the payment.",
-    };
-  }
-};
-
-//PayOne Pass payment
-
-async function payonePassPaymentCheckout(req, res) {
-  try {
-    const { user_info } = req;
-    const reqbody = req.body;
-
-    const {
-      reservation_id,
-      customer_name,
-      customer_id,
-      customer_email,
-      customer_mobile,
-      country_code,
-      is_guest,
-      success_frontend_url,
-      failed_frontend_url,
-    } = reqbody;
-
-    // Validate required fields
-    const requiredFields = [
-      "reservation_id",
-      "customer_email",
-      "customer_mobile",
-      "is_guest",
-      "success_frontend_url",
-      "failed_frontend_url",
-    ];
-
-    const validationResult = await checkValidation(requiredFields, reqbody);
-    if (!validationResult.status) {
-      return res.status(400).send(validationResult); // Return bad request if validation fails
-    }
-
-    // Check if payment already exists for the reservation
-    const paymentDetailC = await global
-      .knexConnection("ms_payment_booking_detail")
-      .where({ reservation_id });
-
-    if (paymentDetailC.length) {
-      return res.status(400).send({
-        status: false,
-        message: "Payment already initiated with this reservation ID.",
-      });
-    }
-
-    // Check if the reservation is valid and reserved
-    const checkReservation = await global
-      .knexConnection("ms_pass_reservation")
-      .where({ p_is_reserved: "Y", p_reservation_id: reservation_id });
-
-    if (!checkReservation.length) {
-      return res.status(404).send({
-        status: false,
-        message: "Reservation not found or pass already released.",
-      });
-    }
-
-    // Get pass details
-    const getPassDetail = await global
-      .knexConnection("movie_event_pass")
-      .select("movie_event_pass.*", "ms_currencies.curr_code")
-      .leftJoin(
-        "ms_currencies",
-        "ms_currencies.curr_id",
-        "movie_event_pass.pass_currency_id"
-      )
-      .where({
-        "movie_event_pass.pass_id": checkReservation[0].pass_id,
-        "movie_event_pass.pass_is_active": "Y",
-      });
-
-    if (!getPassDetail.length || !getPassDetail[0].org_id) {
-      return res.status(400).send({
-        status: false,
-        message: "Invalid or inactive pass organization.",
-      });
-    }
-
-    // Fetch payment credentials for the organization
-    const paymentCredential = await PaymentCredentialFunction({
-      org_id: getPassDetail[0].org_id,
-      setting_key: "payone_payment",
-    });
-
-    if (paymentCredential.false) {
-      return res.status(400).send({
-        status: false,
-        message: "Invalid payment mode or credentials.",
-      });
-    }
-
-    const { MERCHANT_ID, URL, SECRET_KEY } = paymentCredential.data;
-
-    if (!MERCHANT_ID || !URL || !SECRET_KEY) {
-      return res.status(400).send({
-        status: false,
-        message: "Missing payment data.",
-        data: paymentCredential.data,
-      });
-    }
-
-    // Prepare transaction details and hash
-    let totalAmount = parseFloat(checkReservation[0].pass_total_price);
-    const paymentCurrencyData = await global
-      .knexConnection("ms_currencies")
-      .select("curr_code", "curr_id", "curr_name", "curr_iso")
-      .where({
-        curr_id: getPassDetail[0].pass_currency_id,
-        curr_is_active: "Y",
-      });
-
-    if (!paymentCurrencyData.length) {
-      return res.status(400).send({
-        status: false,
-        message: "No valid payment currency found for the pass.",
-      });
-    }
-
-    const paymentCurrencyIso = paymentCurrencyData[0].curr_iso;
-    const redirectUrl = `${BASEURL}/api/confirmPassPayonePayment?reservation_id_token=${reservation_id}///${req.header(
-      "authorization"
-    )}`;
-
-    let PaymentObject = {
-      Amount: totalAmount * 1000, // Convert to smallest currency unit (e.g., cents)
-      Channel: 0,
-      CurrencyISOCode: parseInt(paymentCurrencyIso),
-      MerchantID: MERCHANT_ID,
-      MessageID: 1,
-      ResponseBackURL: redirectUrl,
-      TransactionID: `PASS${Math.floor(Math.random() * 90000) + 10000}`,
-    };
-
-    const hashCodeString =
-      SECRET_KEY +
-      PaymentObject.Amount +
-      PaymentObject.Channel +
-      PaymentObject.CurrencyISOCode +
-      PaymentObject.MerchantID +
-      PaymentObject.MessageID +
-      PaymentObject.ResponseBackURL +
-      PaymentObject.TransactionID;
-
-    const hashCode = createHash("sha256").update(hashCodeString).digest("hex");
-    PaymentObject.hashCode = hashCode;
-
-    // Create the HTML form for redirection
-    const formBody = `
-      <form id="nonseamless" method="post" action="${URL}" name="redirectForm">
-        <input name="Amount" type="hidden" value="${PaymentObject.Amount}"/>
-        <input name="Channel" type="hidden" value="${PaymentObject.Channel}"/>
-        <input name="CurrencyISOCode" type="hidden" value="${PaymentObject.CurrencyISOCode}"/>
-        <input name="MerchantID" type="hidden" value="${PaymentObject.MerchantID}"/>
-        <input name="MessageID" type="hidden" value="${PaymentObject.MessageID}"/>
-        <input name="ResponseBackURL" type="hidden" value="${PaymentObject.ResponseBackURL}"/>
-        <input name="TransactionID" type="hidden" value="${PaymentObject.TransactionID}"/>
-        <input name="SecureHash" type="hidden" value="${hashCode}"/>
-      </form>
-    `;
-
-    // Handle guest/customer check
-    let checkGuest = is_guest;
-    let checkCustomerId = customer_id;
-    let getLoggedUser = await global
-      .knexConnection("ms_customers")
-      .select("customer_id", "email")
-      .where({ email: customer_email, customer_is_active: "Y" });
-
-    if (!getLoggedUser.length) {
-      checkGuest = "Y";
-      checkCustomerId = 0;
-    } else {
-      checkGuest = "N";
-      checkCustomerId = getLoggedUser[0].customer_id;
-    }
-
-    // Check if the customer has already bought the pass
-    if (checkCustomerId && checkCustomerId > 0) {
-      const existingPass = await global
-        .knexConnection("pass_booking")
-        .select("pass_booking.pass_id")
-        .where({ customer_id: checkCustomerId, is_active: "Y" });
-
-      if (existingPass.length) {
-        return res.status(400).send({
-          status: false,
-          message: "Pass already bought for this customer.",
-        });
-      }
-    }
-
-    // Insert payment details into the database
-    const currentDateTimeNew = currentDateTime(
-      null,
-      "YYYY-MM-DD HH:mm:ss",
-      "Pacific/Yap"
-    );
-    const insertPaymentDetail = {
-      reservation_id,
-      success_frontend_url,
-      failed_frontend_url,
-      c_name: customer_name,
-      email: customer_email,
-      phone_number: customer_mobile,
-      country_code,
-      is_guest: checkGuest,
-      customer_id: checkCustomerId,
-      created_at: currentDateTimeNew,
-      pm_id: 2,
-      payment_request: JSON.stringify(PaymentObject),
-      payment_transaction_id: PaymentObject.TransactionID,
-    };
-
-    await global
-      .knexConnection("ms_payment_booking_detail")
-      .insert(insertPaymentDetail);
-
-    return res.send({
-      status: true,
-      payment_mode: "payone",
-      data: formBody,
-    });
-  } catch (error) {
-    // Catch and log any unexpected errors
-    console.error("Error processing payment checkout:", error);
-    return res.status(500).send({
-      status: false,
-      message: "An unexpected error occurred. Please try again later.",
-    });
-  }
-}
-
-async function confirmPassPayonePayment(req, res) {
-  const { reservation_id_token } = req.query;
-
-  if (!reservation_id_token) {
-    return res.status(400).send({
-      status: false,
-      message: "Missing reservation_id_token in query.",
-    });
-  }
-
-  const [reservation_id, event_token] = reservation_id_token.split("///");
-
-  if (!reservation_id || !event_token) {
-    return res.status(400).send({
-      status: false,
-      message: "Invalid reservation_id_token format.",
-    });
-  }
-
-  const body = req.body;
-  let detailPayment;
-  try {
-    // Fetch payment details from the database
-    detailPayment = await global
-      .knexConnection("ms_payment_booking_detail")
-      .where({ reservation_id })
-      .first(); // Using `.first()` to directly get the single record
-  } catch (error) {
-    console.error("Error fetching payment details:", error);
-    return res.status(500).send({
-      status: false,
-      message: "Error fetching payment details.",
-    });
-  }
-
-  if (!detailPayment) {
-    return res.status(404).send({
-      status: false,
-      message: "Payment details not found for this reservation.",
-    });
-  }
-
-  const {
-    success_frontend_url,
-    failed_frontend_url,
-    payment_request,
-    payment_transaction_id,
-  } = detailPayment;
-  const failed_redirect_url = failed_frontend_url;
-  let requestedPayload;
-  try {
-    requestedPayload = JSON.parse(payment_request); // Safely parse payment request
-  } catch (error) {
-    console.error("Error parsing payment request:", error);
-    return res.status(400).send({
-      status: false,
-      message: "Invalid payment request data.",
-    });
-  }
-
-  requestedPayload.hashCode;
-  const requestPaymentAmt = parseFloat(requestedPayload.Amount) / 1000 + " JOD";
-  const transaction_date_frontend = moment().format("DD/MM/YYYY, h:mm:ss");
-  const getPaymentStatusCode = body["Response.StatusCode"];
-  const getGatewayStatusDescription = body["Response.GatewayStatusDescription"];
-  body["Response.SecureHash"];
-  const paymentMessage = body["Response.StatusDescription"];
-
-  try {
-    // Check for successful payment
-    if (
-      (getGatewayStatusDescription === "APPROVED" ||
-        getGatewayStatusDescription === "approved") &&
-      getPaymentStatusCode === "00000"
-    ) {
-      // Update payment status to "paid"
-      await global
-        .knexConnection("ms_payment_booking_detail")
-        .where({ reservation_id })
-        .update({
-          is_paid: "Y",
-          recheck_payment: "N",
-          payment_capture: JSON.stringify(body),
-        });
-
-      const [BACKEND_URL] = await global
-        .knexConnection("global_options")
-        .where({ go_key: "BASE_URL_BACKEND" });
-
-      if (!BACKEND_URL) {
-        console.error("BASE_URL_BACKEND not found.");
-        return res.status(500).send({
-          status: false,
-          message: "Backend URL not configured.",
-        });
-      }
-
-      const BASEURL = BACKEND_URL.go_value;
-
-      const config = {
-        method: "post",
-        url: `${BASEURL}/api/createPassTransation/${reservation_id}`,
-        headers: {
-          Authorization: event_token,
-        },
-      };
-
-      let transactionResponse;
-      try {
-        transactionResponse = await axios(config);
-      } catch (axiosError) {
-        console.error("Error during transaction API call:", axiosError);
-        return res.status(500).send({
-          status: false,
-          message: "Error during transaction processing.",
-        });
-      }
-
-      if (
-        transactionResponse &&
-        transactionResponse.data &&
-        transactionResponse.data.status
-      ) {
-        return res.redirect(
-          `${failed_redirect_url}?message=${paymentMessage}&amount=${requestPaymentAmt}&transaction_id=${payment_transaction_id}&date=${transaction_date_frontend}`
-        );
-      } else {
-        console.error("Transaction failed:", transactionResponse);
-        return res.redirect(
-          `${failed_redirect_url}?message=Transaction Failed&amount=${requestPaymentAmt}&transaction_id=${payment_transaction_id}&date=${transaction_date_frontend}`
-        );
-      }
-    } else {
-      // Handle failed payment case
-      await global
-        .knexConnection("ms_payment_booking_detail")
-        .where({ reservation_id })
-        .update({
-          recheck_payment: "N",
-          payment_capture: JSON.stringify({
-            ...body,
-            queryData: req.query,
-          }),
-        });
-
-      return res.redirect(
-        `${failed_redirect_url}?message=${paymentMessage}&amount=${requestPaymentAmt}&transaction_id=${payment_transaction_id}&date=${transaction_date_frontend}`
-      );
-    }
-  } catch (error) {
-    console.error("Error during payment confirmation:", error);
-    await global
-      .knexConnection("ms_payment_booking_detail")
-      .where({ reservation_id })
-      .update({
-        payment_capture: JSON.stringify(req.query),
-      });
-
-    return res.redirect(
-      `${failed_redirect_url}?message=${paymentMessage}&amount=${requestPaymentAmt}&transaction_id=${payment_transaction_id}&date=${transaction_date_frontend}`
-    );
-  }
-}
-
-async function createPassTransation(req, res) {
-  let reqbody = { ...req.body, ...req.params };
-  const isWebsiteUser = req["is_website_user"] || false;
-  const { reservation_id } = reqbody;
-
-  // Validate the reservation_id
-  let checkFields = ["reservation_id"];
-  let result = await checkValidation(checkFields, reqbody);
-  if (!result.status) {
-    return res.status(400).send(result); // Invalid input
-  }
-
-  let getReservationDetail;
-  try {
-    getReservationDetail = await global
-      .knexConnection("ms_pass_reservation")
-      .where({
-        p_reservation_id: reservation_id,
-        p_is_reserved: "Y",
-      });
-  } catch (error) {
-    console.error("Error fetching reservation details:", error);
-    return res.status(500).send({
-      status: false,
-      message: "Error fetching reservation details.",
-    });
-  }
-
-  if (!getReservationDetail.length) {
-    return res.status(404).send({
-      status: false,
-      message: "Reservation not found or already booked.",
-    });
-  }
-
-  let getPaymentDetail = [];
-
-  // Check for website user payment details
-  if (isWebsiteUser) {
-    try {
-      getPaymentDetail = await global
-        .knexConnection("ms_payment_booking_detail")
-        .select(
-          "c_name",
-          "email",
-          "phone_number",
-          "country_code",
-          "is_booked",
-          "is_guest",
-          "customer_id",
-          "payment_mode_name",
-          "success_frontend_url",
-          "failed_frontend_url",
-          "payment_transaction_id"
-        )
-        .leftJoin(
-          "ms_payment_mode",
-          "ms_payment_mode.pm_id",
-          "ms_payment_booking_detail.pm_id"
-        )
-        .where({
-          reservation_id,
-          is_paid: "Y",
-        });
-    } catch (error) {
-      console.error("Error fetching payment details:", error);
-      return res.status(500).send({
-        status: false,
-        message: "Error fetching payment details.",
-      });
-    }
-
-    if (!getPaymentDetail.length) {
-      return res.status(400).send({
-        status: false,
-        message: "Payment not completed from the website.",
-      });
-    }
-  }
-
-  let currentDateTimeNew = currentDateTime(
-    null,
-    "YYYY-MM-DD HH:mm:ss",
-    "Asia/Bahrain"
-  );
-
-  let getPassDetail;
-  try {
-    getPassDetail = await global
-      .knexConnection("movie_event_pass")
-      .select("movie_event_pass.*", "ms_currencies.curr_code")
-      .leftJoin(
-        "ms_currencies",
-        "ms_currencies.curr_id",
-        "movie_event_pass.pass_currency_id"
-      )
-      .where({
-        "movie_event_pass.pass_id": getReservationDetail[0].pass_id,
-        "movie_event_pass.pass_is_active": "Y",
-      });
-  } catch (error) {
-    console.error("Error fetching pass details:", error);
-    return res.status(500).send({
-      status: false,
-      message: "Error fetching pass details.",
-    });
-  }
-
-  let event_data = getPassDetail[0];
-  getPaymentDetail[0].success_frontend_url;
-
-  let insertObj = {
-    pass_id: getReservationDetail[0].pass_id,
-    pass_name: event_data.pass_name,
-    pass_price: parseFloat(getReservationDetail[0].pass_price),
-    pass_tax_percent: parseFloat(getReservationDetail[0].pass_tax_percent),
-    pass_tax_value: parseFloat(getReservationDetail[0].pass_tax_value),
-    pass_total_price: parseFloat(getReservationDetail[0].pass_total_price),
-    pass_discount_percent: parseFloat(event_data.pass_discount_value),
-    pass_valid_days: parseFloat(event_data.pass_valid_days),
-    c_email:
-      getPaymentDetail[0] && getPaymentDetail[0].email
-        ? getPaymentDetail[0].email
-        : null,
-    c_name:
-      getPaymentDetail[0] && getPaymentDetail[0].c_name
-        ? getPaymentDetail[0].c_name
-        : null,
-    c_country_code:
-      getPaymentDetail[0] && getPaymentDetail[0].country_code
-        ? getPaymentDetail[0].country_code
-        : null,
-    is_guest:
-      getPaymentDetail[0] && getPaymentDetail[0].is_guest
-        ? getPaymentDetail[0].is_guest
-        : null,
-    customer_id:
-      getPaymentDetail[0] && getPaymentDetail[0].customer_id
-        ? getPaymentDetail[0].customer_id
-        : 0,
-    c_phone_number:
-      getPaymentDetail[0] && getPaymentDetail[0].phone_number
-        ? getPaymentDetail[0].phone_number
-        : null,
-    currency: event_data.curr_code || null,
-    payment_mode_id:
-      getPaymentDetail[0] && getPaymentDetail[0].pm_id
-        ? getPaymentDetail[0].pm_id
-        : null,
-    payment_mode:
-      getPaymentDetail[0] && getPaymentDetail[0].payment_mode_name
-        ? getPaymentDetail[0].payment_mode_name
-        : null,
-    booking_type_name: isWebsiteUser ? "Website" : "Box Office",
-    booking_date_time: currentDateTimeNew,
-    reservation_id,
-    payment_transaction_id: getPaymentDetail[0].payment_transaction_id,
-  };
-
-  // Check if the booking already exists
-  let checkExistingBooking;
-  try {
-    checkExistingBooking = await global.knexConnection("pass_booking").where({
-      reservation_id,
-    });
-  } catch (error) {
-    console.error("Error checking existing bookings:", error);
-    return res.status(500).send({
-      status: false,
-      message: "Error checking existing bookings.",
-    });
-  }
-
-  if (checkExistingBooking.length) {
-    return res.status(400).send({
-      status: false,
-      message: "Transaction already initiated for this reservation.",
-    });
-  }
-
-  let insertBookingId;
-  try {
-    insertBookingId = await global
-      .knexConnection("pass_booking")
-      .insert(insertObj);
-  } catch (error) {
-    console.error("Error inserting booking:", error);
-    return res.status(500).send({
-      status: false,
-      message: "Error creating booking.",
-    });
-  }
-
-  let booking_code = "PASS";
-  let prefix_array = ["00000", "0000", "000", "00", "0"];
-  let string_length = String(insertBookingId[0]).length - 1;
-  let booking_number_new = prefix_array[string_length]
-    ? `${prefix_array[string_length]}${insertBookingId[0]}`
-    : insertBookingId[0];
-  booking_code += booking_number_new;
-
-  // Update reservation and payment status
-  try {
-    await global
-      .knexConnection("ms_pass_reservation")
-      .where({ p_reservation_id: reservation_id })
-      .update({
-        p_is_booked: "Y",
-      });
-
-    await global
-      .knexConnection("ms_payment_booking_detail")
-      .where({ reservation_id })
-      .update({
-        is_booked: "Y",
-      });
-  } catch (error) {
-    console.error("Error updating reservation and payment status:", error);
-    return res.status(500).send({
-      status: false,
-      message: "Error updating reservation and payment status.",
-    });
-  }
-
-  return res.send({
-    status: true,
-    message: "Transaction created successfully.",
-    booking_code,
-  });
 }
 
 const checkPriceData = (seatLayoutData, price_array) => {
@@ -8703,18 +6901,18 @@ const getReservationSeat = async (req, res) => {
 
       obj.totalprice +=
         (parseFloat(seatPrice) - parseFloat(discountedAmount)) * noOfSeats;
-      obj.reserved_time = moment(z.created_at).format("YYYY-MM-DD HH:mm:ss");
-      obj.release_time = moment(z.created_at)
+      obj.reserved_time = moment$1(z.created_at).format("YYYY-MM-DD HH:mm:ss");
+      obj.release_time = moment$1(z.created_at)
         .add(z.seat_release_time || Booking_time, "minutes")
         .format("YYYY-MM-DD HH:mm:ss");
     });
 
     // Calculate time difference for reservation release
     obj.seconds =
-      moment(obj.release_time).diff(moment(obj.currentDateTime), "seconds") %
+      moment$1(obj.release_time).diff(moment$1(obj.currentDateTime), "seconds") %
       60;
     obj.minutes =
-      moment(obj.release_time).diff(moment(obj.currentDateTime), "minutes") %
+      moment$1(obj.release_time).diff(moment$1(obj.currentDateTime), "minutes") %
       60;
 
     // add voucher discount details in response if available
@@ -9410,10 +7608,10 @@ const getReservePassDetails = async (req, res) => {
       pass_release_time: getReservationDetail[0].pass_release_time,
       minutes: 0,
       seconds: 0,
-      reserved_time: moment(getReservationDetail[0].created_at).format(
+      reserved_time: moment$1(getReservationDetail[0].created_at).format(
         "YYYY-MM-DD HH:mm:ss"
       ),
-      release_time: moment(getReservationDetail[0].created_at)
+      release_time: moment$1(getReservationDetail[0].created_at)
         .add(
           getReservationDetail[0].pass_release_time || Booking_time,
           "minutes"
@@ -9425,14 +7623,14 @@ const getReservePassDetails = async (req, res) => {
 
     // Calculate time remaining for release
     obj.seconds =
-      moment(obj.release_time).diff(moment(obj.currentDateTime), "seconds") %
+      moment$1(obj.release_time).diff(moment$1(obj.currentDateTime), "seconds") %
       60;
     obj.minutes =
-      moment(obj.release_time).diff(moment(obj.currentDateTime), "minutes") %
+      moment$1(obj.release_time).diff(moment$1(obj.currentDateTime), "minutes") %
       60;
 
     // Format pass validity date
-    obj.pass_validity_to = moment()
+    obj.pass_validity_to = moment$1()
       .add(getReservationDetail[0].pass_valid_days, "days")
       .format("DD/MM/YYYY");
 
@@ -9576,7 +7774,7 @@ async function applyPass(req, res) {
 
       // Filter bookings for today's date
       const filterForPerDayPass = getAlreadyBoughtUserPass.filter((x) =>
-        moment(x.booking_date_time).isSame(moment(), "day")
+        moment$1(x.booking_date_time).isSame(moment$1(), "day")
       );
 
       const maxPerDay = parseFloat(getPass[0].max_transaction_per_day);
@@ -9765,8 +7963,8 @@ async function getCustomerPassHistory(req, res) {
     await Promise.all(
       getCustomerPass.map(async (z) => {
         // Format the dates
-        z["purches_on"] = moment(z.booking_date_time).format("DD/MM/YYYY");
-        z["valid_till"] = moment(z.booking_date_time)
+        z["purches_on"] = moment$1(z.booking_date_time).format("DD/MM/YYYY");
+        z["valid_till"] = moment$1(z.booking_date_time)
           .add(z.pass_valid_days, "days")
           .format("DD/MM/YYYY");
 
@@ -9836,7 +8034,7 @@ async function getCustomerTicketHistory(req, res) {
 
     // Format the purchase date for each ticket
     getCustomerTickets.forEach((ticket) => {
-      ticket["purches_on"] = moment(ticket.booking_date_time).format(
+      ticket["purches_on"] = moment$1(ticket.booking_date_time).format(
         "DD/MM/YYYY"
       );
     });
@@ -9856,100 +8054,1949 @@ async function getCustomerTicketHistory(req, res) {
   }
 }
 
-const router$1 = Router();
+const router$2 = Router();
 
 function WebsiteRoutes() {
   // GET Routes
-  router$1.get("/getCountryList", checkWebsiteSessionExist, getCountryList);
-  router$1.get("/getBannerList", checkWebsiteSessionExist, getBannerList);
-  router$1.get("/getLanguageList", checkWebsiteSessionExist, getLanguageList);
-  router$1.get("/getEventList", checkWebsiteSessionExist, getActiveEventList);
-  router$1.get(
+  router$2.get("/getCountryList", checkWebsiteSessionExist, getCountryList);
+  router$2.get("/getBannerList", checkWebsiteSessionExist, getBannerList);
+  router$2.get("/getLanguageList", checkWebsiteSessionExist, getLanguageList);
+  router$2.get("/getEventList", checkWebsiteSessionExist, getActiveEventList);
+  router$2.get(
     "/getEventListById/:event_id",
     checkWebsiteSessionExist,
     getEventList
   );
-  router$1.get(
+  router$2.get(
     "/getCustomerDetail/:customer_id",
     checkWebsiteSessionExist,
     getCustomerList
   );
-  router$1.get("/confirmTapPayment", confirmTapPayment);
-  router$1.get(
+  router$2.get(
     "/getReservationDetails/:reservation_id",
     checkWebsiteSessionExist,
     getReservationSeat
   );
-  router$1.get(
+  router$2.get(
     "/resetReserveTimer/:reservation_id",
     checkWebsiteSessionExist,
     resetReserveTime
   );
-  router$1.get(
+  router$2.get(
     "/seatRelease/:reservation_id",
     checkWebsiteSessionExist,
     releaseSeats
   );
-  router$1.get(
+  router$2.get(
     "/getAllBlockedSeatsBySchedule/:event_sch_id",
     checkWebsiteSessionExist,
     allReserveSeatBySchedule
   );
-  router$1.get(
+  router$2.get(
     "/getTransactionByCode/:booking_code",
     checkWebsiteSessionExist,
     getTransactionByCode
   );
-  router$1.get(
+  router$2.get(
     "/get-event-extraInfoList/:event_id",
     checkWebsiteSessionExist,
     getEventExtraInfoList
   );
-  router$1.get(
+  router$2.get(
     "/getCustomerPassById/:customer_id",
     checkWebsiteSessionExist,
     getCustomerPassById
   );
-  router$1.get(
+  router$2.get(
     "/getCustomerPassHistory/:customer_id",
     checkWebsiteSessionExist,
     getCustomerPassHistory
   );
-  router$1.get(
+  router$2.get(
     "/getCustomerTicketHistory/:customer_id",
     checkWebsiteSessionExist,
     getCustomerTicketHistory
   );
-  router$1.get("/getcinemalist", checkWebsiteSessionExist, getCinemaList);
-  router$1.get("/getPassList", checkWebsiteSessionExist, getPassList);
-  router$1.get("/getPassById/:pass_id", checkWebsiteSessionExist, getPassList);
-  router$1.get("/reservePass/:pass_id", checkWebsiteSessionExist, reservePass);
-  router$1.get(
+  router$2.get("/getcinemalist", checkWebsiteSessionExist, getCinemaList);
+  router$2.get("/getPassList", checkWebsiteSessionExist, getPassList);
+  router$2.get("/getPassById/:pass_id", checkWebsiteSessionExist, getPassList);
+  router$2.get("/reservePass/:pass_id", checkWebsiteSessionExist, reservePass);
+  router$2.get(
     "/getPassReservationDetails/:reservation_id",
     checkWebsiteSessionExist,
     getReservePassDetails
   );
 
   // POST Routes
-  router$1.post("/signup-customer", checkWebsiteSessionExist, addEditCustomer);
-  router$1.post("/signIn", checkWebsiteSessionExist, signInCustomer);
+  router$2.post("/signup-customer", checkWebsiteSessionExist, addEditCustomer);
+  router$2.post("/signIn", checkWebsiteSessionExist, signInCustomer);
+
+  router$2.post("/reserveSeats", checkWebsiteSessionExist, addReservationSeat);
+  router$2.post(
+    "/reserveSeatsIo",
+    checkWebsiteSessionExist,
+    addReservationSeatsIo
+  );
+  router$2.post(
+    "/reserveSeats-no-sl",
+    checkWebsiteSessionExist,
+    addReservationSeatWithoutSeatlayout
+  );
+  router$2.post("/guestCheckout", checkWebsiteSessionExist, addEditGuest);
+  router$2.post("/customerSubscribe", checkWebsiteSessionExist, addSubscriber);
+  router$2.post(
+    "/applyVoucher/:reservation_id",
+    checkWebsiteSessionExist,
+    applyVoucher
+  );
+  router$2.post(
+    "/removeVoucher/:reservation_id",
+    checkWebsiteSessionExist,
+    removeVoucher
+  );
+  router$2.post(
+    "/removePass/:reservation_id",
+    checkWebsiteSessionExist,
+    removePass
+  );
+  router$2.post(
+    "/applyPass/:reservation_id",
+    checkWebsiteSessionExist,
+    applyPass
+  );
+
+  return router$2;
+}
+
+async function createTransation(req, res) {
+  let reqbody = { ...req.body, ...req.params };
+  const { user_info } = req;
+  const isWebsiteUser = req["is_website_user"] || false;
+  const { reservation_id } = reqbody;
+  let checkFields = ["reservation_id"];
+
+  // Validate incoming data
+  let result = await checkValidation(checkFields, reqbody);
+  if (!result.status) {
+    return res.send(result);
+  }
+
+  try {
+    // Fetch reservation details
+    let getReservationDetail = await global
+      .knexConnection("ms_reservation")
+      .where({ reservation_id, is_reserved: "Y" });
+
+    if (!getReservationDetail.length) {
+      throw new Error("Reservation not found or seat is released/booked");
+    }
+
+    let getPaymentDetail = [];
+    let qrUrl = "";
+
+    // If the user is from the website, get payment details
+    if (isWebsiteUser) {
+      getPaymentDetail = await global
+        .knexConnection("ms_payment_booking_detail")
+        .select(
+          "c_name",
+          "email",
+          "phone_number",
+          "country_code",
+          "is_booked",
+          "is_guest",
+          "customer_id",
+          "payment_mode_name",
+          "success_frontend_url",
+          "failed_frontend_url",
+          "payment_transaction_id"
+        )
+        .leftJoin(
+          "ms_payment_mode",
+          "ms_payment_mode.pm_id",
+          "ms_payment_booking_detail.pm_id"
+        )
+        .where({ reservation_id, is_paid: "Y" });
+
+      if (!getPaymentDetail.length) {
+        return res.send({
+          status: false,
+          message: "Payment Not Done from Website",
+        });
+      }
+    }
+
+    let currentDateTimeNew = currentDateTime(
+      null,
+      "YYYY-MM-DD HH:mm:ss",
+      getReservationDetail[0].timezone_name
+    );
+
+    let event_data_all = await EVENT_DATA({
+      event_id: getReservationDetail[0].event_id,
+      event_sch_id: getReservationDetail[0].event_sch_id,
+    });
+
+    let event_data = event_data_all.Records[0];
+    qrUrl = getPaymentDetail[0].success_frontend_url;
+    let insertObj = {
+      event_id: getReservationDetail[0].event_id,
+      schedule_id: getReservationDetail[0].event_sch_id,
+      c_email: getPaymentDetail[0]?.email || null,
+      c_name: getPaymentDetail[0]?.c_name || null,
+      c_country_code: getPaymentDetail[0]?.country_code || null,
+      is_guest: getPaymentDetail[0]?.is_guest || null,
+      customer_id: getPaymentDetail[0]?.customer_id || 0,
+      c_phone_number: getPaymentDetail[0]?.phone_number || null,
+      event_name: event_data.event_name,
+      cinema_name: event_data.cinema_name,
+      cinema_email: event_data.cinema_email || null,
+      city_name: event_data.city_name || null,
+      country: event_data.country_name || null,
+      timezone: event_data.tz_name || null,
+      currency: event_data.curr_code || null,
+      payment_mode_id: getPaymentDetail[0]?.pm_id || null,
+      payment_mode: getPaymentDetail[0]?.payment_mode_name || null,
+      booking_type_name: isWebsiteUser ? "Website" : "Box Office",
+      event_date: event_data.event_sch_array
+        ? event_data.event_sch_array[0].sch_date
+        : null,
+      event_time: event_data.event_sch_array
+        ? event_data.event_sch_array[0].sch_time
+        : null,
+      booking_date_time: currentDateTimeNew,
+      created_by: (user_info && user_info.user_id) || null,
+      total_seats: 0,
+      seats_scanned: 0,
+      seats_tobe_scanned: 0,
+      reservation_id,
+      payment_transaction_id: getPaymentDetail[0].payment_transaction_id,
+      exchange_rate: event_data.exchange_rate || 1,
+      pay_currency_id: event_data.pay_currency_id || null,
+    };
+
+    let checkExistingBooking = await global.knexConnection("ms_booking").where({
+      reservation_id,
+    });
+
+    if (checkExistingBooking && checkExistingBooking.length) {
+      return res.send({
+        status: false,
+        message: "Transaction already initiated",
+      });
+    }
+
+    // Handle seat booking for event seating type "seats_io"
+    if (event_data.event_seating_type === "seats_io") {
+      let bookSeatsArray = [];
+      getReservationDetail.forEach((z) => {
+        if (z.row_name && z.row_name === "GA-") {
+          bookSeatsArray.push({
+            objectId: z.seat_type,
+            quantity: parseInt(z.column_name),
+          });
+        } else {
+          bookSeatsArray.push(
+            z.seat_type + "-" + z.row_name + "-" + z.column_name
+          );
+        }
+      });
+
+      const seatsio_credential = await SeatsIoCredentialFunction({
+        org_id: event_data.org_id,
+        setting_key: "seats_io",
+      });
+
+      if (seatsio_credential.false) {
+        return res.send({
+          status: false,
+          message: "Invalid Payment Mode",
+        });
+      }
+
+      const { SEATSIO_SECRET_WORKSPACE_KEY } = seatsio_credential.data;
+
+      let client = new SeatsioClient(Region.EU(), SEATSIO_SECRET_WORKSPACE_KEY);
+
+      try {
+        const bookResponse = await client.events.book(
+          getReservationDetail[0].seatsio_eventkey,
+          bookSeatsArray,
+          getReservationDetail[0].seatsio_holdtoken
+        );
+
+        for (const key in bookResponse.objects) {
+          if (bookResponse.objects.hasOwnProperty(key)) {
+            const value = bookResponse.objects[key];
+            if (
+              value.status.toLowerCase() !== "booked" &&
+              value.objectType !== "generalAdmission"
+            ) {
+              return res.send({
+                status: false,
+                message: "Seat Booking failed at Seats.io",
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Seats.io Booking Error: ", error);
+        return res.send({
+          status: false,
+          message: "Issue in Seats.io Booking",
+        });
+      }
+    }
+
+    // Insert booking record into the database
+    let insertBookingId = await global
+      .knexConnection("ms_booking")
+      .insert(insertObj);
+
+    let transaction_array = [];
+    let seatNames = [];
+    let totalSeats = 0;
+    let totalAmount = 0;
+    let singleTicketPrice = 0;
+
+    getReservationDetail.forEach((z) => {
+      if (event_data.event_seating_type === "N") {
+        seatNames.push(z.seat_type + "-" + z.no_of_seats);
+        totalAmount +=
+          parseFloat(z.seat_price) *
+          (z.no_of_seats ? parseFloat(z.no_of_seats) : 1);
+        totalSeats += parseInt(z.no_of_seats);
+      } else {
+        seatNames.push(z.seat_type + "-" + z.seat_name);
+        totalAmount += parseFloat(z.seat_price);
+      }
+
+      let obj = {
+        booking_id: insertBookingId[0],
+        seat_name: z.seat_name,
+        seat_type: z.seat_type,
+        seat_group_id: z.seat_group_id,
+        seat_price: z.seat_price,
+        no_of_seats: z.no_of_seats,
+      };
+      transaction_array.push({ ...obj });
+    });
+
+    if (event_data.event_seating_type === "N") {
+      console.log(totalSeats, "totalSeats");
+    } else {
+      totalSeats = seatNames.length;
+    }
+
+    await global
+      .knexConnection("ms_booking_transaction")
+      .insert(transaction_array);
+
+    const getDiscountData = await global
+      .knexConnection("ms_reserve_vouchers")
+      .where({ reservation_id: reservation_id, rv_is_active: "Y" });
+
+    let voucher_code = "";
+    let discountValue = 0;
+    let discountPercent = "";
+    let totalBeforeDiscount = totalAmount;
+
+    if (getDiscountData.length) {
+      voucher_code = getDiscountData[0].voucher_code;
+      discountPercent = getDiscountData[0].voucher_discount_percent;
+      discountValue =
+        (parseFloat(getDiscountData[0].voucher_discount_percent) / 100) *
+        totalAmount;
+
+      totalAmount = totalAmount - discountValue;
+    }
+
+    const getDiscountPassData = await global
+      .knexConnection("ms_reserve_pass")
+      .where({ reservation_id: reservation_id });
+
+    if (getDiscountPassData.length) {
+      discountPercent = getDiscountPassData[0].pass_discount_percent;
+      discountValue =
+        (parseFloat(getDiscountPassData[0].pass_discount_percent) / 100) *
+        singleTicketPrice;
+
+      totalAmount = totalAmount - discountValue;
+    }
+
+    let booking_code = event_data.event_prefix_code
+      ? event_data.event_prefix_code
+      : "TKT";
+    let prefix_array = ["00000", "0000", "000", "00", "0"];
+    let string_length = String(insertBookingId[0]).length - 1;
+    let booking_number_new = prefix_array[string_length]
+      ? `${prefix_array[string_length]}${insertBookingId[0]}`
+      : insertBookingId[0];
+    booking_code += booking_number_new;
+
+    // Update relevant tables after booking
+    await global
+      .knexConnection("ms_reservation")
+      .where({ reservation_id })
+      .update({ is_booked: "Y" });
+
+    await global
+      .knexConnection("ms_payment_booking_detail")
+      .where({ reservation_id })
+      .update({ is_booked: "Y" });
+
+    await global
+      .knexConnection("ms_booking")
+      .where({ booking_id: insertBookingId[0] })
+      .update({
+        booking_code,
+        total_seats: totalSeats,
+        seats_tobe_scanned: totalSeats,
+        seat_names: seatNames.join(", "),
+        total_price: totalAmount.toFixed(3),
+        voucher_code: voucher_code,
+        discount_percent: discountPercent,
+        discount_value: discountValue,
+        total_before_discount: totalBeforeDiscount,
+      });
+
+    return res.send({
+      status: true,
+      message: "Transaction created successfully",
+      booking_code,
+    });
+  } catch (error) {
+    console.error("Transaction creation failed: ", error);
+    return res.send({
+      status: false,
+      message:
+        error.message || "An error occurred while processing the transaction.",
+    });
+  }
+}
+
+//Skip Payment Gateway when payment amount is 0
+
+const skipPaymentGateway = async (reqbody) => {
+  const {
+    reservation_id,
+    event_data,
+    is_guest,
+    customer_id,
+    success_frontend_url,
+    failed_frontend_url,
+    customer_name,
+    customer_email,
+    customer_mobile,
+    country_code,
+    webtoken,
+  } = reqbody;
+
+  // Validation for required fields
+  if (
+    !reservation_id ||
+    !event_data ||
+    !success_frontend_url ||
+    !failed_frontend_url
+  ) {
+    return { status: false, message: "Missing required fields." };
+  }
+
+  const currentDateTimeNew = currentDateTime(
+    null,
+    "YYYY-MM-DD HH:mm:ss",
+    event_data[0].tz_name
+  );
+
+  // Check if the customer exists in the database
+  let checkGuest = is_guest;
+  let checkCustomerId = customer_id;
+
+  try {
+    const getLoggedUser = await global
+      .knexConnection("ms_customers")
+      .select("customer_id")
+      .where({
+        email: customer_email,
+        customer_is_active: "Y",
+      });
+
+    if (!getLoggedUser.length) {
+      checkGuest = "Y";
+      checkCustomerId = 0;
+    } else {
+      checkGuest = "N";
+      checkCustomerId = getLoggedUser[0].customer_id;
+    }
+
+    // Insert payment details into the database
+    const insertPaymentDetail = {
+      reservation_id,
+      success_frontend_url,
+      failed_frontend_url,
+      c_name: customer_name,
+      email: customer_email,
+      phone_number: customer_mobile,
+      country_code,
+      is_guest: checkGuest,
+      customer_id: checkCustomerId,
+      created_at: currentDateTimeNew,
+      pm_id: 1,
+      is_booked: "Y",
+      is_paid: "Y",
+    };
+
+    await global
+      .knexConnection("ms_payment_booking_detail")
+      .insert(insertPaymentDetail);
+
+    // Get the base URL for the backend
+    const [BACKEND_URL] = await global.knexConnection("global_options").where({
+      go_key: "BASE_URL_BACKEND",
+    });
+    const BASEURL = BACKEND_URL ? BACKEND_URL.go_value : "";
+
+    if (!BASEURL) {
+      return { status: false, message: "Backend URL not found." };
+    }
+
+    // Make the request to the transaction API
+    const config = {
+      method: "post",
+      url: `${BASEURL}/payment/createTransation/${reservation_id}`,
+      headers: {
+        Authorization: webtoken,
+      },
+    };
+
+    const transactionResponse = await axios(config);
+
+    // Handle the transaction response and determine the redirect URL
+    let redirectToUrl = failed_frontend_url; // Default to failed URL
+    if (
+      transactionResponse?.data?.status &&
+      transactionResponse.data.booking_code
+    ) {
+      redirectToUrl = `${success_frontend_url}/${transactionResponse.data.booking_code}`;
+    } else {
+      console.log("Transaction failed:", transactionResponse?.data);
+    }
+
+    return {
+      message: "Payment skipped successfully",
+      status: true,
+      redirectTo: redirectToUrl,
+    };
+  } catch (error) {
+    // Log the error and return an error message
+    console.error("Error in SKIP_PAYMENT:", error);
+    return {
+      status: false,
+      message:
+        error.message || "An error occurred while processing the payment.",
+    };
+  }
+};
+
+async function tapPaymentCheckout(req, res) {
+  const {
+    reservation_id,
+    customer_name,
+    customer_id,
+    customer_email,
+    customer_mobile,
+    country_code,
+    is_guest,
+    success_frontend_url,
+    failed_frontend_url,
+  } = req.body;
+
+  try {
+    // Validate required fields
+    const requiredFields = [
+      "reservation_id",
+      "customer_email",
+      "customer_mobile",
+      "is_guest",
+      "success_frontend_url",
+      "failed_frontend_url",
+    ];
+    const validationResult = await checkValidation(requiredFields, req.body);
+    if (!validationResult.status) {
+      return res.send(validationResult);
+    }
+
+    // Check if payment has already been initiated for this reservation
+    const paymentDetailExists = await global
+      .knexConnection("ms_payment_booking_detail")
+      .where({ reservation_id });
+
+    if (paymentDetailExists.length) {
+      return res.send({
+        status: false,
+        message: "Payment Already Initiated with reservation id",
+      });
+    }
+
+    // Check reservation status
+    const checkReservation = await global
+      .knexConnection("ms_reservation")
+      .where({ is_reserved: "Y", reservation_id });
+
+    if (checkReservation.length === 0) {
+      return res.send({
+        status: false,
+        message: "Seat Already Reserved or Booked",
+      });
+    }
+
+    // Get event data
+    const event_data_all = await EVENT_DATA({
+      event_id: checkReservation[0].event_id,
+      event_sch_id: checkReservation[0].event_sch_id,
+    });
+
+    let event_data = event_data_all.Records;
+
+    // Retrieve backend URL for redirection
+    const [BACKEND_URL] = await global
+      .knexConnection("global_options")
+      .where({ go_key: "BASE_URL_BACKEND" });
+    const webtoken = req.header("authorization");
+    const BASEURL = BACKEND_URL.go_value;
+    const redirectUrl = `${BASEURL}/payment/confirmTapPayment?reservation_id=${reservation_id}&event_token=${webtoken}`;
+
+    // Check if organization data exists
+    if (!event_data[0].org_id) {
+      return res.send({
+        status: false,
+        message: "Invalid organization",
+      });
+    }
+
+    // Fetch payment credentials
+    const payment_credential = await PaymentCredentialFunction({
+      org_id: event_data[0].org_id,
+      setting_key: "tap_pay_payment",
+    });
+
+    if (payment_credential.false) {
+      return res.send({
+        status: false,
+        message: "Invalid Payment Mode",
+      });
+    }
+
+    const { MERCHANT_ID, SOURCE_ID, URL, PAYTAP_SECRET_KEY } =
+      payment_credential.data;
+
+    if (!MERCHANT_ID || !SOURCE_ID || !URL || !PAYTAP_SECRET_KEY) {
+      return res.send({
+        status: false,
+        message: "Missing Payment Data",
+        data: payment_credential.data,
+      });
+    }
+
+    // Get payment currency
+    const paymentCurrencyData = await global
+      .knexConnection("ms_currencies")
+      .select("curr_code")
+      .where({ curr_id: event_data[0].pay_currency_id, curr_is_active: "Y" });
+
+    if (!paymentCurrencyData.length) {
+      return res.send({
+        status: false,
+        message: "Add Payment Currency in cinema",
+        data: [],
+      });
+    }
+
+    let paymentCurrency = paymentCurrencyData[0].curr_code;
+
+    // Calculate total amount
+    let totalAmount = checkReservation.reduce((sum, reservation) => {
+      if (event_data[0].event_seating_type === "N") {
+        return (
+          sum +
+          parseFloat(reservation.seat_price) *
+            (reservation.no_of_seats ? parseFloat(reservation.no_of_seats) : 1)
+        );
+      } else {
+        return sum + parseFloat(reservation.seat_price);
+      }
+    }, 0);
+
+    // Apply discount if applicable
+    const discountData = await global
+      .knexConnection("ms_reserve_vouchers")
+      .where({ reservation_id, rv_is_active: "Y" });
+
+    if (discountData.length) {
+      const discountValue =
+        (parseFloat(discountData[0].voucher_discount_percent) / 100) *
+        totalAmount;
+      totalAmount -= discountValue;
+    }
+
+    totalAmount *= event_data[0].exchange_rate
+      ? parseFloat(event_data[0].exchange_rate)
+      : 1;
+
+    // Skip payment if total amount is zero
+    if (totalAmount <= 0) {
+      const skipBookingData = await skipPaymentGateway({
+        reservation_id,
+        event_data,
+        is_guest,
+        customer_id,
+        success_frontend_url,
+        failed_frontend_url,
+        customer_name,
+        customer_email,
+        customer_mobile,
+        country_code,
+        webtoken,
+      });
+
+      return res.send({
+        status: skipBookingData.status ? true : false,
+        data: skipBookingData.status
+          ? skipBookingData.redirectTo
+          : failed_frontend_url,
+      });
+    }
+
+    // Prepare the payment request object
+    const tapPaymentObject = {
+      amount: totalAmount.toFixed(2),
+      currency: paymentCurrency,
+      threeDSecure: true,
+      save_card: false,
+      customer_initiated: true,
+      description: "",
+      statement_descriptor: "Sample",
+      metadata: { udf1: "test 1", udf2: "test 2" },
+      reference: {
+        transaction: `trx_${reservation_id}`,
+        order: reservation_id,
+      },
+      receipt: { email: true, sms: false },
+      customer: {
+        first_name: "-",
+        last_name: "-",
+        email: customer_email,
+        phone: { country_code, number: customer_mobile },
+      },
+      merchant: { id: MERCHANT_ID },
+      source: { id: SOURCE_ID },
+      redirect: { url: redirectUrl },
+    };
+
+    const paymentData = JSON.stringify(tapPaymentObject);
+    const config = {
+      method: "post",
+      url: URL,
+      headers: {
+        Authorization: `Bearer ${PAYTAP_SECRET_KEY}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      data: paymentData,
+    };
+
+    // Make the API request to TapPay
+    const response = await axios.request(config);
+
+    // Handle customer verification and insert payment details
+    let currentDateTimeNew = currentDateTime(
+      null,
+      "YYYY-MM-DD HH:mm:ss",
+      event_data[0].tz_name
+    );
+    let checkGuest = is_guest;
+    let checkCustomerId = customer_id;
+
+    if (is_guest === "N" && customer_id) {
+      const getLoggedUser = await global
+        .knexConnection("ms_customers")
+        .select("customer_id")
+        .where({ customer_id, customer_is_active: "Y" });
+
+      if (!getLoggedUser.length) {
+        checkGuest = "Y";
+        checkCustomerId = 0;
+      } else {
+        checkGuest = "N";
+        checkCustomerId = getLoggedUser[0].customer_id;
+      }
+    } else {
+      checkGuest = "Y";
+      checkCustomerId = 0;
+    }
+
+    const insertPaymentDetail = {
+      reservation_id,
+      success_frontend_url,
+      failed_frontend_url,
+      c_name: customer_name,
+      email: customer_email,
+      phone_number: customer_mobile,
+      country_code,
+      is_guest: checkGuest,
+      customer_id: checkCustomerId,
+      created_at: currentDateTimeNew,
+      pm_id: 1,
+      payment_request: paymentData,
+    };
+
+    await global
+      .knexConnection("ms_payment_booking_detail")
+      .insert(insertPaymentDetail);
+
+    return res.send({
+      status: true,
+      payment_mode: "tappay",
+      data: response.data.transaction.url,
+    });
+  } catch (error) {
+    console.error("Error in tapPaymentCheckout:", error);
+    return res.send({
+      status: false,
+      message: "An error occurred during the payment process.",
+    });
+  }
+}
+async function confirmTapPayment(req, res) {
+  const { reservation_id, event_token, tap_id } = req.query;
+
+  try {
+    // Fetch payment and reservation details
+    const [detailPayment] = await global
+      .knexConnection("ms_payment_booking_detail")
+      .where({ reservation_id });
+    const [reservationDetail] = await global
+      .knexConnection("ms_reservation")
+      .select("ms_reservation.*", "ms_event.org_id", "ms_event.event_is_active")
+      .leftJoin("ms_event", "ms_event.event_id", "ms_reservation.event_id")
+      .where({ reservation_id, event_is_active: "Y" });
+
+    if (!detailPayment || !reservationDetail) {
+      return res.send({ status: false, message: "Detail Not Found" });
+    }
+
+    const { success_frontend_url, failed_frontend_url } = detailPayment;
+    const { org_id } = reservationDetail;
+
+    // Fetch payment credentials
+    const paymentCredential = await PaymentCredentialFunction({
+      org_id,
+      setting_key: "tap_pay_payment",
+    });
+
+    if (paymentCredential.false) {
+      return res.send({ status: false, message: "Invalid Payment Mode" });
+    }
+
+    const { MERCHANT_ID, SOURCE_ID, URL, PAYTAP_SECRET_KEY } =
+      paymentCredential.data;
+
+    if (!MERCHANT_ID || !SOURCE_ID || !URL || !PAYTAP_SECRET_KEY) {
+      return res.send({ status: false, message: "Missing Payment Data" });
+    }
+
+    // Make the API request to TapPay to get payment status
+    const paymentStatusResponse = await axios.get(`${URL}/${tap_id}`, {
+      headers: {
+        Authorization: `Bearer ${PAYTAP_SECRET_KEY}`,
+        Accept: "application/json",
+      },
+    });
+
+    const paymentStatus = paymentStatusResponse.data.status.toUpperCase();
+
+    if (paymentStatus === "CAPTURED") {
+      // Payment successful, update payment details
+      await global
+        .knexConnection("ms_payment_booking_detail")
+        .where({ reservation_id })
+        .update({
+          is_paid: "Y",
+          payment_capture: JSON.stringify(paymentStatusResponse.data),
+        });
+
+      // Prepare the redirect URL for successful payment
+      const [BACKEND_URL] = await global
+        .knexConnection("global_options")
+        .where({ go_key: "BASE_URL_BACKEND" });
+
+      const BASEURL = BACKEND_URL.go_value;
+      const transactionResponse = await axios.post(
+        `${BASEURL}/payment/createTransation/${reservation_id}`,
+        {},
+        { headers: { Authorization: event_token } }
+      );
+
+      if (transactionResponse?.data?.status) {
+        return res.redirect(
+          `${success_frontend_url}/${transactionResponse.data.booking_code}`
+        );
+      } else {
+        console.log("Failed to create transaction");
+        return res.redirect(failed_frontend_url);
+      }
+    } else {
+      // Payment failed, update payment capture and redirect to failure URL
+      await global
+        .knexConnection("ms_payment_booking_detail")
+        .where({ reservation_id })
+        .update({
+          payment_capture: JSON.stringify({
+            ...paymentStatusResponse.data,
+            queryData: req.query,
+          }),
+        });
+
+      return res.redirect(failed_frontend_url);
+    }
+  } catch (error) {
+    console.error("Error in confirmTapPayment:", error);
+
+    // If an error occurs, update payment capture and redirect to failure URL
+    await global
+      .knexConnection("ms_payment_booking_detail")
+      .where({ reservation_id })
+      .update({
+        payment_capture: JSON.stringify(req.query),
+      });
+
+    return res.redirect(failed_frontend_url);
+  }
+}
+
+async function payonePaymentCheckout(req, res) {
+  const {
+    reservation_id,
+    customer_name,
+    customer_id,
+    customer_email,
+    customer_mobile,
+    country_code,
+    is_guest,
+    success_frontend_url,
+    failed_frontend_url,
+  } = req.body;
+  const webtoken = req.header("authorization");
+
+  // Check for required fields
+  const requiredFields = [
+    "reservation_id",
+    "customer_email",
+    "customer_mobile",
+    "is_guest",
+    "success_frontend_url",
+    "failed_frontend_url",
+  ];
+  const validationResult = await checkValidation(requiredFields, req.body);
+
+  if (!validationResult.status) {
+    return res.send(validationResult);
+  }
+
+  try {
+    // Check if payment has already been initiated
+    const paymentDetail = await global
+      .knexConnection("ms_payment_booking_detail")
+      .where({ reservation_id });
+    if (paymentDetail.length) {
+      return res.send({
+        status: false,
+        message: "Payment Already Initiated with reservation id",
+      });
+    }
+
+    // Validate reservation
+    const reservation = await global
+      .knexConnection("ms_reservation")
+      .where({ is_reserved: "Y", reservation_id });
+    if (reservation.length === 0) {
+      return res.send({
+        status: false,
+        message: "Seat Already Reserved or Booked",
+      });
+    }
+
+    // Fetch event data
+    const event_data_all = await EVENT_DATA({
+      event_id: reservation[0].event_id,
+      event_sch_id: reservation[0].event_sch_id,
+    });
+    const event_data = event_data_all.Records;
+    if (!event_data[0].org_id) {
+      return res.send({ status: false, message: "Invalid organization" });
+    }
+
+    // Get payment credentials
+    const paymentCredential = await PaymentCredentialFunction({
+      org_id: event_data[0].org_id,
+      setting_key: "payone_payment",
+    });
+    if (paymentCredential.false) {
+      return res.send({ status: false, message: "Invalid Payment Mode" });
+    }
+
+    const { MERCHANT_ID, URL, SECRET_KEY } = paymentCredential.data;
+    if (!MERCHANT_ID || !URL || !SECRET_KEY) {
+      return res.send({
+        status: false,
+        message: "Missing Payment Data",
+        data: paymentCredential.data,
+      });
+    }
+
+    // Calculate total amount
+    let totalAmount = 0;
+    reservation.forEach((z) => {
+      if (event_data[0].event_seating_type === "N") {
+        totalAmount +=
+          parseFloat(z.seat_price) *
+          (z.no_of_seats ? parseFloat(z.no_of_seats) : 1);
+      } else {
+        totalAmount += parseFloat(z.seat_price);
+      }
+    });
+
+    // Apply discounts (voucher)
+    const getDiscountData = await global
+      .knexConnection("ms_reserve_vouchers")
+      .where({ reservation_id, rv_is_active: "Y" });
+    if (getDiscountData.length) {
+      const discountValue =
+        (parseFloat(getDiscountData[0].voucher_discount_percent) / 100) *
+        totalAmount;
+      totalAmount -= discountValue;
+    }
+
+    // Apply discounts (pass)
+    const getDiscountPassData = await global
+      .knexConnection("ms_reserve_pass")
+      .where({ reservation_id, rp_is_active: "Y" });
+    if (getDiscountPassData.length) {
+      const discountValue =
+        (parseFloat(getDiscountPassData[0].pass_discount_percent) / 100) *
+        parseFloat(getDiscountPassData[0].seat_price);
+      totalAmount -= discountValue;
+    }
+
+    // Skip payment if total amount is zero
+    if (totalAmount <= 0) {
+      const skipBookingData = await skipPaymentGateway({
+        reservation_id,
+        event_data,
+        is_guest,
+        customer_id,
+        success_frontend_url,
+        failed_frontend_url,
+        customer_name,
+        customer_email,
+        customer_mobile,
+        country_code,
+        webtoken,
+      });
+
+      return res.send({
+        status: true,
+        data: skipBookingData.status
+          ? skipBookingData.redirectTo
+          : failed_frontend_url,
+      });
+    }
+
+    // Fetch payment currency data
+    const paymentCurrencyData = await global
+      .knexConnection("ms_currencies")
+      .select("curr_code", "curr_id", "curr_name", "curr_iso")
+      .where({ curr_id: event_data[0].pay_currency_id, curr_is_active: "Y" });
+    if (!paymentCurrencyData.length) {
+      return res.send({
+        status: false,
+        message: "Add Payment Currency in cinema",
+        data: [],
+      });
+    }
+
+    const paymentCurrencyIso = paymentCurrencyData[0].curr_iso;
+
+    // Create payment object
+    const redirectUrl = `${BASEURL}/payment/confirmPayonePayment?reservation_id_token=${reservation_id}///${webtoken}`;
+    const PaymentObject = {
+      Amount: totalAmount * 1000,
+      Channel: 0,
+      CurrencyISOCode: parseInt(paymentCurrencyIso),
+      MerchantID: MERCHANT_ID,
+      MessageID: 1,
+      ResponseBackURL: redirectUrl,
+      TransactionID: "RESERVEID" + reservation_id,
+    };
+
+    // Generate hash code for security
+    const hashCodeString =
+      SECRET_KEY +
+      PaymentObject.Amount +
+      PaymentObject.Channel +
+      PaymentObject.CurrencyISOCode +
+      PaymentObject.MerchantID +
+      PaymentObject.MessageID +
+      PaymentObject.ResponseBackURL +
+      PaymentObject.TransactionID;
+    const hashCode = createHash("sha256").update(hashCodeString).digest("hex");
+    PaymentObject["hashCode"] = hashCode;
+
+    // Build the payment form
+    const formbody = `<form id="nonseamless" method="post" action="${URL}" name="redirectForm">
+      <input name="Amount" type="hidden" value="${PaymentObject.Amount}"/>
+      <input name="Channel" type="hidden" value="${PaymentObject.Channel}"/>
+      <input name="CurrencyISOCode" type="hidden" value="${PaymentObject.CurrencyISOCode}"/>
+      <input name="MerchantID" type="hidden" value="${PaymentObject.MerchantID}"/>
+      <input name="MessageID" type="hidden" value="${PaymentObject.MessageID}"/>
+      <input name="ResponseBackURL" type="hidden" value="${PaymentObject.ResponseBackURL}"/>
+      <input name="TransactionID" type="hidden" value="${PaymentObject.TransactionID}"/>
+      <input name="SecureHash" type="hidden" value="${hashCode}"/>
+    </form>`;
+
+    // Insert payment details into DB
+    const currentDateTimeNew = currentDateTime(
+      null,
+      "YYYY-MM-DD HH:mm:ss",
+      event_data[0].tz_name
+    );
+    let checkGuest = is_guest;
+    let checkCustomerId = customer_id;
+
+    const getLoggedUser = await global
+      .knexConnection("ms_customers")
+      .select("customer_id")
+      .where({ email: customer_email, customer_is_active: "Y" });
+    if (!getLoggedUser.length) {
+      checkGuest = "Y";
+      checkCustomerId = 0;
+    } else {
+      checkGuest = "N";
+      checkCustomerId = getLoggedUser[0].customer_id;
+    }
+
+    const paymentDetails = {
+      reservation_id,
+      success_frontend_url,
+      failed_frontend_url,
+      c_name: customer_name,
+      email: customer_email,
+      phone_number: customer_mobile,
+      country_code,
+      is_guest: checkGuest,
+      customer_id: checkCustomerId,
+      created_at: currentDateTimeNew,
+      pm_id: 2,
+      payment_request: JSON.stringify(PaymentObject),
+      payment_transaction_id: PaymentObject.TransactionID,
+    };
+
+    await global
+      .knexConnection("ms_payment_booking_detail")
+      .insert(paymentDetails);
+
+    return res.send({ status: true, payment_mode: "payone", data: formbody });
+  } catch (error) {
+    console.error("Error during Payone payment checkout:", error);
+    return res.send({
+      status: false,
+      message: "An error occurred",
+      error: error.message,
+    });
+  }
+}
+
+async function confirmPayonePayment(req, res) {
+  const { reservation_id_token } = req.query;
+  const reservation_id = reservation_id_token.split("///")[0];
+  const event_token = reservation_id_token.split("///")[1];
+
+  const body = req.body;
+
+  try {
+    // Get payment booking detail and reservation details
+    const detailPayment = await global
+      .knexConnection("ms_payment_booking_detail")
+      .where({ reservation_id });
+
+    if (!detailPayment.length) {
+      throw new Error("Payment detail not found");
+    }
+
+    const reservation_detail = await global
+      .knexConnection("ms_reservation")
+      .select("ms_reservation.*", "ms_event.org_id", "ms_event.event_is_active")
+      .leftJoin("ms_event", "ms_event.event_id", "ms_reservation.event_id")
+      .where({ reservation_id, event_is_active: "Y" });
+
+    if (!reservation_detail.length) {
+      throw new Error("Reservation detail not found or event is inactive");
+    }
+
+    // Extract necessary fields from payment detail
+    const {
+      success_frontend_url,
+      failed_frontend_url,
+      payment_request,
+      payment_transaction_id,
+    } = detailPayment[0];
+    const success_redirect_url = success_frontend_url;
+    const failed_redirect_url = failed_frontend_url;
+
+    // Parse payment request and calculate values
+    const requestedPayload = JSON.parse(payment_request);
+    const requestHash = requestedPayload.hashCode;
+    const requestPaymentAmt =
+      parseFloat(requestedPayload.Amount) / 1000 + " JOD";
+    const transaction_date_frontend = moment().format("DD/MM/YYYY, h:mm:ss");
+
+    const getPaymentStatusCode = body["Response.StatusCode"];
+    const getGatewayStatusDescription =
+      body["Response.GatewayStatusDescription"];
+    const responseHash = body["Response.SecureHash"];
+    const paymentMessage = body["Response.StatusDescription"];
+
+    // Check if payment is approved
+    if (
+      (getGatewayStatusDescription === "APPROVED" ||
+        getGatewayStatusDescription === "approved") &&
+      getPaymentStatusCode === "00000"
+    ) {
+      await global
+        .knexConnection("ms_payment_booking_detail")
+        .where({ reservation_id })
+        .update({
+          is_paid: "Y",
+          recheck_payment: "N",
+          payment_capture: JSON.stringify(body),
+        });
+
+      const [BACKEND_URL] = await global
+        .knexConnection("global_options")
+        .where({ go_key: "BASE_URL_BACKEND" });
+
+      if (!BACKEND_URL) {
+        throw new Error("Backend URL not found");
+      }
+
+      const BASEURL = BACKEND_URL.go_value;
+
+      // Make the transaction request
+      const config = {
+        method: "post",
+        url: `${BASEURL}/payment/createTransation/${reservation_id}`,
+        headers: {
+          Authorization: event_token,
+        },
+      };
+
+      const transactionResponse = await axios(config);
+
+      if (transactionResponse.data && transactionResponse.data.status) {
+        return res.redirect(
+          `${success_redirect_url}/${transactionResponse.data.booking_code}?message=${paymentMessage}`
+        );
+      } else {
+        throw new Error("Transaction creation failed");
+      }
+    } else {
+      // If payment is not approved
+      await global
+        .knexConnection("ms_payment_booking_detail")
+        .where({ reservation_id })
+        .update({
+          recheck_payment: "N",
+          payment_capture: JSON.stringify({
+            ...body,
+            queryData: req.query,
+          }),
+        });
+
+      return res.redirect(
+        `${failed_redirect_url}?message=${paymentMessage}&amount=${requestPaymentAmt}&transaction_id=${payment_transaction_id}&date=${transaction_date_frontend}`
+      );
+    }
+  } catch (error) {
+    console.error("Error during Payone payment confirmation:", error.message);
+    await global
+      .knexConnection("ms_payment_booking_detail")
+      .where({ reservation_id })
+      .update({
+        payment_capture: JSON.stringify(req.query),
+      });
+
+    return res.redirect(
+      `${failed_redirect_url}?message=${error.message}&amount=${
+        body["Response.Amount"]
+      }&transaction_id=${body["Response.TransactionID"]}&date=${moment().format(
+        "DD/MM/YYYY, h:mm:ss"
+      )}`
+    );
+  }
+}
+
+async function payonePassPaymentCheckout(req, res) {
+  try {
+    const { user_info } = req;
+    const reqbody = req.body;
+
+    const {
+      reservation_id,
+      customer_name,
+      customer_id,
+      customer_email,
+      customer_mobile,
+      country_code,
+      is_guest,
+      success_frontend_url,
+      failed_frontend_url,
+    } = reqbody;
+
+    // Validate required fields
+    const requiredFields = [
+      "reservation_id",
+      "customer_email",
+      "customer_mobile",
+      "is_guest",
+      "success_frontend_url",
+      "failed_frontend_url",
+    ];
+
+    const validationResult = await checkValidation(requiredFields, reqbody);
+    if (!validationResult.status) {
+      return res.status(400).send(validationResult); // Return bad request if validation fails
+    }
+
+    // Check if payment already exists for the reservation
+    const paymentDetailC = await global
+      .knexConnection("ms_payment_booking_detail")
+      .where({ reservation_id });
+
+    if (paymentDetailC.length) {
+      return res.status(400).send({
+        status: false,
+        message: "Payment already initiated with this reservation ID.",
+      });
+    }
+
+    // Check if the reservation is valid and reserved
+    const checkReservation = await global
+      .knexConnection("ms_pass_reservation")
+      .where({ p_is_reserved: "Y", p_reservation_id: reservation_id });
+
+    if (!checkReservation.length) {
+      return res.status(404).send({
+        status: false,
+        message: "Reservation not found or pass already released.",
+      });
+    }
+
+    // Get pass details
+    const getPassDetail = await global
+      .knexConnection("movie_event_pass")
+      .select("movie_event_pass.*", "ms_currencies.curr_code")
+      .leftJoin(
+        "ms_currencies",
+        "ms_currencies.curr_id",
+        "movie_event_pass.pass_currency_id"
+      )
+      .where({
+        "movie_event_pass.pass_id": checkReservation[0].pass_id,
+        "movie_event_pass.pass_is_active": "Y",
+      });
+
+    if (!getPassDetail.length || !getPassDetail[0].org_id) {
+      return res.status(400).send({
+        status: false,
+        message: "Invalid or inactive pass organization.",
+      });
+    }
+
+    // Fetch payment credentials for the organization
+    const paymentCredential = await PaymentCredentialFunction({
+      org_id: getPassDetail[0].org_id,
+      setting_key: "payone_payment",
+    });
+
+    if (paymentCredential.false) {
+      return res.status(400).send({
+        status: false,
+        message: "Invalid payment mode or credentials.",
+      });
+    }
+
+    const { MERCHANT_ID, URL, SECRET_KEY } = paymentCredential.data;
+
+    if (!MERCHANT_ID || !URL || !SECRET_KEY) {
+      return res.status(400).send({
+        status: false,
+        message: "Missing payment data.",
+        data: paymentCredential.data,
+      });
+    }
+
+    // Prepare transaction details and hash
+    let totalAmount = parseFloat(checkReservation[0].pass_total_price);
+    const paymentCurrencyData = await global
+      .knexConnection("ms_currencies")
+      .select("curr_code", "curr_id", "curr_name", "curr_iso")
+      .where({
+        curr_id: getPassDetail[0].pass_currency_id,
+        curr_is_active: "Y",
+      });
+
+    if (!paymentCurrencyData.length) {
+      return res.status(400).send({
+        status: false,
+        message: "No valid payment currency found for the pass.",
+      });
+    }
+
+    const paymentCurrencyIso = paymentCurrencyData[0].curr_iso;
+    const redirectUrl = `${BASEURL}/payment/confirmPassPayonePayment?reservation_id_token=${reservation_id}///${req.header(
+      "authorization"
+    )}`;
+
+    let PaymentObject = {
+      Amount: totalAmount * 1000, // Convert to smallest currency unit (e.g., cents)
+      Channel: 0,
+      CurrencyISOCode: parseInt(paymentCurrencyIso),
+      MerchantID: MERCHANT_ID,
+      MessageID: 1,
+      ResponseBackURL: redirectUrl,
+      TransactionID: `PASS${Math.floor(Math.random() * 90000) + 10000}`,
+    };
+
+    const hashCodeString =
+      SECRET_KEY +
+      PaymentObject.Amount +
+      PaymentObject.Channel +
+      PaymentObject.CurrencyISOCode +
+      PaymentObject.MerchantID +
+      PaymentObject.MessageID +
+      PaymentObject.ResponseBackURL +
+      PaymentObject.TransactionID;
+
+    const hashCode = createHash("sha256").update(hashCodeString).digest("hex");
+    PaymentObject.hashCode = hashCode;
+
+    // Create the HTML form for redirection
+    const formBody = `
+        <form id="nonseamless" method="post" action="${URL}" name="redirectForm">
+          <input name="Amount" type="hidden" value="${PaymentObject.Amount}"/>
+          <input name="Channel" type="hidden" value="${PaymentObject.Channel}"/>
+          <input name="CurrencyISOCode" type="hidden" value="${PaymentObject.CurrencyISOCode}"/>
+          <input name="MerchantID" type="hidden" value="${PaymentObject.MerchantID}"/>
+          <input name="MessageID" type="hidden" value="${PaymentObject.MessageID}"/>
+          <input name="ResponseBackURL" type="hidden" value="${PaymentObject.ResponseBackURL}"/>
+          <input name="TransactionID" type="hidden" value="${PaymentObject.TransactionID}"/>
+          <input name="SecureHash" type="hidden" value="${hashCode}"/>
+        </form>
+      `;
+
+    // Handle guest/customer check
+    let checkGuest = is_guest;
+    let checkCustomerId = customer_id;
+    let getLoggedUser = await global
+      .knexConnection("ms_customers")
+      .select("customer_id", "email")
+      .where({ email: customer_email, customer_is_active: "Y" });
+
+    if (!getLoggedUser.length) {
+      checkGuest = "Y";
+      checkCustomerId = 0;
+    } else {
+      checkGuest = "N";
+      checkCustomerId = getLoggedUser[0].customer_id;
+    }
+
+    // Check if the customer has already bought the pass
+    if (checkCustomerId && checkCustomerId > 0) {
+      const existingPass = await global
+        .knexConnection("pass_booking")
+        .select("pass_booking.pass_id")
+        .where({ customer_id: checkCustomerId, is_active: "Y" });
+
+      if (existingPass.length) {
+        return res.status(400).send({
+          status: false,
+          message: "Pass already bought for this customer.",
+        });
+      }
+    }
+
+    // Insert payment details into the database
+    const currentDateTimeNew = currentDateTime(
+      null,
+      "YYYY-MM-DD HH:mm:ss",
+      "Pacific/Yap"
+    );
+    const insertPaymentDetail = {
+      reservation_id,
+      success_frontend_url,
+      failed_frontend_url,
+      c_name: customer_name,
+      email: customer_email,
+      phone_number: customer_mobile,
+      country_code,
+      is_guest: checkGuest,
+      customer_id: checkCustomerId,
+      created_at: currentDateTimeNew,
+      pm_id: 2,
+      payment_request: JSON.stringify(PaymentObject),
+      payment_transaction_id: PaymentObject.TransactionID,
+    };
+
+    await global
+      .knexConnection("ms_payment_booking_detail")
+      .insert(insertPaymentDetail);
+
+    return res.send({
+      status: true,
+      payment_mode: "payone",
+      data: formBody,
+    });
+  } catch (error) {
+    // Catch and log any unexpected errors
+    console.error("Error processing payment checkout:", error);
+    return res.status(500).send({
+      status: false,
+      message: "An unexpected error occurred. Please try again later.",
+    });
+  }
+}
+
+async function confirmPassPayonePayment(req, res) {
+  const { reservation_id_token } = req.query;
+
+  if (!reservation_id_token) {
+    return res.status(400).send({
+      status: false,
+      message: "Missing reservation_id_token in query.",
+    });
+  }
+
+  const [reservation_id, event_token] = reservation_id_token.split("///");
+
+  if (!reservation_id || !event_token) {
+    return res.status(400).send({
+      status: false,
+      message: "Invalid reservation_id_token format.",
+    });
+  }
+
+  const body = req.body;
+  let detailPayment;
+  try {
+    // Fetch payment details from the database
+    detailPayment = await global
+      .knexConnection("ms_payment_booking_detail")
+      .where({ reservation_id })
+      .first(); // Using `.first()` to directly get the single record
+  } catch (error) {
+    console.error("Error fetching payment details:", error);
+    return res.status(500).send({
+      status: false,
+      message: "Error fetching payment details.",
+    });
+  }
+
+  if (!detailPayment) {
+    return res.status(404).send({
+      status: false,
+      message: "Payment details not found for this reservation.",
+    });
+  }
+
+  const {
+    success_frontend_url,
+    failed_frontend_url,
+    payment_request,
+    payment_transaction_id,
+  } = detailPayment;
+  const failed_redirect_url = failed_frontend_url;
+  let requestedPayload;
+  try {
+    requestedPayload = JSON.parse(payment_request); // Safely parse payment request
+  } catch (error) {
+    console.error("Error parsing payment request:", error);
+    return res.status(400).send({
+      status: false,
+      message: "Invalid payment request data.",
+    });
+  }
+
+  requestedPayload.hashCode;
+  const requestPaymentAmt = parseFloat(requestedPayload.Amount) / 1000 + " JOD";
+  const transaction_date_frontend = moment$1().format("DD/MM/YYYY, h:mm:ss");
+  const getPaymentStatusCode = body["Response.StatusCode"];
+  const getGatewayStatusDescription = body["Response.GatewayStatusDescription"];
+  body["Response.SecureHash"];
+  const paymentMessage = body["Response.StatusDescription"];
+
+  try {
+    // Check for successful payment
+    if (
+      (getGatewayStatusDescription === "APPROVED" ||
+        getGatewayStatusDescription === "approved") &&
+      getPaymentStatusCode === "00000"
+    ) {
+      // Update payment status to "paid"
+      await global
+        .knexConnection("ms_payment_booking_detail")
+        .where({ reservation_id })
+        .update({
+          is_paid: "Y",
+          recheck_payment: "N",
+          payment_capture: JSON.stringify(body),
+        });
+
+      const [BACKEND_URL] = await global
+        .knexConnection("global_options")
+        .where({ go_key: "BASE_URL_BACKEND" });
+
+      if (!BACKEND_URL) {
+        console.error("BASE_URL_BACKEND not found.");
+        return res.status(500).send({
+          status: false,
+          message: "Backend URL not configured.",
+        });
+      }
+
+      const BASEURL = BACKEND_URL.go_value;
+
+      const config = {
+        method: "post",
+        url: `${BASEURL}/payment/createPassTransation/${reservation_id}`,
+        headers: {
+          Authorization: event_token,
+        },
+      };
+
+      let transactionResponse;
+      try {
+        transactionResponse = await axios$1(config);
+      } catch (axiosError) {
+        console.error("Error during transaction API call:", axiosError);
+        return res.status(500).send({
+          status: false,
+          message: "Error during transaction processing.",
+        });
+      }
+
+      if (
+        transactionResponse &&
+        transactionResponse.data &&
+        transactionResponse.data.status
+      ) {
+        return res.redirect(
+          `${failed_redirect_url}?message=${paymentMessage}&amount=${requestPaymentAmt}&transaction_id=${payment_transaction_id}&date=${transaction_date_frontend}`
+        );
+      } else {
+        console.error("Transaction failed:", transactionResponse);
+        return res.redirect(
+          `${failed_redirect_url}?message=Transaction Failed&amount=${requestPaymentAmt}&transaction_id=${payment_transaction_id}&date=${transaction_date_frontend}`
+        );
+      }
+    } else {
+      // Handle failed payment case
+      await global
+        .knexConnection("ms_payment_booking_detail")
+        .where({ reservation_id })
+        .update({
+          recheck_payment: "N",
+          payment_capture: JSON.stringify({
+            ...body,
+            queryData: req.query,
+          }),
+        });
+
+      return res.redirect(
+        `${failed_redirect_url}?message=${paymentMessage}&amount=${requestPaymentAmt}&transaction_id=${payment_transaction_id}&date=${transaction_date_frontend}`
+      );
+    }
+  } catch (error) {
+    console.error("Error during payment confirmation:", error);
+    await global
+      .knexConnection("ms_payment_booking_detail")
+      .where({ reservation_id })
+      .update({
+        payment_capture: JSON.stringify(req.query),
+      });
+
+    return res.redirect(
+      `${failed_redirect_url}?message=${paymentMessage}&amount=${requestPaymentAmt}&transaction_id=${payment_transaction_id}&date=${transaction_date_frontend}`
+    );
+  }
+}
+
+async function createPassTransation(req, res) {
+  let reqbody = { ...req.body, ...req.params };
+  const isWebsiteUser = req["is_website_user"] || false;
+  const { reservation_id } = reqbody;
+
+  // Validate the reservation_id
+  let checkFields = ["reservation_id"];
+  let result = await checkValidation(checkFields, reqbody);
+  if (!result.status) {
+    return res.status(400).send(result); // Invalid input
+  }
+
+  let getReservationDetail;
+  try {
+    getReservationDetail = await global
+      .knexConnection("ms_pass_reservation")
+      .where({
+        p_reservation_id: reservation_id,
+        p_is_reserved: "Y",
+      });
+  } catch (error) {
+    console.error("Error fetching reservation details:", error);
+    return res.status(500).send({
+      status: false,
+      message: "Error fetching reservation details.",
+    });
+  }
+
+  if (!getReservationDetail.length) {
+    return res.status(404).send({
+      status: false,
+      message: "Reservation not found or already booked.",
+    });
+  }
+
+  let getPaymentDetail = [];
+
+  // Check for website user payment details
+  if (isWebsiteUser) {
+    try {
+      getPaymentDetail = await global
+        .knexConnection("ms_payment_booking_detail")
+        .select(
+          "c_name",
+          "email",
+          "phone_number",
+          "country_code",
+          "is_booked",
+          "is_guest",
+          "customer_id",
+          "payment_mode_name",
+          "success_frontend_url",
+          "failed_frontend_url",
+          "payment_transaction_id"
+        )
+        .leftJoin(
+          "ms_payment_mode",
+          "ms_payment_mode.pm_id",
+          "ms_payment_booking_detail.pm_id"
+        )
+        .where({
+          reservation_id,
+          is_paid: "Y",
+        });
+    } catch (error) {
+      console.error("Error fetching payment details:", error);
+      return res.status(500).send({
+        status: false,
+        message: "Error fetching payment details.",
+      });
+    }
+
+    if (!getPaymentDetail.length) {
+      return res.status(400).send({
+        status: false,
+        message: "Payment not completed from the website.",
+      });
+    }
+  }
+
+  let currentDateTimeNew = currentDateTime(
+    null,
+    "YYYY-MM-DD HH:mm:ss",
+    "Asia/Bahrain"
+  );
+
+  let getPassDetail;
+  try {
+    getPassDetail = await global
+      .knexConnection("movie_event_pass")
+      .select("movie_event_pass.*", "ms_currencies.curr_code")
+      .leftJoin(
+        "ms_currencies",
+        "ms_currencies.curr_id",
+        "movie_event_pass.pass_currency_id"
+      )
+      .where({
+        "movie_event_pass.pass_id": getReservationDetail[0].pass_id,
+        "movie_event_pass.pass_is_active": "Y",
+      });
+  } catch (error) {
+    console.error("Error fetching pass details:", error);
+    return res.status(500).send({
+      status: false,
+      message: "Error fetching pass details.",
+    });
+  }
+
+  let event_data = getPassDetail[0];
+  getPaymentDetail[0].success_frontend_url;
+
+  let insertObj = {
+    pass_id: getReservationDetail[0].pass_id,
+    pass_name: event_data.pass_name,
+    pass_price: parseFloat(getReservationDetail[0].pass_price),
+    pass_tax_percent: parseFloat(getReservationDetail[0].pass_tax_percent),
+    pass_tax_value: parseFloat(getReservationDetail[0].pass_tax_value),
+    pass_total_price: parseFloat(getReservationDetail[0].pass_total_price),
+    pass_discount_percent: parseFloat(event_data.pass_discount_value),
+    pass_valid_days: parseFloat(event_data.pass_valid_days),
+    c_email:
+      getPaymentDetail[0] && getPaymentDetail[0].email
+        ? getPaymentDetail[0].email
+        : null,
+    c_name:
+      getPaymentDetail[0] && getPaymentDetail[0].c_name
+        ? getPaymentDetail[0].c_name
+        : null,
+    c_country_code:
+      getPaymentDetail[0] && getPaymentDetail[0].country_code
+        ? getPaymentDetail[0].country_code
+        : null,
+    is_guest:
+      getPaymentDetail[0] && getPaymentDetail[0].is_guest
+        ? getPaymentDetail[0].is_guest
+        : null,
+    customer_id:
+      getPaymentDetail[0] && getPaymentDetail[0].customer_id
+        ? getPaymentDetail[0].customer_id
+        : 0,
+    c_phone_number:
+      getPaymentDetail[0] && getPaymentDetail[0].phone_number
+        ? getPaymentDetail[0].phone_number
+        : null,
+    currency: event_data.curr_code || null,
+    payment_mode_id:
+      getPaymentDetail[0] && getPaymentDetail[0].pm_id
+        ? getPaymentDetail[0].pm_id
+        : null,
+    payment_mode:
+      getPaymentDetail[0] && getPaymentDetail[0].payment_mode_name
+        ? getPaymentDetail[0].payment_mode_name
+        : null,
+    booking_type_name: isWebsiteUser ? "Website" : "Box Office",
+    booking_date_time: currentDateTimeNew,
+    reservation_id,
+    payment_transaction_id: getPaymentDetail[0].payment_transaction_id,
+  };
+
+  // Check if the booking already exists
+  let checkExistingBooking;
+  try {
+    checkExistingBooking = await global.knexConnection("pass_booking").where({
+      reservation_id,
+    });
+  } catch (error) {
+    console.error("Error checking existing bookings:", error);
+    return res.status(500).send({
+      status: false,
+      message: "Error checking existing bookings.",
+    });
+  }
+
+  if (checkExistingBooking.length) {
+    return res.status(400).send({
+      status: false,
+      message: "Transaction already initiated for this reservation.",
+    });
+  }
+
+  let insertBookingId;
+  try {
+    insertBookingId = await global
+      .knexConnection("pass_booking")
+      .insert(insertObj);
+  } catch (error) {
+    console.error("Error inserting booking:", error);
+    return res.status(500).send({
+      status: false,
+      message: "Error creating booking.",
+    });
+  }
+
+  let booking_code = "PASS";
+  let prefix_array = ["00000", "0000", "000", "00", "0"];
+  let string_length = String(insertBookingId[0]).length - 1;
+  let booking_number_new = prefix_array[string_length]
+    ? `${prefix_array[string_length]}${insertBookingId[0]}`
+    : insertBookingId[0];
+  booking_code += booking_number_new;
+
+  // Update reservation and payment status
+  try {
+    await global
+      .knexConnection("ms_pass_reservation")
+      .where({ p_reservation_id: reservation_id })
+      .update({
+        p_is_booked: "Y",
+      });
+
+    await global
+      .knexConnection("ms_payment_booking_detail")
+      .where({ reservation_id })
+      .update({
+        is_booked: "Y",
+      });
+  } catch (error) {
+    console.error("Error updating reservation and payment status:", error);
+    return res.status(500).send({
+      status: false,
+      message: "Error updating reservation and payment status.",
+    });
+  }
+
+  return res.send({
+    status: true,
+    message: "Transaction created successfully.",
+    booking_code,
+  });
+}
+
+const router$1 = Router();
+
+function PaymentAndBookingRoutes() {
+  // TapPay Routes
   router$1.post(
     "/tapPaymentCheckout",
     checkWebsiteSessionExist,
     tapPaymentCheckout
   );
+  router$1.get("/confirmTapPayment", confirmTapPayment);
+
+  // Payone Routes
   router$1.post(
     "/payonePaymentCheckout",
     checkWebsiteSessionExist,
     payonePaymentCheckout
   );
+  router$1.post("/confirmPayonePayment", confirmPayonePayment);
   router$1.post(
     "/payonePassPaymentCheckout",
     checkWebsiteSessionExist,
     payonePassPaymentCheckout
   );
-  router$1.post("/confirmPayonePayment", confirmPayonePayment);
   router$1.post("/confirmPassPayonePayment", confirmPassPayonePayment);
+
+  // Other Payment Linked Routes
   router$1.post(
     "/createTransation/:reservation_id",
     checkWebsiteSessionExist,
@@ -9960,58 +10007,40 @@ function WebsiteRoutes() {
     checkWebsiteSessionExist,
     createPassTransation
   );
-  router$1.post("/reserveSeats", checkWebsiteSessionExist, addReservationSeat);
-  router$1.post(
-    "/reserveSeatsIo",
-    checkWebsiteSessionExist,
-    addReservationSeatsIo
-  );
-  router$1.post(
-    "/reserveSeats-no-sl",
-    checkWebsiteSessionExist,
-    addReservationSeatWithoutSeatlayout
-  );
-  router$1.post("/guestCheckout", checkWebsiteSessionExist, addEditGuest);
-  router$1.post("/customerSubscribe", checkWebsiteSessionExist, addSubscriber);
-  router$1.post(
-    "/applyVoucher/:reservation_id",
-    checkWebsiteSessionExist,
-    applyVoucher
-  );
-  router$1.post(
-    "/removeVoucher/:reservation_id",
-    checkWebsiteSessionExist,
-    removeVoucher
-  );
-  router$1.post(
-    "/removePass/:reservation_id",
-    checkWebsiteSessionExist,
-    removePass
-  );
-  router$1.post(
-    "/applyPass/:reservation_id",
-    checkWebsiteSessionExist,
-    applyPass
-  );
 
   return router$1;
 }
 
+// Define all admin routes in an array
+const adminRoutes = [
+  UserRoutes,
+  CustomerRoutes,
+  GuestRoutes,
+  MasterRoutes,
+  CinemaRoutes,
+  EventRoutes,
+  ReportRoutes,
+  PassRoutes,
+];
 const router = Router();
 
 function RootRouter() {
   // load all the routes of the modules here
 
   router.use("/", LoginRoutes());
-  router.use("/admin", UserRoutes());
-  router.use("/admin", CustomerRoutes());
-  router.use("/admin", GuestRoutes());
-  router.use("/admin", MasterRoutes());
-  router.use("/admin", CinemaRoutes());
-  router.use("/admin", EventRoutes());
-  router.use("/admin", ReportRoutes());
-  router.use("/admin", PassRoutes());
+
+  // Register all admin routes
+  adminRoutes.forEach((route) => {
+    router.use("/admin", route());
+  });
+
+  // Register all website routes
   router.use("/api", WebsiteRoutes());
+
+  // Register all payments routes
+  router.use("/payment", PaymentAndBookingRoutes());
+
+  //Register all scanner app routes
   router.use("/scanner", ScannerRoutes());
 
   return router;
@@ -10033,68 +10062,6 @@ app.use(
     maxAge: "7d",
   })
 );
-
-dotenv.config();
-const KnexConfig = {
-  development: {
-    client: "mysql2",
-    connection: {
-      host: process.env.DB_HOST,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-      port: process.env.DB_PORT,
-    },
-    migrations: {
-      tableName: "knex_migrations",
-      directory: "./src/knex/migrations",
-      extension: "js",
-      loadExtensions: [".js", ".ts"],
-    },
-    pool: {
-      min: 0,
-      max: 100,
-    },
-  },
-
-  production: {
-    client: "mysql2",
-    connection: {
-      host: process.env.DB_HOST,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-      port: process.env.DB_PORT,
-    },
-    migrations: {
-      tableName: "knex_migrations",
-      directory: "./src/knex/migrations",
-      extension: "js",
-      loadExtensions: [".js", ".ts"],
-    },
-    pool: {
-      min: 0,
-      max: 100,
-    },
-  },
-};
-
-const ENVIRONMENT = process.env.ENVIRONMENT;
-
-async function KnexConnection() {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const [result] = await knex(KnexConfig[ENVIRONMENT]).raw(
-        "SELECT 1 + 1 AS sum"
-      );
-      console.log("database connection with knex successful=>", result);
-      resolve(knex(KnexConfig[ENVIRONMENT]));
-    } catch (error) {
-      console.log("database connection with knex failed=>", error);
-      reject("database connection with knex failed");
-    }
-  });
-}
 
 const EXPRESS_PORT = process.env.EXPRESS_PORT || 3000;
 
