@@ -1,6 +1,6 @@
 async function up(knex) {
-  await knex.raw(`DROP TABLE IF EXISTS ms_time_zones;
-  CREATE TABLE ms_time_zones (
+  await knex.raw(`DROP TABLE IF EXISTS ms_time_zones`);
+  await knex.raw(`CREATE TABLE ms_time_zones (
   tz_id int NOT NULL AUTO_INCREMENT,
   tz_name varchar(255) DEFAULT NULL,
   tz_utc_offset varchar(45) DEFAULT NULL,
