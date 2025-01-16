@@ -10265,6 +10265,102 @@ async function mpgsPaymentCheckout(req, res) {
   }
 }
 
+async function confirmMpgsPayment(req, res) {
+  try {
+    const { reservation_id, event_token, resultIndicator } = req.query;
+
+    const detailPayment = await global
+      .knexConnection("ms_payment_booking_detail")
+      .where({ reservation_id });
+    const reservation_detail = await global
+      .knexConnection("ms_reservation")
+      .select("ms_reservation.*", "ms_event.org_id", "ms_event.event_is_active")
+      .leftJoin("ms_event", "ms_event.event_id", "ms_reservation.event_id")
+      .where({ reservation_id, event_is_active: "Y" });
+
+    if (!detailPayment.length && !reservation_detail.length) {
+      return res.send({ status: false, message: "Detail Not Found" });
+    }
+
+    const { success_frontend_url, failed_frontend_url } = detailPayment[0];
+    const success_redirect_url = success_frontend_url;
+    const failed_redirect_url = failed_frontend_url;
+
+    // @ts-ignore
+
+    const payment_credential = await PaymentCredentialFunction({
+      org_id: reservation_detail[0].org_id,
+      setting_key: "mpgs_network_payment",
+    });
+
+    if (payment_credential.false) {
+      return res.send({
+        status: false,
+        message: "Invalid Payment Mode",
+      });
+    }
+    let getSuccessIndicator = JSON.parse(detailPayment[0].payment_request);
+    const successIndicator =
+      getSuccessIndicator.sessionResponse.successIndicator;
+
+    if (
+      successIndicator &&
+      resultIndicator &&
+      successIndicator == resultIndicator
+    ) {
+      await global
+        .knexConnection("ms_payment_booking_detail")
+        .where({ reservation_id })
+        .update({
+          is_paid: "Y",
+          payment_capture: JSON.stringify(req.query),
+        });
+
+      let BASEURL = ``;
+      const [BACKEND_URL] = await global
+        .knexConnection("global_options")
+        .where({
+          go_key: "BASE_URL_BACKEND",
+        });
+
+      BASEURL = BACKEND_URL.go_value;
+
+      const config = {
+        method: "post",
+        url: `${BASEURL}/payment/createTransation/${reservation_id}`,
+        headers: {
+          Authorization: event_token,
+        },
+      };
+      const transactionResponse = await axios$1(config);
+
+      if (
+        transactionResponse &&
+        transactionResponse.data &&
+        transactionResponse.data.status
+      ) {
+        return res.redirect(
+          `${success_redirect_url}/${transactionResponse.data.booking_code}`
+        );
+      } else {
+        return res.redirect(`${failed_redirect_url}`);
+      }
+    } else {
+      await global
+        .knexConnection("ms_payment_booking_detail")
+        .where({ reservation_id })
+        .update({
+          payment_capture: JSON.stringify({
+            queryData: req.query,
+          }),
+        });
+      return res.redirect(`${failed_redirect_url}`);
+    }
+  } catch (error) {
+    console.log("error in confirmMpgsPayment=>", error);
+  }
+}
+
 const router$1 = Router();
 
 function PaymentAndBookingRoutes() {
@@ -10297,6 +10393,7 @@ function PaymentAndBookingRoutes() {
     checkWebsiteSessionExist,
     mpgsPaymentCheckout
   );
+  router$1.get("/confirmMpgsPayment", confirmMpgsPayment);
 
   // Other Payment Linked Routes
   router$1.post(
