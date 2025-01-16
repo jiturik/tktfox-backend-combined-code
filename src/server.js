@@ -4918,6 +4918,11 @@ const createInvoicePdf = async (emailData) => {
   });
 };
 
+var CreateInvSendTicketEmail$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  CreateInvSendTicketEmail: CreateInvSendTicketEmail
+});
+
 async function getTransactionList(req, res) {
   try {
     // Combine request data
@@ -6872,6 +6877,7 @@ const getReservationSeat = async (req, res) => {
         builder
           .where({ setting_key: "tap_pay_payment" })
           .orWhere({ setting_key: "payone_payment" })
+          .orWhere({ setting_key: "mpgs_network_payment" })
       );
 
     // Wait for all promises to resolve
@@ -9971,6 +9977,294 @@ async function createPassTransation(req, res) {
   });
 }
 
+async function mpgsPaymentCheckout(req, res) {
+  try {
+    let BASEURL = ``;
+    // @ts-ignore
+    let reqbody = req.body;
+    const { user_info } = req;
+    const {
+      reservation_id,
+      customer_name,
+      customer_id,
+      customer_email,
+      customer_mobile,
+      country_code,
+      is_guest,
+      success_frontend_url,
+      failed_frontend_url,
+    } = reqbody;
+    let checkFields = [
+      "reservation_id",
+      "customer_email",
+      "customer_mobile",
+      "is_guest",
+      "success_frontend_url",
+      "failed_frontend_url",
+    ];
+    let result = await checkValidation(checkFields, reqbody);
+    if (!result.status) {
+      return res.send(result);
+    }
+
+    const paymentDetailC = await global
+      .knexConnection("ms_payment_booking_detail")
+      .where({
+        reservation_id,
+      });
+
+    if (paymentDetailC.length) {
+      return res.send({
+        status: false,
+        message: "Payment Already Initiated with reservation id",
+      });
+    }
+
+    const checkReservation = await global
+      .knexConnection("ms_reservation")
+      .where({
+        is_reserved: "Y",
+        reservation_id,
+      });
+
+    if (checkReservation.length == 0) {
+      return res.send({
+        status: false,
+        message: "Seat Already Reserved or Booked",
+      });
+    }
+
+    const event_data_all = await EVENT_DATA({
+      event_id: checkReservation[0].event_id,
+      event_sch_id: checkReservation[0].event_sch_id,
+    });
+
+    let event_data = event_data_all.Records;
+
+    const [BACKEND_URL] = await global.knexConnection("global_options").where({
+      go_key: "BASE_URL_BACKEND",
+    });
+    let webtoken = req.header("authorization");
+
+    BASEURL = BACKEND_URL.go_value;
+    const redirectUrl = `${BASEURL}/api/confirmMpgsPayment?reservation_id=${reservation_id}&event_token=${webtoken}`;
+
+    // @ts-ignore
+    if (!event_data[0].org_id) {
+      return res.send({
+        status: false,
+        message: "Invalid organization",
+      });
+    }
+
+    const payment_credential = await PaymentCredentialFunction({
+      org_id: event_data[0].org_id,
+      setting_key: "mpgs_network_payment",
+    });
+
+    if (payment_credential.false) {
+      return res.send({
+        status: false,
+        message: "Invalid Payment Mode",
+      });
+    }
+
+    const { MERCHANT_ID, URL, API_USER_NAME, API_PASSWORD } =
+      payment_credential.data;
+
+    if (!MERCHANT_ID || !URL || !API_USER_NAME || !API_PASSWORD) {
+      return res.send({
+        status: false,
+        message: "Missing Payment Data",
+        data: payment_credential.data,
+      });
+    }
+    let paymentCurrency =
+      event_data && event_data[0] ? event_data[0].curr_code : "";
+    const getPaymentCurrencyData = await global
+      .knexConnection("ms_currencies")
+      .select("curr_code", "curr_id", "curr_name")
+      .where({ curr_id: event_data[0].pay_currency_id, curr_is_active: "Y" });
+
+    if (!getPaymentCurrencyData.length) {
+      return res.send({
+        status: false,
+        message: "Add Payment Currency in cinema",
+        data: [],
+      });
+    }
+
+    paymentCurrency = getPaymentCurrencyData[0].curr_code;
+
+    let totalAmount = 0;
+    checkReservation.map((z) => {
+      if (event_data[0].event_seating_type == "N") {
+        totalAmount +=
+          parseFloat(z.seat_price) *
+          (z.no_of_seats ? parseFloat(z.no_of_seats) : 1);
+      } else {
+        totalAmount += parseFloat(z.seat_price);
+      }
+    });
+
+    const getDiscountData = await global
+      .knexConnection("ms_reserve_vouchers")
+      .where({ reservation_id: reservation_id, rv_is_active: "Y" });
+
+    if (getDiscountData.length) {
+      let discountValue =
+        (parseFloat(getDiscountData[0].voucher_discount_percent) / 100) *
+        totalAmount;
+      totalAmount = totalAmount - discountValue;
+    }
+
+    totalAmount =
+      totalAmount *
+      (event_data[0].exchange_rate
+        ? parseFloat(event_data[0].exchange_rate)
+        : 1);
+
+    if (totalAmount <= 0) {
+      const skipBookingData = await skipPaymentGateway({
+        reservation_id,
+        event_data,
+        is_guest,
+        customer_id,
+        success_frontend_url,
+        failed_frontend_url,
+        customer_name,
+        customer_email,
+        customer_mobile,
+        country_code,
+        webtoken,
+      });
+
+      if (skipBookingData.status) {
+        return res.send({
+          status: true,
+          data: `${skipBookingData.redirectTo}`,
+        });
+      } else {
+        return res.send({
+          status: true,
+          data: `${failed_frontend_url}`,
+        });
+      }
+    }
+
+    let mpgsObj = {
+      apiOperation: "INITIATE_CHECKOUT",
+      interaction: {
+        operation: "AUTHORIZE",
+        merchant: {
+          name: API_USER_NAME, // Add the merchant user name here
+        },
+        returnUrl: redirectUrl,
+        cancelUrl: failed_frontend_url,
+        timeoutUrl: failed_frontend_url, // Return after timeout
+      },
+      order: {
+        currency: paymentCurrency,
+        amount: totalAmount.toFixed(2),
+        id: reservation_id,
+        description: "Ticket",
+      },
+    };
+
+    const auth = Buffer.from(`${API_USER_NAME}:${API_PASSWORD}`).toString(
+      "base64"
+    );
+
+    const response = await axios$1.post(URL, mpgsObj, {
+      headers: {
+        Authorization: `Basic ${auth}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (
+      response &&
+      response.data &&
+      response.data.result &&
+      response.data.result.toLowerCase() == "success"
+    ) {
+      const sessionId = response.data.session.id;
+      mpgsObj["sessionResponse"] = response.data;
+      if (sessionId) {
+        let currentDateTimeNew = currentDateTime(
+          null,
+          "YYYY-MM-DD HH:mm:ss",
+          event_data[0].tz_name
+        );
+
+        let checkGuest = is_guest;
+        let checkCustomerId = customer_id;
+
+        if (is_guest == "N" && customer_id) {
+          let getLoggedUser = await global
+            .knexConnection("ms_customers")
+            .select("customer_id")
+            .where({
+              customer_id,
+              customer_is_active: "Y",
+            });
+          if (!getLoggedUser.length) {
+            checkGuest = "Y";
+            checkCustomerId = 0;
+          } else {
+            checkGuest = "N";
+            checkCustomerId = getLoggedUser[0].customer_id;
+          }
+        } else {
+          checkGuest = "Y";
+          checkCustomerId = 0;
+        }
+        let insertPaymentDetail = {
+          reservation_id,
+          success_frontend_url,
+          failed_frontend_url,
+          c_name: customer_name,
+          email: customer_email,
+          phone_number: customer_mobile,
+          country_code: country_code,
+          is_guest: checkGuest,
+          customer_id: checkCustomerId,
+          created_at: currentDateTimeNew,
+          pm_id: 1,
+          payment_request: JSON.stringify(mpgsObj),
+        };
+
+        await global
+          .knexConnection("ms_payment_booking_detail")
+          .insert(insertPaymentDetail);
+
+        return res.send({
+          message: "MPGS Session created",
+          status: true,
+          payment_mode: "mpgs",
+          data: sessionId,
+        });
+      } else {
+        return res.send({
+          message: "MPGS Error",
+          status: false,
+        });
+      }
+    } else {
+      return res.send({
+        message: "MPGS Error",
+        status: false,
+      });
+    }
+  } catch (error) {
+    console.log(error, "mpgs error");
+    return res.send({
+      status: false,
+      message: "Something went wrong",
+    });
+  }
+}
+
 const router$1 = Router();
 
 function PaymentAndBookingRoutes() {
@@ -9995,6 +10289,14 @@ function PaymentAndBookingRoutes() {
     payonePassPaymentCheckout
   );
   router$1.post("/confirmPassPayonePayment", confirmPassPayonePayment);
+
+  //MPgs or network payment
+
+  router$1.post(
+    "/mpgsPaymentCheckout",
+    checkWebsiteSessionExist,
+    mpgsPaymentCheckout
+  );
 
   // Other Payment Linked Routes
   router$1.post(
@@ -10093,7 +10395,7 @@ Promise.all([
     global.globalOptions = globalOptionsMap;
 
     //cron scripts
-    import('./index-C08pTiYk.js');
+    import('./index-BsFhdWrq.js');
 
     //start server
     httpServer.listen(EXPRESS_PORT, () => {
@@ -10103,3 +10405,5 @@ Promise.all([
   .catch((error) => {
     console.log(`error in connecting database or redis=>`, error);
   });
+
+export { CreateInvSendTicketEmail$1 as C };
