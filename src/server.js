@@ -4691,18 +4691,6 @@ function PassRoutes() {
   return router$5;
 }
 
-const defaultOpts = {
-  errorCorrectionLevel: "H",
-  type: "image/jpeg",
-  quality: 0.3,
-  margin: 1,
-  width: 100, // should be a number
-  color: {
-    dark: "#000000",
-    light: "#FFFFFF",
-  },
-};
-
 async function createQRCode(
   qrcode_data,
   returnType = "buffer",
@@ -4712,20 +4700,8 @@ async function createQRCode(
     if (!qrcode_data) {
       throw new Error("QR code data is required.");
     }
-
-    const options = logo === "fnb" ? defaultOpts : defaultOpts;
-    const qrcode = await QRCode.toDataURL(qrcode_data, options);
-
-    switch (returnType) {
-      case "buffer":
-        return Buffer.from(qrcode.split(",")[1], "base64");
-      case "url":
-        return qrcode;
-      default:
-        throw new Error(
-          `Invalid returnType "${returnType}". Use "buffer" or "url".`
-        );
-    }
+    const qrcode = await QRCode.toDataURL(qrcode_data, opts);
+    return qrcode;
   } catch (error) {
     console.error("Error creating QR code:", error.message);
     throw new Error(
