@@ -4777,7 +4777,7 @@ const CreateInvSendTicketEmail = async (reqbody) => {
 
       // Generate QR code
       const qrUrl = `${booking.success_frontend_url}/${booking.booking_code}`;
-      const qrcodeData = await createQRCode(qrUrl, "buf");
+      const qrcodeData = await createQRCode(qrUrl, "buffer");
 
       // Prepare email data
       const emailData = {
