@@ -10047,7 +10047,7 @@ async function mpgsPaymentCheckout(req, res) {
     let webtoken = req.header("authorization");
 
     BASEURL = BACKEND_URL.go_value;
-    const redirectUrl = `${BASEURL}/api/confirmMpgsPayment?reservation_id=${reservation_id}&event_token=${webtoken}`;
+    const redirectUrl = `${BASEURL}/payment/confirmMpgsPayment?reservation_id=${reservation_id}&event_token=${webtoken}`;
 
     // @ts-ignore
     if (!event_data[0].org_id) {
