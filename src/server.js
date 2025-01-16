@@ -4703,23 +4703,34 @@ var opts = {
   },
 };
 
-async function createQRCode(
-  qrcode_data,
-  returnType = "buffer",
-  logo = null
-) {
-  try {
-    if (!qrcode_data) {
-      throw new Error("QR code data is required.");
+function createQRCode(qrcode_data, returnType = "buffer", logo = null) {
+  return new Promise((resolve, reject) => {
+    try {
+      if (!qrcode_data) {
+        throw new Error("QR code data is required.");
+      }
+
+      QRCode.toDataURL(qrcode_data, opts)
+        .then((qrcode) => {
+          resolve(qrcode);
+        })
+        .catch((error) => {
+          console.error("Error creating QR code:", error.message);
+          reject(
+            new Error(
+              "Failed to create QR code. Please check your input and try again."
+            )
+          );
+        });
+    } catch (error) {
+      console.error("Error creating QR code:", error.message);
+      reject(
+        new Error(
+          "Failed to create QR code. Please check your input and try again."
+        )
+      );
     }
-    const qrcode = await QRCode.toDataURL(qrcode_data, opts);
-    return qrcode;
-  } catch (error) {
-    console.error("Error creating QR code:", error.message);
-    throw new Error(
-      "Failed to create QR code. Please check your input and try again."
-    );
-  }
+  });
 }
 
 const CreateInvSendTicketEmail = async (reqbody) => {
@@ -4758,62 +4769,79 @@ const CreateInvSendTicketEmail = async (reqbody) => {
     }
 
     for (const booking of bookingList) {
-      await global
-        .knexConnection("ms_booking")
-        .where({ booking_id: booking.booking_id })
-        .update({ ticket_sent: "Y" });
-
-      // Generate QR code
-      const qrUrl = `${booking.success_frontend_url}/${booking.booking_code}`;
-      const qrcodeData = await createQRCode(qrUrl, "buffer");
-
-      // Prepare email data
-      const emailData = {
-        booking_id: booking.booking_id,
-        booking_code: booking.booking_code,
-        booking_date_time: moment$1(booking.booking_date_time).format(
-          "DD/MM/YYYY hh:mm:ss"
-        ),
-        event_name: booking.event_name,
-        event_tnc: booking.event_tnc,
-        customer_email: resendCustomerEmail || booking.c_email,
-        c_name: booking.c_name,
-        c_phone_number: `${booking.c_country_code}${booking.c_phone_number}`,
-        cinema_name: booking.cinema_name,
-        city_name: booking.city_name,
-        country_name: booking.country_name,
-        event_date_time: `${moment$1(booking.event_date).format("DD/MM/YYYY")} ${
-          booking.event_time
-        }`,
-        event_date_body: moment$1(booking.event_date).format("DD/MM/YYYY"),
-        event_time_body: booking.event_time,
-        seats: booking.seat_names,
-        totalPrice: booking.total_price,
-        currency: booking.currency,
-        qrcode_data: qrcodeData,
-        event_seating_type: booking.event_seating_type,
-        attachments: [],
-      };
-
-      // Create invoice and ticket PDFs
-      const createInvResponse = await createInvoicePdf(emailData);
-      if (createInvResponse.status) {
-        // Attach PDFs to the email
-        for (const file of createInvResponse.data) {
-          const fileData = fs.readFileSync(file.filename);
-          emailData.attachments.push({
-            filename: file.name,
-            content: fileData,
-            cid: "",
-          });
-        }
-        // Send email
-        await sendTicketEmail(emailData);
-      } else {
+      try {
         await global
           .knexConnection("ms_booking")
           .where({ booking_id: booking.booking_id })
-          .update({ ticket_sent: "N" });
+          .update({ ticket_sent: "Y" });
+
+        // Generate QR code
+        const qrUrl = `${booking.success_frontend_url}/${booking.booking_code}`;
+        const qrcodeData = await createQRCode(qrUrl, "buffer")
+          .then((qrcode) => {
+            console.log("QR Code generated:", booking.booking_code);
+          })
+          .catch((error) => {
+            console.error("error in qr generation", error.message);
+          });
+
+        // Prepare email data
+        const emailData = {
+          booking_id: booking.booking_id,
+          booking_code: booking.booking_code,
+          booking_date_time: moment$1(booking.booking_date_time).format(
+            "DD/MM/YYYY hh:mm:ss"
+          ),
+          event_name: booking.event_name,
+          event_tnc: booking.event_tnc,
+          customer_email: resendCustomerEmail || booking.c_email,
+          c_name: booking.c_name,
+          c_phone_number: `${booking.c_country_code}${booking.c_phone_number}`,
+          cinema_name: booking.cinema_name,
+          city_name: booking.city_name,
+          country_name: booking.country_name,
+          event_date_time: `${moment$1(booking.event_date).format(
+            "DD/MM/YYYY"
+          )} ${booking.event_time}`,
+          event_date_body: moment$1(booking.event_date).format("DD/MM/YYYY"),
+          event_time_body: booking.event_time,
+          seats: booking.seat_names,
+          totalPrice: booking.total_price,
+          currency: booking.currency,
+          qrcode_data: qrcodeData,
+          event_seating_type: booking.event_seating_type,
+          attachments: [],
+        };
+
+        // Create invoice and ticket PDFs
+        const createInvResponse = await createInvoicePdf(emailData);
+        if (createInvResponse.status) {
+          // Attach PDFs to the email
+          for (const file of createInvResponse.data) {
+            const fileData = fs.readFileSync(file.filename);
+            emailData.attachments.push({
+              filename: file.name,
+              content: fileData,
+              cid: "",
+            });
+          }
+          // Send email
+          await sendTicketEmail(emailData);
+        } else {
+          await global
+            .knexConnection("ms_booking")
+            .where({ booking_id: booking.booking_id })
+            .update({ ticket_sent: "N" });
+        }
+      } catch (error) {
+        console.error(
+          "Error processing booking:",
+          booking.booking_code,
+          "==",
+          error
+        );
+        // Continue to the next iteration if an error occurs
+        continue;
       }
     }
   } catch (error) {
