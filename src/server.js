@@ -4691,6 +4691,18 @@ function PassRoutes() {
   return router$5;
 }
 
+var opts = {
+  errorCorrectionLevel: "H",
+  type: "image/jpeg",
+  quality: 0.3,
+  margin: 1,
+  width: "100",
+  color: {
+    dark: "#000000",
+    light: "#FFFFFF",
+  },
+};
+
 async function createQRCode(
   qrcode_data,
   returnType = "buffer",
