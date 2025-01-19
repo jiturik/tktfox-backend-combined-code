@@ -5613,8 +5613,9 @@ async function getEventHomeDataById(req, res) {
       .knexConnection("ms_booking")
       .count("event_id as event_voucher_total_trans")
       .where("ms_booking.event_id", event_id)
-      .havingNotNull("ms_booking.voucher_code")
-      .whereRaw("ms_booking.voucher_code !=''");
+      .whereRaw(
+        "ms_booking.voucher_code !='' AND ms_booking.voucher_code IS NOT NULL"
+      );
 
     let EventTotalSeatsBookedCount = 0;
 
@@ -7444,7 +7445,7 @@ async function applyVoucher(req, res) {
         voucher_discount_percent:
           parseFloat(getVoucher[0].voucher_discount_value) || 0,
         voucher_discount_amount:
-          (parseFloat(getVoucher[0].voucher_discount_percent || 0) / 100) *
+          (parseFloat(getVoucher[0].voucher_discount_value || 0) / 100) *
           parseFloat(item.seat_price),
       };
       await global
@@ -8697,7 +8698,7 @@ const skipPaymentGateway = async (reqbody) => {
     reservation_id,
     event_data,
     is_guest,
-    customer_id,
+    logged_in_customer_id,
     success_frontend_url,
     failed_frontend_url,
     customer_name,
@@ -8725,7 +8726,6 @@ const skipPaymentGateway = async (reqbody) => {
 
   // Check if the customer exists in the database
   let checkGuest = is_guest;
-  let logged_in_customer_id = req["logged_in_customer_id"] || null;
 
   try {
     if (!logged_in_customer_id) {
@@ -8817,6 +8817,7 @@ async function tapPaymentCheckout(req, res) {
     success_frontend_url,
     failed_frontend_url,
   } = req.body;
+  let logged_in_customer_id = req["logged_in_customer_id"] || null;
 
   try {
     // Validate required fields
@@ -8956,7 +8957,7 @@ async function tapPaymentCheckout(req, res) {
         reservation_id,
         event_data,
         is_guest,
-        customer_id,
+        logged_in_customer_id,
         success_frontend_url,
         failed_frontend_url,
         customer_name,
@@ -9022,7 +9023,6 @@ async function tapPaymentCheckout(req, res) {
       event_data[0].tz_name
     );
     let checkGuest = is_guest;
-    let logged_in_customer_id = req["logged_in_customer_id"] || null;
 
     if (!logged_in_customer_id) {
       checkGuest = "Y";
@@ -9183,6 +9183,7 @@ async function payonePaymentCheckout(req, res) {
     success_frontend_url,
     failed_frontend_url,
   } = req.body;
+  let logged_in_customer_id = req["logged_in_customer_id"] || null;
   const webtoken = req.header("authorization");
 
   // Check for required fields
@@ -9291,7 +9292,7 @@ async function payonePaymentCheckout(req, res) {
         reservation_id,
         event_data,
         is_guest,
-        customer_id,
+        logged_in_customer_id,
         success_frontend_url,
         failed_frontend_url,
         customer_name,
@@ -9368,7 +9369,6 @@ async function payonePaymentCheckout(req, res) {
       event_data[0].tz_name
     );
     let checkGuest = is_guest;
-    let logged_in_customer_id = req["logged_in_customer_id"] || null;
 
     if (!logged_in_customer_id) {
       checkGuest = "Y";
@@ -10166,6 +10166,7 @@ async function mpgsPaymentCheckout(req, res) {
     // @ts-ignore
     let reqbody = req.body;
     const { user_info } = req;
+    let logged_in_customer_id = req["logged_in_customer_id"] || null;
     const {
       reservation_id,
       customer_name,
@@ -10312,7 +10313,7 @@ async function mpgsPaymentCheckout(req, res) {
         reservation_id,
         event_data,
         is_guest,
-        customer_id,
+        logged_in_customer_id,
         success_frontend_url,
         failed_frontend_url,
         customer_name,
@@ -10381,7 +10382,6 @@ async function mpgsPaymentCheckout(req, res) {
         );
 
         let checkGuest = is_guest;
-        let logged_in_customer_id = req["logged_in_customer_id"] || null;
 
         if (!logged_in_customer_id) {
           checkGuest = "Y";
