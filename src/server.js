@@ -8785,7 +8785,10 @@ async function createTransation(req, res) {
     let seatNames = [];
     let totalSeats = 0;
     let totalAmount = 0;
-    let singleTicketPrice = 0;
+    let totalBeforeDiscount = 0;
+    let voucher_code = "";
+    let discountValue = 0;
+    let discountPercent = "";
 
     getReservationDetail.forEach((z) => {
       if (event_data.event_seating_type === "N") {
@@ -8799,19 +8802,27 @@ async function createTransation(req, res) {
         totalAmount += parseFloat(z.seat_price);
       }
 
+      totalAmount *= event_data.exchange_rate
+        ? parseFloat(event_data.exchange_rate)
+        : 1;
+
+      totalBeforeDiscount += totalAmount;
+
       //check for voucher discount here
       if (z.voucher_applied == "Y") {
         totalAmount -= parseFloat(z.voucher_discount_amount || 0);
+        discountValue += parseFloat(z.voucher_discount_amount || 0);
+        discountPercent = z.voucher_discount_percent;
+        voucher_code = z.voucher_code;
       }
 
       //check for pass discount here
       if (z.pass_applied == "Y") {
         totalAmount -= parseFloat(z.pass_discount_amount || 0);
+        discountValue += parseFloat(z.pass_discount_amount || 0);
+        discountPercent = z.pass_discount_percent;
+        voucher_code = z.pass_code;
       }
-
-      totalAmount *= event_data.exchange_rate
-        ? parseFloat(event_data.exchange_rate)
-        : 1;
 
       let obj = {
         booking_id: insertBookingId[0],
@@ -8833,11 +8844,6 @@ async function createTransation(req, res) {
     await global
       .knexConnection("ms_booking_transaction")
       .insert(transaction_array);
-
-    let voucher_code = "";
-    let discountValue = 0;
-    let discountPercent = "";
-    let totalBeforeDiscount = totalAmount;
 
     let booking_code = event_data.event_prefix_code
       ? event_data.event_prefix_code
@@ -9134,6 +9140,10 @@ async function tapPaymentCheckout(req, res) {
         totalAmount += parseFloat(z.seat_price);
       }
 
+      totalAmount *= event_data[0].exchange_rate
+        ? parseFloat(event_data[0].exchange_rate)
+        : 1;
+
       //check for voucher discount here
       if (z.voucher_applied == "Y") {
         totalAmount -= parseFloat(z.voucher_discount_amount || 0);
@@ -9144,10 +9154,6 @@ async function tapPaymentCheckout(req, res) {
         totalAmount -= parseFloat(z.pass_discount_amount || 0);
       }
     });
-
-    totalAmount *= event_data[0].exchange_rate
-      ? parseFloat(event_data[0].exchange_rate)
-      : 1;
 
     // Skip payment if total amount is zero
     if (totalAmount <= 0) {
@@ -9462,6 +9468,9 @@ async function payonePaymentCheckout(req, res) {
       } else {
         totalAmount += parseFloat(z.seat_price);
       }
+      totalAmount *= event_data[0].exchange_rate
+        ? parseFloat(event_data[0].exchange_rate)
+        : 1;
 
       //check for voucher discount here
       if (z.voucher_applied == "Y") {
@@ -9473,10 +9482,6 @@ async function payonePaymentCheckout(req, res) {
         totalAmount -= parseFloat(z.pass_discount_amount || 0);
       }
     });
-
-    totalAmount *= event_data[0].exchange_rate
-      ? parseFloat(event_data[0].exchange_rate)
-      : 1;
 
     // Skip payment if total amount is zero
     if (totalAmount <= 0) {
@@ -10494,6 +10499,11 @@ async function mpgsPaymentCheckout(req, res) {
       } else {
         totalAmount += parseFloat(z.seat_price);
       }
+      totalAmount =
+        totalAmount *
+        (event_data[0].exchange_rate
+          ? parseFloat(event_data[0].exchange_rate)
+          : 1);
 
       //check for voucher discount here
       if (z.voucher_applied == "Y") {
@@ -10505,12 +10515,6 @@ async function mpgsPaymentCheckout(req, res) {
         totalAmount -= parseFloat(z.pass_discount_amount || 0);
       }
     });
-
-    totalAmount =
-      totalAmount *
-      (event_data[0].exchange_rate
-        ? parseFloat(event_data[0].exchange_rate)
-        : 1);
 
     if (totalAmount <= 0) {
       const skipBookingData = await skipPaymentGateway({
