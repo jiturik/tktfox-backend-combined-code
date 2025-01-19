@@ -8694,7 +8694,7 @@ async function createTransation(req, res) {
 //Skip Payment Gateway when payment amount is 0
 
 const skipPaymentGateway = async (reqbody) => {
-  const {
+  let {
     reservation_id,
     event_data,
     is_guest,
