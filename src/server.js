@@ -4,7 +4,7 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import helmet from 'helmet';
 import { jwtDecode } from 'jwt-decode';
-import jwt from 'jsonwebtoken';
+import jwt_token from 'jsonwebtoken';
 import { v4 } from 'uuid';
 import bcrypt from 'bcryptjs';
 import moment$1 from 'moment';
@@ -29,62 +29,84 @@ import { KnexConnection } from './knex/knex.js';
 import 'knex';
 import 'dotenv';
 
-/**
- * Helper function to validate token and retrieve user information.
- */
-async function validateToken(req, res, roleCheck) {
+//website token check
+
+async function checkWebsiteSessionExist(req, res, next) {
   try {
-    if (!req.headers.authorization) {
+    const userInfo = await validateWebToken(req, res);
+
+    if (userInfo) {
+      req.user_info = userInfo;
+      req.logged_in_customer_id = userInfo.customer_id || null;
+      req.logged_in_customer_email = userInfo.email || null; // Fixed typo from "emai" to "email"
+      req.is_website_user = true;
+      req.org_id = null;
+
+      return next();
+    } else {
       return res.status(403).json({
         status: false,
-        isAuthorization: true,
+        isAuthenticated: false,
         message: "You are not authorized",
       });
     }
-
-    const { token } = jwtDecode(req.headers.authorization);
-    const query = global
-      .knexConnection("user_token")
-      .select([
-        "user_name",
-        "first_name",
-        "last_name",
-        "email",
-        "role_name",
-        "users.user_id",
-        "users.role_id",
-        "users.org_id",
-        "users.is_super_admin",
-      ])
-      .leftJoin("users", "user_token.user_id", "users.user_id")
-      .leftJoin("ms_roles", "ms_roles.role_id", "users.role_id")
-      .where({ multi_token_id: token });
-
-    if (roleCheck) {
-      query.andWhere(roleCheck);
-    }
-
-    const userData = await query;
-
-    if (userData.length) {
-      return userData[0];
-    } else {
-      return null;
-    }
   } catch (error) {
-    console.error("Error validating token:", error);
+    console.error("Error in checkWebsiteSessionExist:", error);
     return res.status(500).json({
       status: false,
-      message: "An error occurred during token validation",
+      message: "Internal Server Error",
     });
   }
 }
 
-/**
- * Middleware to check if a session exists.
- */
+async function validateWebToken(req, res) {
+  try {
+    if (!req.headers.authorization) {
+      return res.status(403).json({
+        status: false,
+        isAuthenticated: false,
+        message: "You are not authorized",
+      });
+    }
+
+    const { customer_id, email, is_website_user } = jwtDecode(
+      req.headers.authorization
+    );
+    if (customer_id && email && is_website_user) {
+      return {
+        customer_id: customer_id,
+        email: email,
+        is_website_user: true,
+        org_id: null,
+      };
+      //} else if (is_website_user) {
+    } else {
+      return {
+        customer_id: null,
+        email: null,
+        is_website_user: true,
+        org_id: null,
+      };
+    }
+    // else {
+    //   return res.status(403).json({
+    //     status: false,
+    //     isAuthenticated: false,
+    //     message: "You are not authorized",
+    //   });
+    // }
+  } catch (error) {
+    console.error("Error validating token:", error);
+    return res.status(500).json({
+      status: false,
+      message: "An error occurred during website token validation",
+    });
+  }
+}
+
+//Admin Pannel token check
 async function checkSessionExist(req, res, next) {
-  const userInfo = await validateToken(req, res, null);
+  const userInfo = await validateToken(req, res);
 
   if (userInfo) {
     req.user_info = userInfo;
@@ -99,21 +121,50 @@ async function checkSessionExist(req, res, next) {
   }
 }
 
-/**
- * Middleware to check if a website session exists.
- */
-async function checkWebsiteSessionExist(req, res, next) {
-  const userInfo = await validateToken(req, res, { "users.role_id": 3 });
+async function validateToken(req, res) {
+  try {
+    if (!req.headers.authorization) {
+      return res.status(403).json({
+        status: false,
+        isAuthorization: true,
+        message: "You are not authorized",
+      });
+    }
 
-  if (userInfo) {
-    req.user_info = userInfo;
-    req.is_website_user = true;
-    return next();
-  } else {
-    return res.status(403).json({
+    const { token, customer_id, email } = jwtDecode(req.headers.authorization);
+    if (customer_id && email) {
+      return { customer_id: customer_id, email: email, is_website_user: true };
+    } else {
+      const query = global
+        .knexConnection("user_token")
+        .select([
+          "user_name",
+          "first_name",
+          "last_name",
+          "email",
+          "role_name",
+          "users.user_id",
+          "users.role_id",
+          "users.org_id",
+          "users.is_super_admin",
+        ])
+        .leftJoin("users", "user_token.user_id", "users.user_id")
+        .leftJoin("ms_roles", "ms_roles.role_id", "users.role_id")
+        .where({ multi_token_id: token });
+
+      const userData = await query;
+
+      if (userData.length) {
+        return userData[0];
+      } else {
+        return null;
+      }
+    }
+  } catch (error) {
+    console.error("Error validating token:", error);
+    return res.status(500).json({
       status: false,
-      isAuthorization: true,
-      message: "You are not authorized",
+      message: "An error occurred during admin token validation",
     });
   }
 }
@@ -187,7 +238,7 @@ const CREATE_TOKEN_FOR_USER = async ({ user_id, role_id, org_id }) => {
     await global.knexConnection("user_token").insert(create_user_token);
 
     // Generate the JWT token
-    let token = jwt.sign(
+    let token = jwt_token.sign(
       { token: random },
       process.env.JWTSECRET || "welcomeuser"
     );
@@ -330,6 +381,28 @@ function LoginRoutes() {
 
   return router$c;
 }
+
+// Function to generate JWT
+const generateJWT = (user, isWebsiteUser) => {
+  return new Promise((resolve, reject) => {
+    const payload = {
+      customer_id: user.customer_id,
+      email: user.email,
+      is_website_user: isWebsiteUser,
+    };
+
+    const secret = process.env.JWT_SECRET || "secretevent";
+    const expiresIn = process.env.JWT_EXPIRATION || "1d";
+
+    jwt_token.sign(payload, secret, { expiresIn }, (err, token) => {
+      if (err) {
+        reject(err); // Reject the promise if an error occurs
+      } else {
+        resolve(token); // Resolve the promise with the generated token
+      }
+    });
+  });
+};
 
 // Current DateTime Utility with Error Handling
 const currentDateTime = (
@@ -650,6 +723,7 @@ async function addEditCinema(req, res) {
 async function getCinemaList(req, res) {
   const reqbody = { ...req.query, ...req.body };
   const { user_info } = req;
+
   const {
     cinema_id,
     country_id,
@@ -739,10 +813,15 @@ function CinemaRoutes() {
   return router$b;
 }
 
-// Add or Edit Customer
-async function addEditCustomer(req, res) {
+// Add  Customer
+async function addWebCustomer(req, res) {
   let reqbody = req.body;
-  const { user_info } = req;
+  const isWebsiteUser = req["is_website_user"] || false;
+  if (!isWebsiteUser) {
+    return res
+      .status(400)
+      .send({ status: false, message: "User is not website user." }); // Return validation errors
+  }
   const {
     first_name,
     last_name,
@@ -750,12 +829,8 @@ async function addEditCustomer(req, res) {
     phone_number,
     phone_county_code,
     password,
-    customer_is_active,
-    customer_id,
-    email_otp_code,
   } = reqbody;
 
-  const isUpdate = customer_id ? true : false;
   let checkFields = [
     "first_name",
     "last_name",
@@ -774,20 +849,15 @@ async function addEditCustomer(req, res) {
     // Check if email or phone already exists
     let checkUserExist = await global
       .knexConnection("ms_customers")
-      .select(["first_name"])
+      .select(["email", "is_verified"])
       .where((builder) => {
         builder.where({ email });
-        builder.orWhere({ phone_number });
       })
-      .andWhere((builder) => {
-        if (isUpdate) {
-          builder.whereNotIn("customer_unique_id", [customer_id]);
-        }
-      });
+      .where({ customer_is_active: "Y" });
 
-    if (checkUserExist.length) {
+    if (checkUserExist.length && checkUserExist[0].is_verified == "Y") {
       return res.status(400).json({
-        message: "Customer Email/Phone Already Exist",
+        message: "Customer Email Already Exist",
         status: false,
         Records: checkUserExist,
       });
@@ -800,122 +870,125 @@ async function addEditCustomer(req, res) {
       email: email || null,
       phone_number: phone_number || null,
       phone_county_code: phone_county_code || null,
-      customer_is_active: customer_is_active || "Y",
-      ...dataReturnUpdate(user_info, isUpdate),
+      customer_is_active: "Y",
     };
 
-    // Handle customer update or create
-    if (isUpdate) {
-      if (email_otp_code) {
-        let getUser = await global
-          .knexConnection("ms_customers")
-          .select(["email_otp"])
-          .where({ customer_unique_id: customer_id });
+    // Handle customer  create
 
-        if (
-          getUser.length &&
-          getUser[0].email_otp &&
-          getUser[0].email_otp == email_otp_code
-        ) {
-          obj["is_verified"] = "Y";
-          obj["customer_unique_id"] = customer_id;
-        } else {
-          return res.status(400).json({
-            message: "Invalid OTP code",
-            status: false,
-          });
-        }
-      }
+    // Create new customer
+    obj["email_otp"] = Math.floor(1000 + Math.random() * 9000);
+    obj["is_verified"] = "N";
+    obj["password"] = bcrypt.hashSync(password, 10);
+    obj["customer_unique_id"] = v4();
+    if (!checkUserExist.length) {
+      await global.knexConnection("ms_customers").insert(obj);
+    } else {
       await global
         .knexConnection("ms_customers")
-        .update(obj)
-        .where({ customer_unique_id: customer_id });
-    } else {
-      // Create new customer
-      obj["email_otp"] = Math.floor(1000 + Math.random() * 9000);
-      obj["is_verified"] = "N";
-      obj["password"] = bcrypt.hashSync(password, 10);
-      obj["customer_unique_id"] = v4();
-
-      await global.knexConnection("ms_customers").insert(obj);
-
-      // Send OTP email
-      let emailHtml = `<html><body><p>OTP for signup ${obj["email_otp"]}</p></body></html>`;
-      await sendEmail(email, "Signup", emailHtml, null);
-      delete obj["email_otp"];
+        .update({ email_otp: obj.email_otp })
+        .where({ email });
     }
 
+    // Send OTP email
+    let emailHtml = `<html><body><p>OTP for signup ${obj["email_otp"]}</p></body></html>`;
+    await sendEmail(email, "Signup", emailHtml, null);
+
+    // Remove OTP from the object after email is sent
+    delete obj["email_otp"];
+
+    // Send success response
     return res.status(200).send({
       status: true,
-      message: `Customer ${isUpdate ? "Updated" : "Created"} Successfully`,
+      show_otp_screen: true,
+      message: `Account Created Successfully.!`,
       Records: [obj],
     });
   } catch (error) {
-    console.error("Error adding/editing customer:", error);
+    console.error("Error adding customer:", error);
     return res.status(500).json({
       status: false,
       message: "An error occurred while processing your request.",
-      error: error.message,
+      error: error?.message || error,
     });
   }
 }
+//verify Customer OTP
 
-// Get Customer List
-async function getCustomerList(req, res) {
-  const reqbody = { ...req.query, ...req.body, ...req.params };
-  const customer_id = reqbody.customer_id;
-  const limit = req.query.limit ? req.query.limit : 100;
-  const currentPage = req.query.currentPage ? req.query.currentPage : 1;
+async function verifyOTPAndUpdateUser(req, res) {
+  const { otp, email } = req.body;
+
+  // Ensure OTP is provided in the request body
+  if (!otp || !email) {
+    return res
+      .status(400)
+      .send({ status: false, message: "OTP and email is required." });
+  }
 
   const isWebsiteUser = req["is_website_user"] || false;
-  try {
-    if (isWebsiteUser) {
-      let result = await checkValidation(["customer_id"], reqbody);
-      if (!result.status) {
-        return res.status(400).send(result); // Return validation errors
-      }
-    }
+  if (!isWebsiteUser) {
+    return res
+      .status(400)
+      .send({ status: false, message: "User is not website user." }); // Return validation errors
+  }
 
-    const UserList = await global
+  try {
+    // Check if user exists and matches the email (optional for extra verification)
+    let checkUser = await global
       .knexConnection("ms_customers")
       .select([
         "first_name",
         "last_name",
         "phone_number",
         "phone_county_code",
+        "password",
         "email",
-        "customer_unique_id as customer_id",
+        "customer_unique_id",
         "customer_is_active",
-        "customer_id as cust_id",
+        "customer_id",
+        "email_otp",
       ])
-      .where((builder) => {
-        if (customer_id) builder.where("customer_unique_id", "=", customer_id);
-        if (req.query.search) {
-          builder.whereRaw(
-            `concat_ws(' ',first_name,last_name,email,phone_number) like '%${req.query.search}%'`
-          );
-        }
-      })
-      .orderBy("cust_id", "desc")
-      .paginate(pagination(limit, currentPage));
+      .where({ email });
+
+    if (!checkUser.length || checkUser[0].email != email) {
+      return res
+        .status(404)
+        .send({ status: false, message: "User not found." });
+    }
+
+    // Verify the OTP matches the one sent (assuming it's stored in the user object or database)
+    console.log(checkUser);
+    if (checkUser[0].email_otp != otp) {
+      return res.status(400).send({ status: false, message: "Invalid OTP." });
+    }
+
+    // Update user status or verification status
+    const updatedUser = await global
+      .knexConnection("ms_customers")
+      .update({ is_verified: "Y", email_otp: null })
+      .where({ email });
+
+    // Attempt to generate the JWT token
+    const token = await generateJWT(checkUser[0], true);
+
+    // This will only run if generateJWT succeeds
+    console.log("Generated Token:", token);
 
     return res.status(200).send({
-      message: "Customer List",
       status: true,
-      Records: UserList,
+      login_token: token,
+      message: "OTP verified and user logged in successful.",
+      Records: checkUser,
     });
-  } catch (error) {
-    console.error("Error retrieving customer list:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while retrieving the customer list.",
-      error: error.message,
-    });
+  } catch (err) {
+    console.error("Error:", err);
+    return res
+      .status(500)
+      .send({ status: false, message: "Something went wrong." });
   }
 }
 
-// Sign-in Customer
-async function signInCustomer(req, res) {
+// customer sign in
+async function customerSignIn(req, res) {
   let reqbody = req.body;
   const { user_name, password } = reqbody;
   let checkFields = ["user_name", "password"];
@@ -937,9 +1010,9 @@ async function signInCustomer(req, res) {
         "phone_county_code",
         "password",
         "email",
-        "customer_unique_id as customer_id",
+        "customer_unique_id",
         "customer_is_active",
-        "customer_id as cust_id",
+        "customer_id",
       ])
       .where({ email: user_name, is_verified: "Y" });
 
@@ -947,11 +1020,22 @@ async function signInCustomer(req, res) {
       bcrypt.compare(
         password,
         checkUserExist[0].password,
-        function (err, result) {
+        async function (err, result) {
           if (result) {
+            if (checkUserExist[0].customer_is_active != "Y") {
+              return res.status(403).json({
+                message: "Account is inactive.",
+                status: false,
+              });
+            }
+
+            // Generate JWT token
+            const customerToken = await generateJWT(checkUserExist[0], true);
+
             return res.status(200).json({
               message: "Signin Successfully",
               status: true,
+              customerToken, // Return the token
               Records: checkUserExist,
             });
           } else {
@@ -979,14 +1063,131 @@ async function signInCustomer(req, res) {
   }
 }
 
+// Get Customer List
+async function getCustomer(req, res) {
+  const logged_in_customer_id = req["logged_in_customer_id"] || null;
+
+  try {
+    if (!logged_in_customer_id) {
+      return res.status(403).json({
+        status: false,
+        message: "You are not authorized",
+      });
+    }
+
+    const getCustomer = await global
+      .knexConnection("ms_customers")
+      .select([
+        "first_name",
+        "last_name",
+        "phone_number",
+        "phone_county_code",
+        "email",
+        "customer_unique_id",
+        "customer_is_active",
+        "customer_id",
+      ])
+      .where({
+        customer_id: logged_in_customer_id,
+        is_verified: "Y",
+        customer_is_active: "Y",
+      });
+
+    if (!getCustomer.length) {
+      return res.status(403).json({
+        status: false,
+        message: "You are not authorized",
+      });
+    }
+
+    return res.status(200).send({
+      message: "Logged in customer details.",
+      status: true,
+      Records: getCustomer[0],
+    });
+  } catch (error) {
+    console.error("Error retrieving customer details:", error);
+    return res.status(500).json({
+      status: false,
+      message: "An error occurred while retrieving the customer details.",
+      error: error.message,
+    });
+  }
+}
+
+// // Sign-in Customer
+// export async function signInCustomer(req, res) {
+//   let reqbody = req.body;
+//   const { user_name, password } = reqbody;
+//   let checkFields = ["user_name", "password"];
+
+//   try {
+//     // Validate fields
+//     let result = await checkValidation(checkFields, reqbody);
+//     if (!result.status) {
+//       return res.status(400).send(result); // Return validation errors
+//     }
+
+//     // Check if user exists
+//     let checkUserExist = await global
+//       .knexConnection("ms_customers")
+//       .select([
+//         "first_name",
+//         "last_name",
+//         "phone_number",
+//         "phone_county_code",
+//         "password",
+//         "email",
+//         "customer_unique_id as customer_id",
+//         "customer_is_active",
+//         "customer_id as cust_id",
+//       ])
+//       .where({ email: user_name, is_verified: "Y" });
+
+//     if (checkUserExist.length) {
+//       bcrypt.compare(
+//         password,
+//         checkUserExist[0].password,
+//         function (err, result) {
+//           if (result) {
+//             return res.status(200).json({
+//               message: "Signin Successfully",
+//               status: true,
+//               Records: checkUserExist,
+//             });
+//           } else {
+//             return res.status(400).json({
+//               message: "Password doesn't match.",
+//               status: false,
+//               error: err,
+//             });
+//           }
+//         }
+//       );
+//     } else {
+//       return res.status(400).send({
+//         status: false,
+//         message: "Invalid Credential",
+//       });
+//     }
+//   } catch (error) {
+//     console.error("Error during sign-in:", error);
+//     return res.status(500).json({
+//       status: false,
+//       message: "An error occurred during sign-in.",
+//       error: error.message,
+//     });
+//   }
+// }
+
 const router$a = Router();
 
 function CustomerRoutes() {
   // POST Routes
-  router$a.post("/add-edit-customer", checkSessionExist, addEditCustomer);
+  router$a.post("/add-edit-customer", checkSessionExist, addWebCustomer);
 
   // GET Routes
-  router$a.get("/getcustomerlist", checkSessionExist, getCustomerList);
+  router$a.get("/getcustomerlist", checkSessionExist, getCustomer);
 
   return router$a;
 }
@@ -7696,21 +7897,15 @@ async function applyPass(req, res) {
       });
     }
 
+    let logged_in_customer_id = req["logged_in_customer_id"] || null;
     // Get customer details
-    const getLoggedUser = await global
-      .knexConnection("ms_customers")
-      .select("customer_id")
-      .where({
-        email: customer_email,
-        customer_is_active: "Y",
-      });
-    if (!getLoggedUser.length) {
+
+    if (!logged_in_customer_id) {
       return res.send({
         status: false,
         message: "User not found!",
       });
     }
-    const customer_id = getLoggedUser[0].customer_id;
 
     // Get pass details
     const getPass = await global
@@ -7781,7 +7976,7 @@ async function applyPass(req, res) {
       .select("booking_id", "booking_date_time")
       .where({
         voucher_code: "PASS-" + pass_id,
-        customer_id,
+        logged_in_customer_id,
         booking_is_active: "Y",
       });
 
@@ -7813,7 +8008,7 @@ async function applyPass(req, res) {
       reservation_id,
       pass_id,
       seat_type_id: validSeatType.seat_type_id,
-      customer_id,
+      logged_in_customer_id,
       pass_discount_percent: getPass[0].pass_discount_value || 0,
       rp_is_active: "Y",
     };
@@ -7857,9 +8052,9 @@ async function applyPass(req, res) {
 async function getCustomerPassById(req, res) {
   try {
     const reqbody = { ...req.query, ...req.body, ...req.params };
-    const customer_id = reqbody.customer_id;
+    const logged_in_customer_id = req["logged_in_customer_id"] || null;
 
-    if (!customer_id) {
+    if (!logged_in_customer_id) {
       return res.send({
         status: false,
         message: "Customer ID not provided!",
@@ -7880,7 +8075,7 @@ async function getCustomerPassById(req, res) {
         "pass_booking.customer_id"
       )
       .where({
-        "ms_customers.customer_unique_id": customer_id,
+        "ms_customers.customer_id": logged_in_customer_id,
         "pass_booking.is_active": "Y", // Assuming is_active is for the pass itself
       });
 
@@ -7949,10 +8144,10 @@ async function removePass(req, res) {
 async function getCustomerPassHistory(req, res) {
   try {
     const reqbody = { ...req.query, ...req.body, ...req.params };
-    const customer_id = reqbody.customer_id;
+    const logged_in_customer_id = req["logged_in_customer_id"] || null;
 
     // Validate customer_id
-    if (!customer_id) {
+    if (!logged_in_customer_id) {
       return res.send({
         status: false,
         message: "Customer ID is required!",
@@ -7969,7 +8164,7 @@ async function getCustomerPassHistory(req, res) {
         "pass_booking.customer_id"
       )
       .where({
-        "ms_customers.customer_unique_id": customer_id,
+        "ms_customers.customer_id": logged_in_customer_id,
         is_active: "Y",
       });
 
@@ -8023,10 +8218,10 @@ async function getCustomerPassHistory(req, res) {
 async function getCustomerTicketHistory(req, res) {
   try {
     const reqbody = { ...req.query, ...req.body, ...req.params };
-    const customer_id = reqbody.customer_id;
+    const logged_in_customer_id = req["logged_in_customer_id"] || null;
 
     // Validate customer_id
-    if (!customer_id) {
+    if (!logged_in_customer_id) {
       return res.send({
         status: false,
         message: "Customer ID is required!",
@@ -8043,7 +8238,7 @@ async function getCustomerTicketHistory(req, res) {
         "ms_booking.customer_id"
       )
       .where({
-        "ms_customers.customer_unique_id": customer_id,
+        "ms_customers.customer_id": logged_in_customer_id,
       });
 
     // If no tickets are found, return a message
@@ -8089,11 +8284,7 @@ function WebsiteRoutes() {
     checkWebsiteSessionExist,
     getEventList
   );
-  router$2.get(
-    "/getCustomerDetail/:customer_id",
-    checkWebsiteSessionExist,
-    getCustomerList
-  );
+  router$2.get("/getCustomerDetail", checkWebsiteSessionExist, getCustomer);
   router$2.get(
     "/getReservationDetails/:reservation_id",
     checkWebsiteSessionExist,
@@ -8125,7 +8316,7 @@ function WebsiteRoutes() {
     getEventExtraInfoList
   );
   router$2.get(
-    "/getCustomerPassById/:customer_id",
+    "/getCustomerPassById",
     checkWebsiteSessionExist,
     getCustomerPassById
   );
@@ -8150,8 +8341,10 @@ function WebsiteRoutes() {
   );
 
   // POST Routes
-  router$2.post("/signup-customer", checkWebsiteSessionExist, addEditCustomer);
-  router$2.post("/signIn", checkWebsiteSessionExist, signInCustomer);
+  router$2.post("/signup-customer", checkWebsiteSessionExist, addWebCustomer);
+  router$2.post("/verify-otp", checkWebsiteSessionExist, verifyOTPAndUpdateUser);
+
+  router$2.post("/signIn", checkWebsiteSessionExist, customerSignIn);
 
   router$2.post("/reserveSeats", checkWebsiteSessionExist, addReservationSeat);
   router$2.post(
@@ -8532,23 +8725,15 @@ const skipPaymentGateway = async (reqbody) => {
 
   // Check if the customer exists in the database
   let checkGuest = is_guest;
-  let checkCustomerId = customer_id;
+  let logged_in_customer_id = req["logged_in_customer_id"] || null;
 
   try {
-    const getLoggedUser = await global
-      .knexConnection("ms_customers")
-      .select("customer_id")
-      .where({
-        email: customer_email,
-        customer_is_active: "Y",
-      });
-
-    if (!getLoggedUser.length) {
+    if (!logged_in_customer_id) {
       checkGuest = "Y";
-      checkCustomerId = 0;
+      logged_in_customer_id = 0;
     } else {
       checkGuest = "N";
-      checkCustomerId = getLoggedUser[0].customer_id;
+      logged_in_customer_id = logged_in_customer_id;
     }
 
     // Insert payment details into the database
@@ -8561,7 +8746,7 @@ const skipPaymentGateway = async (reqbody) => {
       phone_number: customer_mobile,
       country_code,
       is_guest: checkGuest,
-      customer_id: checkCustomerId,
+      customer_id: logged_in_customer_id,
       created_at: currentDateTimeNew,
       pm_id: 1,
       is_booked: "Y",
@@ -8837,24 +9022,14 @@ async function tapPaymentCheckout(req, res) {
       event_data[0].tz_name
     );
     let checkGuest = is_guest;
-    let checkCustomerId = customer_id;
+    let logged_in_customer_id = req["logged_in_customer_id"] || null;
 
-    if (is_guest === "N" && customer_id) {
-      const getLoggedUser = await global
-        .knexConnection("ms_customers")
-        .select("customer_id")
-        .where({ customer_id, customer_is_active: "Y" });
-
-      if (!getLoggedUser.length) {
-        checkGuest = "Y";
-        checkCustomerId = 0;
-      } else {
-        checkGuest = "N";
-        checkCustomerId = getLoggedUser[0].customer_id;
-      }
-    } else {
+    if (!logged_in_customer_id) {
       checkGuest = "Y";
-      checkCustomerId = 0;
+      logged_in_customer_id = 0;
+    } else {
+      checkGuest = "N";
+      logged_in_customer_id = logged_in_customer_id;
     }
 
     const insertPaymentDetail = {
@@ -8866,7 +9041,7 @@ async function tapPaymentCheckout(req, res) {
       phone_number: customer_mobile,
       country_code,
       is_guest: checkGuest,
-      customer_id: checkCustomerId,
+      customer_id: logged_in_customer_id,
       created_at: currentDateTimeNew,
       pm_id: 1,
       payment_request: paymentData,
@@ -9193,18 +9368,14 @@ async function payonePaymentCheckout(req, res) {
       event_data[0].tz_name
     );
     let checkGuest = is_guest;
-    let checkCustomerId = customer_id;
+    let logged_in_customer_id = req["logged_in_customer_id"] || null;
 
-    const getLoggedUser = await global
-      .knexConnection("ms_customers")
-      .select("customer_id")
-      .where({ email: customer_email, customer_is_active: "Y" });
-    if (!getLoggedUser.length) {
+    if (!logged_in_customer_id) {
       checkGuest = "Y";
-      checkCustomerId = 0;
+      logged_in_customer_id = 0;
     } else {
       checkGuest = "N";
-      checkCustomerId = getLoggedUser[0].customer_id;
+      logged_in_customer_id = logged_in_customer_id;
     }
 
     const paymentDetails = {
@@ -9216,7 +9387,7 @@ async function payonePaymentCheckout(req, res) {
       phone_number: customer_mobile,
       country_code,
       is_guest: checkGuest,
-      customer_id: checkCustomerId,
+      customer_id: logged_in_customer_id,
       created_at: currentDateTimeNew,
       pm_id: 2,
       payment_request: JSON.stringify(PaymentObject),
@@ -9528,26 +9699,22 @@ async function payonePassPaymentCheckout(req, res) {
 
     // Handle guest/customer check
     let checkGuest = is_guest;
-    let checkCustomerId = customer_id;
-    let getLoggedUser = await global
-      .knexConnection("ms_customers")
-      .select("customer_id", "email")
-      .where({ email: customer_email, customer_is_active: "Y" });
+    let logged_in_customer_id = req["logged_in_customer_id"] || null;
 
-    if (!getLoggedUser.length) {
+    if (!logged_in_customer_id) {
       checkGuest = "Y";
-      checkCustomerId = 0;
+      logged_in_customer_id = 0;
     } else {
       checkGuest = "N";
-      checkCustomerId = getLoggedUser[0].customer_id;
+      logged_in_customer_id = logged_in_customer_id;
     }
 
     // Check if the customer has already bought the pass
-    if (checkCustomerId && checkCustomerId > 0) {
+    if (logged_in_customer_id && logged_in_customer_id > 0) {
       const existingPass = await global
         .knexConnection("pass_booking")
         .select("pass_booking.pass_id")
-        .where({ customer_id: checkCustomerId, is_active: "Y" });
+        .where({ customer_id: logged_in_customer_id, is_active: "Y" });
 
       if (existingPass.length) {
         return res.status(400).send({
@@ -9572,7 +9739,7 @@ async function payonePassPaymentCheckout(req, res) {
       phone_number: customer_mobile,
       country_code,
       is_guest: checkGuest,
-      customer_id: checkCustomerId,
+      customer_id: logged_in_customer_id,
       created_at: currentDateTimeNew,
       pm_id: 2,
       payment_request: JSON.stringify(PaymentObject),
@@ -10214,27 +10381,16 @@ async function mpgsPaymentCheckout(req, res) {
         );
 
         let checkGuest = is_guest;
-        let checkCustomerId = customer_id;
+        let logged_in_customer_id = req["logged_in_customer_id"] || null;
 
-        if (is_guest == "N" && customer_id) {
-          let getLoggedUser = await global
-            .knexConnection("ms_customers")
-            .select("customer_id")
-            .where({
-              customer_id,
-              customer_is_active: "Y",
-            });
-          if (!getLoggedUser.length) {
-            checkGuest = "Y";
-            checkCustomerId = 0;
-          } else {
-            checkGuest = "N";
-            checkCustomerId = getLoggedUser[0].customer_id;
-          }
-        } else {
+        if (!logged_in_customer_id) {
           checkGuest = "Y";
-          checkCustomerId = 0;
+          logged_in_customer_id = 0;
+        } else {
+          checkGuest = "N";
+          logged_in_customer_id = logged_in_customer_id;
         }
+
         let insertPaymentDetail = {
           reservation_id,
           success_frontend_url,
@@ -10244,7 +10400,7 @@ async function mpgsPaymentCheckout(req, res) {
           phone_number: customer_mobile,
           country_code: country_code,
           is_guest: checkGuest,
-          customer_id: checkCustomerId,
+          customer_id: logged_in_customer_id,
           created_at: currentDateTimeNew,
           pm_id: 1,
           payment_request: JSON.stringify(mpgsObj),
