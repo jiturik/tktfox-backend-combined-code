@@ -8776,7 +8776,7 @@ const skipPaymentGateway = async (reqbody) => {
       },
     };
 
-    const transactionResponse = await axios(config);
+    const transactionResponse = await axios$1(config);
 
     // Handle the transaction response and determine the redirect URL
     let redirectToUrl = failed_frontend_url; // Default to failed URL
