@@ -5,6 +5,9 @@ import bodyParser from 'body-parser';
 import helmet from 'helmet';
 import { jwtDecode } from 'jwt-decode';
 import jwt_token from 'jsonwebtoken';
+import winston from 'winston';
+import path, { dirname } from 'path';
+import fs from 'fs';
 import { v4 } from 'uuid';
 import bcrypt from 'bcryptjs';
 import moment$1 from 'moment';
@@ -13,8 +16,6 @@ import momentTimeZone from 'moment-timezone';
 import _ from 'lodash';
 import NodeCache from 'node-cache';
 import zlib from 'zlib';
-import path, { dirname } from 'path';
-import fs from 'fs';
 import multer from 'multer';
 import excel from 'exceljs';
 import ejs from 'ejs';
@@ -28,6 +29,50 @@ import { attachPaginate } from 'knex-paginate';
 import { KnexConnection } from './knex/knex.js';
 import 'knex';
 import 'dotenv';
+
+// Ensure the logs directory exists
+const logsDir = path.resolve("src/winston-logs");
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir);
+}
+
+// Function to get the log file name for the current month
+const getLogFileName = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed
+  return `logs-${year}-${month}.log`;
+};
+
+// Create and configure the logger
+const logger = winston.createLogger({
+  level: "info",
+  format: winston.format.combine(
+    winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+    winston.format.printf(
+      (info) =>
+        `${info.timestamp} [${info.level.toUpperCase()}]: ${info.message}`
+    )
+  ),
+  transports: [
+    // Log to console
+    new winston.transports.Console(),
+    // Log to file
+    new winston.transports.File({
+      filename: path.join(logsDir, getLogFileName()),
+      maxsize: 5 * 1024 * 1024, // 5MB max size per file
+      maxFiles: 12, // Retain logs for up to 12 months
+    }),
+  ],
+});
+
+// Utility function to log messages
+const winstonLogger$1 = {
+  info: (message) => logger.info(message),
+  error: (message, error) => logger.error(message + ": " + error),
+  warn: (message) => logger.warn(message),
+  debug: (message) => logger.debug(message),
+};
 
 //website token check
 
@@ -51,6 +96,7 @@ async function checkWebsiteSessionExist(req, res, next) {
       });
     }
   } catch (error) {
+    winstonLogger$1.error("Error in VerifyToken.js 1:", error);
     console.error("Error in checkWebsiteSessionExist:", error);
     return res.status(500).json({
       status: false,
@@ -96,6 +142,7 @@ async function validateWebToken(req, res) {
     //   });
     // }
   } catch (error) {
+    winstonLogger$1.error("Error in VerifyToken.js 2:", error);
     console.error("Error validating token:", error);
     return res.status(500).json({
       status: false,
@@ -161,6 +208,7 @@ async function validateToken(req, res) {
       }
     }
   } catch (error) {
+    winstonLogger$1.error("Error in VerifyToken.js 3:", error);
     console.error("Error validating token:", error);
     return res.status(500).json({
       status: false,
@@ -211,6 +259,7 @@ const checkValidation = (validateArray, reqObj) => {
     } catch (error) {
       // Handle unexpected errors
       console.error("Error during validation:", error);
+      winstonLogger.error("Error in checkValidation.js 1:", error);
       reject({
         status: false,
         message: "An unexpected error occurred during validation",
@@ -244,6 +293,7 @@ const CREATE_TOKEN_FOR_USER = async ({ user_id, role_id, org_id }) => {
     );
     return token;
   } catch (error) {
+    winstonLogger$1.error("Error in loginController.js 1:", error);
     // Return error response without logging
     return {
       status: false,
@@ -282,6 +332,7 @@ async function validateUserPassword(user_name, password) {
       return { error: "User not found" };
     }
   } catch (error) {
+    winstonLogger$1.error("Error in loginController.js 2:", error);
     // Return error response without logging
     return {
       status: false,
@@ -300,6 +351,7 @@ async function login(req, res) {
   try {
     validationResult = await checkValidation(checkFields, reqbody);
   } catch (error) {
+    winstonLogger$1.error("Error in loginController.js 3:", error);
     return res.status(500).json({
       status: false,
       message: "Validation error",
@@ -345,6 +397,7 @@ async function login(req, res) {
       });
     }
   } catch (error) {
+    winstonLogger$1.error("Error in loginController.js 4:", error);
     return res.status(500).json({
       status: false,
       message: "An error occurred during login",
@@ -362,6 +415,7 @@ async function checkLogin(req, res) {
       Records: [user_info],
     });
   } catch (error) {
+    winstonLogger$1.error("Error in loginController.js 5:", error);
     return res.status(500).json({
       status: false,
       message: "An error occurred while checking login.",
@@ -426,6 +480,7 @@ const currentDateTime = (
     return currentDateTime;
   } catch (error) {
     console.error("Error in currentDateTime:", error);
+    winstonLogger$1.error("Error in helper.js 1:", error);
     return null; // Return a fallback or null in case of error
   }
 };
@@ -464,6 +519,7 @@ const PaymentCredentialFunction = async ({ org_id, setting_key }) => {
     return { status: false, data: {}, message: "No active credentials found" };
   } catch (error) {
     console.error("Error in PaymentCredentialFunction:", error);
+    winstonLogger$1.error("Error in helper.js 2:", error);
     return { status: false, data: {}, message: "An error occurred" };
   }
 };
@@ -489,6 +545,7 @@ const SeatsIoCredentialFunction = async ({ org_id, setting_key }) => {
     return { status: false, data: {}, message: "No active credentials found" };
   } catch (error) {
     console.error("Error in SeatsIoCredentialFunction:", error);
+    winstonLogger$1.error("Error in helper.js 3:", error);
     return { status: false, data: {}, message: "An error occurred" };
   }
 };
@@ -530,6 +587,7 @@ function sendEmail(to, subject, body, attachment) {
       });
     } catch (error) {
       console.error("Unexpected error in sendEmail:", error);
+      winstonLogger$1.error("Error in helper.js 4:", error);
       reject({ status: false, message: "Unexpected error occurred" });
     }
   });
@@ -555,6 +613,7 @@ function sendEmailClient(from, subject, body, attachment) {
       }
     });
   } catch (error) {
+    winstonLogger$1.error("Error in helper.js 5:", error);
     console.error("Unexpected error in sendEmailClient:", error);
   }
 }
@@ -593,6 +652,7 @@ async function pagination(perPage, currentPage) {
 
     return paginate;
   } catch (error) {
+    winstonLogger$1.error("Error in pagination.js 1:", error);
     console.error("Error in pagination function:", error.message);
     return {
       error: true,
@@ -710,6 +770,7 @@ async function addEditCinema(req, res) {
       obj,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in cinemaController.js 1:", error);
     console.error("Error adding/editing cinema:", error);
     return res.status(500).json({
       status: false,
@@ -792,6 +853,7 @@ async function getCinemaList(req, res) {
       Records: CinemaList,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in cinemaController.js 2:", error);
     console.error("Error retrieving cinema list:", error);
     return res.status(500).json({
       status: false,
@@ -904,6 +966,7 @@ async function addWebCustomer(req, res) {
       Records: [obj],
     });
   } catch (error) {
+    winstonLogger$1.error("Error in customerController.js 1:", error);
     console.error("Error adding customer:", error);
     return res.status(500).json({
       status: false,
@@ -980,6 +1043,7 @@ async function verifyOTPAndUpdateUser(req, res) {
       Records: checkUser,
     });
   } catch (err) {
+    winstonLogger$1.error("Error in customerController.js 2:", err);
     console.error("Error:", err);
     return res
       .status(500)
@@ -1054,6 +1118,7 @@ async function customerSignIn(req, res) {
       });
     }
   } catch (error) {
+    winstonLogger$1.error("Error in customerController.js 3:", error);
     console.error("Error during sign-in:", error);
     return res.status(500).json({
       status: false,
@@ -1106,6 +1171,7 @@ async function getCustomer(req, res) {
       Records: getCustomer[0],
     });
   } catch (error) {
+    winstonLogger$1.error("Error in customerController.js 4:", error);
     console.error("Error retrieving customer details:", error);
     return res.status(500).json({
       status: false,
@@ -1458,6 +1524,7 @@ async function addEditEvent(req, res) {
       insert_event_id,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in eventController.js 1:", error);
     console.error("Error processing event:", error);
     return res.status(500).send({
       status: false,
@@ -1467,6 +1534,268 @@ async function addEditEvent(req, res) {
   }
 }
 
+async function getEventList(req, res) {
+  try {
+    const { query, body, params, user_info } = req;
+    const { org_id } = user_info;
+
+    // Merge query, body, and params into the reqbody object
+    const reqbody = {
+      ...query,
+      ...body,
+      ...params,
+      //org_id,
+      isWebsiteUser: req.is_website_user || false,
+    };
+
+    // Fetch event data
+    const getEventData = await EVENT_DATA(reqbody);
+
+    // Send the response with event data
+    return res.send({ ...getEventData });
+  } catch (error) {
+    winstonLogger$1.error("Error in eventController.js 2:", error);
+    console.error("Error fetching event list:", error);
+    return res.status(500).send({ message: "Internal Server Error" });
+  }
+}
+
+async function getActiveEventList(req, res) {
+  try {
+    const reqbody = { ...req.query, ...req.body };
+    const data = await getActiveListData(reqbody);
+
+    return res.send({
+      status: true,
+      data,
+    });
+  } catch (error) {
+    winstonLogger$1.error("Error in customerController.js 3:", error);
+    console.error("Error fetching active event list:", error);
+
+    return res.status(500).send({
+      status: false,
+      message: "Unable to fetch active event list. Please try again later.",
+    });
+  }
+}
+
+async function addEditEventExtra(req, res) {
+  try {
+    const reqbody = req.body;
+    const { user_info } = req;
+    const {
+      extra_info_id,
+      event_id,
+      extra_info_name,
+      extra_info_description,
+      extra_info_img,
+      extra_info_is_active,
+      extra_info_type,
+    } = reqbody;
+
+    const isUpdate = extra_info_id; // Simplified check for update
+
+    const checkFields = [
+      "event_id",
+      "extra_info_name",
+      "extra_info_img",
+      "extra_info_type",
+    ];
+
+    // Validate required fields
+    const result = await checkValidation(checkFields, reqbody);
+    if (!result.status) {
+      return res.status(400).send(result); // Return a 400 for validation errors
+    }
+
+    // Construct the object for insert or update
+    const obj = {
+      event_id,
+      extra_info_name: extra_info_name || null,
+      extra_info_description: extra_info_description || null,
+      extra_info_img: extra_info_img || null,
+      extra_info_type: extra_info_type || null,
+      extra_info_is_active: extra_info_is_active || null,
+    };
+
+    // Perform insert or update based on whether it's an update or not
+    if (isUpdate) {
+      await global
+        .knexConnection("ms_event_extra_info")
+        .update(obj)
+        .where({ extra_info_id });
+    } else {
+      await global.knexConnection("ms_event_extra_info").insert(obj);
+    }
+
+    return res.send({
+      status: true,
+      message: `${isUpdate ? "Updated" : "Created"} Successfully`,
+    });
+  } catch (error) {
+    winstonLogger$1.error("Error in customerController.js 4:", error);
+    console.error("Error in addEditEventExtra:", error);
+    return res.status(500).send({
+      status: false,
+      message: "An error occurred. Please try again later.",
+    });
+  }
+}
+
+async function getEventExtraInfoList(req, res) {
+  try {
+    const reqbody = { ...req.query, ...req.body, ...req.params };
+    const { event_id, extra_info_type, extra_info_is_active, is_website_user } =
+      reqbody;
+
+    // Handle pagination parameters
+    const limit = req.query.limit || 10;
+    const currentPage = req.query.currentPage || 1;
+
+    // Building the query
+    const EventExtraInfoList = await global
+      .knexConnection("ms_event_extra_info")
+      .select("ms_event_extra_info.*")
+      .where((builder) => {
+        if (event_id) {
+          builder.where("event_id", "=", event_id);
+        }
+        if (extra_info_type) {
+          builder.where("extra_info_type", "=", extra_info_type);
+        }
+        if (extra_info_is_active !== undefined) {
+          builder.where(
+            "extra_info_is_active",
+            "=",
+            extra_info_is_active ? "Y" : "N"
+          );
+        } else {
+          builder.where("extra_info_is_active", "=", "Y"); // Default to active if not specified
+        }
+      })
+      .orderBy("extra_info_id", "desc")
+      .paginate(pagination(limit, currentPage));
+
+    return res.send({
+      message: "Event Extra Info List",
+      status: true,
+      Records: EventExtraInfoList,
+    });
+  } catch (error) {
+    winstonLogger$1.error("Error in customerController.js 5:", error);
+    console.error("Error in getEventExtraInfoList:", error);
+    return res.status(500).send({
+      status: false,
+      message: "An error occurred while fetching the event extra info.",
+    });
+  }
+}
+
+//Helper Functions
+
+const getActiveListData = async (reqbody) => {
+  try {
+    const {
+      cinema_id,
+      type,
+      country_id,
+      city_id,
+      event_id,
+      org_id,
+      limit = 100,
+      currentPage = 1,
+      search,
+      isMaster = false,
+    } = reqbody;
+
+    let event_is_active = isMaster ? null : "Y";
+    const currentDateTimeNew = currentDateTime(null, "YYYY-MM-DD HH:mm");
+
+    // Build the query for event schedule data
+    const eventListData = await global
+      .knexConnection("event_schedule")
+      .select([
+        "ms_event.org_id",
+        "ms_event.type",
+        "ms_event.event_image_small",
+        "event_image_medium",
+        "event_image_large",
+        "event_name",
+        "event_short_description",
+        "event_schedule.event_id",
+        "event_start_date",
+        "event_end_date",
+        "ms_cinemas.cinema_name",
+        "ms_cities.city_name",
+        global.knexConnection.raw(
+          `min(event_schedule.sch_date) as eventDatePlaceholder`
+        ),
+      ])
+      .leftJoin("ms_event", "ms_event.event_id", "event_schedule.event_id")
+      .leftJoin(
+        "ms_cinemas",
+        "ms_cinemas.cinema_id",
+        "ms_event.event_cinema_id"
+      )
+      .leftJoin("ms_cities", "ms_cities.city_id", "ms_cinemas.city_id")
+      .leftJoin(
+        "ms_countries",
+        "ms_countries.country_id",
+        "ms_cinemas.country_id"
+      )
+      .leftJoin(
+        "ms_currencies",
+        "ms_currencies.curr_id",
+        "ms_cinemas.currency_id"
+      )
+      .leftJoin(
+        "ms_time_zones",
+        "ms_time_zones.tz_id",
+        "ms_cinemas.timezone_id"
+      )
+      .leftJoin("organizations", "organizations.org_id", "ms_cinemas.org_id")
+      .where((builder) => {
+        if (cinema_id) builder.where("event_cinema_id", "=", cinema_id);
+        if (city_id) builder.where("ms_cinemas.city_id", "=", city_id);
+        if (country_id) builder.where("ms_cinemas.country_id", "=", country_id);
+        if (org_id) builder.where("ms_cinemas.org_id", "=", org_id);
+        if (event_id) builder.where("ms_event.event_id", "=", event_id);
+        if (type) builder.where("ms_event.type", "=", type);
+        if (search)
+          builder.whereRaw(
+            `concat_ws(' ', cinema_name, cinema_email) LIKE '%${search}%'`
+          );
+      })
+      .where({
+        event_is_active: "Y",
+        sch_is_active: "Y",
+        event_is_private: "N",
+      })
+      .whereRaw(`concat(sch_date, ' ', sch_time) >= '${currentDateTimeNew}'`)
+      .groupBy("event_id")
+      .paginate(pagination(limit, currentPage));
+
+    // Format the dates and return the result
+    const formattedRecords = eventListData.data.map((event) => {
+      return {
+        ...event,
+        event_end_date: currentDateTime(event.event_end_date, "YYYY-MM-DD"),
+        eventDatePlaceholder: currentDateTime(
+          event.eventDatePlaceholder,
+          "YYYY-MM-DD"
+        ),
+        event_start_date: currentDateTime(event.event_start_date, "YYYY-MM-DD"),
+      };
+    });
+
+    return formattedRecords;
+  } catch (error) {
+    winstonLogger$1.error("Error in customerController.js 6:", error);
+    console.error("Error fetching active event list:", error);
+    throw new Error("Unable to fetch event data");
+  }
+};
 const ExtraDetail = async ({
   isLanguageRequired = true,
   isGenreRequired = true,
@@ -1764,262 +2093,6 @@ const EVENT_DATA = async (reqbody) => {
   };
 };
 
-async function getEventList(req, res) {
-  try {
-    const { query, body, params, user_info } = req;
-    const { org_id } = user_info;
-
-    // Merge query, body, and params into the reqbody object
-    const reqbody = {
-      ...query,
-      ...body,
-      ...params,
-      //org_id,
-      isWebsiteUser: req.is_website_user || false,
-    };
-
-    // Fetch event data
-    const getEventData = await EVENT_DATA(reqbody);
-
-    // Send the response with event data
-    return res.send({ ...getEventData });
-  } catch (error) {
-    console.error("Error fetching event list:", error);
-    return res.status(500).send({ message: "Internal Server Error" });
-  }
-}
-
-const getActiveListData = async (reqbody) => {
-  try {
-    const {
-      cinema_id,
-      type,
-      country_id,
-      city_id,
-      event_id,
-      org_id,
-      limit = 100,
-      currentPage = 1,
-      search,
-      isMaster = false,
-    } = reqbody;
-
-    let event_is_active = isMaster ? null : "Y";
-    const currentDateTimeNew = currentDateTime(null, "YYYY-MM-DD HH:mm");
-
-    // Build the query for event schedule data
-    const eventListData = await global
-      .knexConnection("event_schedule")
-      .select([
-        "ms_event.org_id",
-        "ms_event.type",
-        "ms_event.event_image_small",
-        "event_image_medium",
-        "event_image_large",
-        "event_name",
-        "event_short_description",
-        "event_schedule.event_id",
-        "event_start_date",
-        "event_end_date",
-        "ms_cinemas.cinema_name",
-        "ms_cities.city_name",
-        global.knexConnection.raw(
-          `min(event_schedule.sch_date) as eventDatePlaceholder`
-        ),
-      ])
-      .leftJoin("ms_event", "ms_event.event_id", "event_schedule.event_id")
-      .leftJoin(
-        "ms_cinemas",
-        "ms_cinemas.cinema_id",
-        "ms_event.event_cinema_id"
-      )
-      .leftJoin("ms_cities", "ms_cities.city_id", "ms_cinemas.city_id")
-      .leftJoin(
-        "ms_countries",
-        "ms_countries.country_id",
-        "ms_cinemas.country_id"
-      )
-      .leftJoin(
-        "ms_currencies",
-        "ms_currencies.curr_id",
-        "ms_cinemas.currency_id"
-      )
-      .leftJoin(
-        "ms_time_zones",
-        "ms_time_zones.tz_id",
-        "ms_cinemas.timezone_id"
-      )
-      .leftJoin("organizations", "organizations.org_id", "ms_cinemas.org_id")
-      .where((builder) => {
-        if (cinema_id) builder.where("event_cinema_id", "=", cinema_id);
-        if (city_id) builder.where("ms_cinemas.city_id", "=", city_id);
-        if (country_id) builder.where("ms_cinemas.country_id", "=", country_id);
-        if (org_id) builder.where("ms_cinemas.org_id", "=", org_id);
-        if (event_id) builder.where("ms_event.event_id", "=", event_id);
-        if (type) builder.where("ms_event.type", "=", type);
-        if (search)
-          builder.whereRaw(
-            `concat_ws(' ', cinema_name, cinema_email) LIKE '%${search}%'`
-          );
-      })
-      .where({
-        event_is_active: "Y",
-        sch_is_active: "Y",
-        event_is_private: "N",
-      })
-      .whereRaw(`concat(sch_date, ' ', sch_time) >= '${currentDateTimeNew}'`)
-      .groupBy("event_id")
-      .paginate(pagination(limit, currentPage));
-
-    // Format the dates and return the result
-    const formattedRecords = eventListData.data.map((event) => {
-      return {
-        ...event,
-        event_end_date: currentDateTime(event.event_end_date, "YYYY-MM-DD"),
-        eventDatePlaceholder: currentDateTime(
-          event.eventDatePlaceholder,
-          "YYYY-MM-DD"
-        ),
-        event_start_date: currentDateTime(event.event_start_date, "YYYY-MM-DD"),
-      };
-    });
-
-    return formattedRecords;
-  } catch (error) {
-    console.error("Error fetching active event list:", error);
-    throw new Error("Unable to fetch event data");
-  }
-};
-
-async function getActiveEventList(req, res) {
-  try {
-    const reqbody = { ...req.query, ...req.body };
-    const data = await getActiveListData(reqbody);
-
-    return res.send({
-      status: true,
-      data,
-    });
-  } catch (error) {
-    console.error("Error fetching active event list:", error);
-
-    return res.status(500).send({
-      status: false,
-      message: "Unable to fetch active event list. Please try again later.",
-    });
-  }
-}
-
-async function addEditEventExtra(req, res) {
-  try {
-    const reqbody = req.body;
-    const { user_info } = req;
-    const {
-      extra_info_id,
-      event_id,
-      extra_info_name,
-      extra_info_description,
-      extra_info_img,
-      extra_info_is_active,
-      extra_info_type,
-    } = reqbody;
-
-    const isUpdate = extra_info_id; // Simplified check for update
-
-    const checkFields = [
-      "event_id",
-      "extra_info_name",
-      "extra_info_img",
-      "extra_info_type",
-    ];
-
-    // Validate required fields
-    const result = await checkValidation(checkFields, reqbody);
-    if (!result.status) {
-      return res.status(400).send(result); // Return a 400 for validation errors
-    }
-
-    // Construct the object for insert or update
-    const obj = {
-      event_id,
-      extra_info_name: extra_info_name || null,
-      extra_info_description: extra_info_description || null,
-      extra_info_img: extra_info_img || null,
-      extra_info_type: extra_info_type || null,
-      extra_info_is_active: extra_info_is_active || null,
-    };
-
-    // Perform insert or update based on whether it's an update or not
-    if (isUpdate) {
-      await global
-        .knexConnection("ms_event_extra_info")
-        .update(obj)
-        .where({ extra_info_id });
-    } else {
-      await global.knexConnection("ms_event_extra_info").insert(obj);
-    }
-
-    return res.send({
-      status: true,
-      message: `${isUpdate ? "Updated" : "Created"} Successfully`,
-    });
-  } catch (error) {
-    console.error("Error in addEditEventExtra:", error);
-    return res.status(500).send({
-      status: false,
-      message: "An error occurred. Please try again later.",
-    });
-  }
-}
-
-async function getEventExtraInfoList(req, res) {
-  try {
-    const reqbody = { ...req.query, ...req.body, ...req.params };
-    const { event_id, extra_info_type, extra_info_is_active, is_website_user } =
-      reqbody;
-
-    // Handle pagination parameters
-    const limit = req.query.limit || 10;
-    const currentPage = req.query.currentPage || 1;
-
-    // Building the query
-    const EventExtraInfoList = await global
-      .knexConnection("ms_event_extra_info")
-      .select("ms_event_extra_info.*")
-      .where((builder) => {
-        if (event_id) {
-          builder.where("event_id", "=", event_id);
-        }
-        if (extra_info_type) {
-          builder.where("extra_info_type", "=", extra_info_type);
-        }
-        if (extra_info_is_active !== undefined) {
-          builder.where(
-            "extra_info_is_active",
-            "=",
-            extra_info_is_active ? "Y" : "N"
-          );
-        } else {
-          builder.where("extra_info_is_active", "=", "Y"); // Default to active if not specified
-        }
-      })
-      .orderBy("extra_info_id", "desc")
-      .paginate(pagination(limit, currentPage));
-
-    return res.send({
-      message: "Event Extra Info List",
-      status: true,
-      Records: EventExtraInfoList,
-    });
-  } catch (error) {
-    console.error("Error in getEventExtraInfoList:", error);
-    return res.status(500).send({
-      status: false,
-      message: "An error occurred while fetching the event extra info.",
-    });
-  }
-}
-
 const router$9 = Router();
 
 function EventRoutes() {
@@ -2079,6 +2152,7 @@ async function getTransactionByCodeScanner(req, res) {
       Records: TransactionList,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in scannerController.js 1:", error);
     return res.status(500).json({
       status: false,
       message: "An error occurred while retrieving the ticket details.",
@@ -2126,6 +2200,7 @@ async function getScannedTicketById(req, res) {
       Records: ScannedTicketList,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in scannerController.js 2:", error);
     return res.status(500).json({
       status: false,
       message: "An error occurred while retrieving scanned ticket details.",
@@ -2208,6 +2283,7 @@ async function getScannedTicketList(req, res) {
       Records: ScannedTicketList,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in scannerController.js 3:", error);
     return res.status(500).json({
       status: false,
       message: "An error occurred while retrieving scanned ticket list.",
@@ -2310,6 +2386,7 @@ async function addEditScanTicket(req, res) {
       status: true,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in scannerController.js 4:", error);
     return res.status(500).json({
       status: false,
       message: "An error occurred while adding/editing scan ticket.",
@@ -2403,6 +2480,7 @@ async function addEditGuest(req, res) {
       Records: [obj],
     });
   } catch (error) {
+    winstonLogger$1.error("Error in guestController.js 1:", error);
     console.error("Error in addEditGuest:", error); // Log the error for debugging
     return res.status(500).send({
       status: false,
@@ -2458,6 +2536,7 @@ async function getGuestList(req, res) {
       Records: UserList,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in guestController.js 2:", error);
     console.error("Error in getGuestList:", error); // Log the error for debugging
     return res.status(500).send({
       status: false,
@@ -2538,6 +2617,7 @@ async function addSubscriber(req, res) {
       Records: [obj],
     });
   } catch (error) {
+    winstonLogger$1.error("Error in guestController.js 3:", error);
     console.error("Error in addSubscriber:", error); // Log the error for debugging
     return res.status(500).send({
       status: false,
@@ -2635,6 +2715,7 @@ async function addEditCountries(req, res) {
       obj,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 1:", error);
     console.error("Error in addEditCountries:", error);
     return res.status(500).json({
       status: false,
@@ -2690,6 +2771,7 @@ async function getCountryList(req, res) {
       Records: CountryList,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 2:", error);
     console.error("Error in getCountryList:", error);
     return res.status(500).json({
       status: false,
@@ -2751,6 +2833,7 @@ async function addEditCities(req, res) {
       obj,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 3:", error);
     console.error("Error in addEditCities:", error);
     return res.status(500).json({
       status: false,
@@ -2814,6 +2897,7 @@ async function getCityList(req, res) {
       Records: CityList,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 4:", error);
     console.error("Error fetching city list:", error);
     return res.status(500).json({
       status: false,
@@ -2879,6 +2963,7 @@ async function addEditLanguages(req, res) {
       });
     }
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 5:", error);
     console.error("Error in add/edit language:", error);
     return res.status(500).json({
       status: false,
@@ -2938,6 +3023,7 @@ async function getLanguageList(req, res) {
       Records: LanguageList,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 6:", error);
     console.error("Error fetching language list:", error);
     return res.status(500).json({
       status: false,
@@ -2997,6 +3083,7 @@ async function addEditGenre(req, res) {
       });
     }
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 7:", error);
     console.error("Error in add/edit genre:", error);
     return res.status(500).json({
       status: false,
@@ -3045,6 +3132,7 @@ async function getGenreList(req, res) {
       Records: GenreList,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 8:", error);
     console.error("Error fetching genre list:", error);
     return res.status(500).json({
       status: false,
@@ -3105,6 +3193,7 @@ async function addEditSeatType(req, res) {
       });
     }
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 9:", error);
     console.error("Error in addEditSeatType:", error);
     return res.status(500).json({
       status: false,
@@ -3149,6 +3238,7 @@ async function getSeatTypeList(req, res) {
       Records: SeatTypeList,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 10:", error);
     console.error("Error in getSeatTypeList:", error);
     return res.status(500).json({
       status: false,
@@ -3210,6 +3300,7 @@ async function addEditCurrency(req, res) {
       });
     }
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 11:", error);
     console.error("Error in addEditCurrency:", error);
     return res.status(500).json({
       status: false,
@@ -3255,6 +3346,7 @@ async function getCurrencyList(req, res) {
       Records: CurrencyList,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 12:", error);
     console.error("Error in getCurrencyList:", error);
     return res.status(500).json({
       status: false,
@@ -3299,6 +3391,7 @@ async function addEditBanner(req, res) {
       arrayBanner,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 13:", error);
     console.error("Error in addEditBanner:", error);
     return res.status(500).json({
       status: false,
@@ -3352,6 +3445,7 @@ async function getBannerList(req, res) {
       Records: BannerList,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 14:", error);
     console.error("Error in getBannerList:", error);
     return res.status(500).send({
       message: "Internal server error",
@@ -3435,6 +3529,7 @@ async function addEditSeatLayout(req, res) {
       message: `Seat Layout ${isUpdate ? "Updated" : "Created"} Successfully`,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 15:", error);
     console.error("Error in addEditSeatLayout:", error);
     return res.status(500).send({
       message: "Internal server error",
@@ -3550,6 +3645,7 @@ async function getSeatLayoutList(req, res) {
       Records: SeatLayoutList,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 16:", error);
     console.error("Error in getSeatLayoutList:", error);
     return res.status(500).send({
       message: "Internal server error",
@@ -3583,6 +3679,7 @@ async function getTimeZoneList(req, res) {
       Records: TimeZoneList,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 17:", error);
     console.error("Error in getTimeZoneList:", error);
     return res.status(500).send({
       message: "Internal server error",
@@ -3619,6 +3716,7 @@ async function addEditOrgWebsite(req, res) {
       message: `Org Website Linked`,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 18:", error);
     console.error("Error in addEditOrgWebsite:", error);
     return res.status(500).send({
       message: "Internal server error",
@@ -3681,6 +3779,7 @@ async function addEditRoles(req, res) {
       obj,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 19:", error);
     console.error("Error in addEditRoles:", error);
     return res.status(500).send({
       message: "Internal server error",
@@ -3720,6 +3819,7 @@ async function getRolesList(req, res) {
       Records: RolesList,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 20:", error);
     console.error("Error in getRolesList:", error);
     return res.status(500).send({
       message: "Internal server error",
@@ -3768,6 +3868,7 @@ async function getOrgList(req, res) {
       Records: OrgList,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 21:", error);
     console.error("Error in getOrgList:", error);
     return res.status(500).send({
       message: "Internal server error",
@@ -3899,6 +4000,7 @@ async function addEditOrg(req, res) {
       obj,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 22:", error);
     console.error("Error in addEditOrg:", error);
     return res.status(500).send({
       message: "Internal server error",
@@ -3988,6 +4090,7 @@ async function addEditVouchers(req, res) {
       obj,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 23:", error);
     console.error("Error in addEditVouchers:", error);
     return res.status(500).send({
       message: "Internal server error",
@@ -4033,6 +4136,7 @@ async function getVoucherList(req, res) {
       Records: VoucherList,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 24:", error);
     console.error("Error retrieving voucher list:", error);
     return res.status(500).json({
       message: "Internal server error",
@@ -4111,6 +4215,7 @@ async function addEditBlockedSeats(req, res) {
       arraySeats,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 25:", error);
     console.error("Error in addEditBlockedSeats:", error);
     return res.status(500).json({
       message: "Internal server error",
@@ -4173,6 +4278,7 @@ async function getEventBlockedSeats(req, res) {
       Records: objBlocked,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 26:", error);
     console.error("Error retrieving event blocked seats:", error);
     return res.status(500).json({
       message: "Internal server error",
@@ -4201,6 +4307,7 @@ async function getContactUsList(req, res) {
       Records: ContactList,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in masterController.js 27:", error);
     console.error("Error retrieving Contact Us list:", error);
     return res.status(500).json({
       message: "Internal server error",
@@ -4224,6 +4331,7 @@ const storage = multer.diskStorage({
       cb(null, uploadDir);
     } catch (error) {
       console.error("Error creating upload directory:", error);
+      winstonLogger$1.error("Error in multerHelper.js 1:", error);
       cb(new Error("Failed to create upload directory"), null);
     }
   },
@@ -4243,6 +4351,7 @@ const validateFileType = (file, allowedExtensions, callback) => {
     callback(null, true);
   } catch (error) {
     console.error("Error validating file type:", error);
+    winstonLogger$1.error("Error in multerHelper.js 2:", error);
     callback("Error validating file type");
   }
 };
@@ -4410,6 +4519,7 @@ async function uploadImageController(req, res) {
       );
     });
   } catch (error) {
+    winstonLogger$1.error("Error in fileUploadController.js 2:", error);
     console.error("Error during image upload:", error);
     return res.status(500).json({
       status: false,
@@ -4662,6 +4772,7 @@ async function addEditPass(req, res) {
       });
     }
   } catch (error) {
+    winstonLogger$1.error("Error in passController.js 1:", error);
     console.error("Error in addEditPass:", error);
     return res.status(500).send({
       status: false,
@@ -4744,6 +4855,7 @@ async function getPassList(req, res) {
       Pagination: passList ? passList.pagination : null,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in passController.js 2:", error);
     console.error("Error in getPassList:", error);
     return res.status(500).send({
       status: false,
@@ -4808,6 +4920,7 @@ async function addEditPassDiscount(req, res) {
       status: true,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in passController.js 3:", error);
     // Log the error and send a response
     console.error("Error in addEditPassDiscount:", error);
     return res.status(500).json({
@@ -4862,6 +4975,7 @@ async function getPassDiscountList(req, res) {
       Records: discountArray,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in passController.js 4:", error);
     // Log the error details (for internal debugging purposes)
     console.error("Error in getPassDiscountList:", error);
 
@@ -4908,7 +5022,8 @@ function createQRCode(qrcode_data, returnType = "buffer", logo = null) {
   return new Promise((resolve, reject) => {
     try {
       if (!qrcode_data) {
-        throw new Error("QR code data is required.");
+        console.error("QR code data is required.");
+        return;
       }
 
       QRCode.toDataURL(qrcode_data, opts)
@@ -4916,6 +5031,7 @@ function createQRCode(qrcode_data, returnType = "buffer", logo = null) {
           resolve(qrcode);
         })
         .catch((error) => {
+          winstonLogger$1.error("Error in QrcodeGenerator.js 1:", error);
           console.error("Error creating QR code:", error.message);
           reject(
             new Error(
@@ -4924,6 +5040,7 @@ function createQRCode(qrcode_data, returnType = "buffer", logo = null) {
           );
         });
     } catch (error) {
+      winstonLogger$1.error("Error in QrcodeGenerator.js 2:", error);
       console.error("Error creating QR code:", error.message);
       reject(
         new Error(
@@ -4983,6 +5100,7 @@ const CreateInvSendTicketEmail = async (reqbody) => {
             console.log("QR Code generated:", booking.booking_code);
           })
           .catch((error) => {
+            winstonLogger$1.error("Error in CreateInvSendTicketEmail 1:", error);
             console.error("error in qr generation", error.message);
           });
 
@@ -5035,6 +5153,7 @@ const CreateInvSendTicketEmail = async (reqbody) => {
             .update({ ticket_sent: "N" });
         }
       } catch (error) {
+        winstonLogger$1.error("Error in CreateInvSendTicketEmail 2:", error);
         console.error(
           "Error processing booking:",
           booking.booking_code,
@@ -5046,6 +5165,7 @@ const CreateInvSendTicketEmail = async (reqbody) => {
       }
     }
   } catch (error) {
+    winstonLogger$1.error("Error in CreateInvSendTicketEmail 3:", error);
     console.error("Error in CreateInvSendTicketEmail:", error);
   }
 };
@@ -5073,6 +5193,7 @@ const sendTicketEmail = async (emailData) => {
       .knexConnection("ms_booking")
       .where({ booking_id: emailData.booking_id })
       .update({ ticket_sent: "N" });
+    winstonLogger$1.error("Error in sendTicketEmail 4:", error);
   }
 };
 
@@ -5152,6 +5273,7 @@ async function getTransactionList(req, res) {
     try {
       parsedFilters = JSON.parse(reqbody.filters || "{}");
     } catch (error) {
+      winstonLogger$1.error("Error in reportController.js 1:", error);
       return res.status(400).send({
         message: "Invalid filters JSON format",
         status: false,
@@ -5212,6 +5334,7 @@ async function getTransactionList(req, res) {
       Records: TransactionList,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in reportController.js 2:", error);
     console.error("Error fetching transaction list:", error);
 
     // Send error response
@@ -5233,6 +5356,7 @@ async function getReservationBookingList(req, res) {
     try {
       parsedFilters = JSON.parse(reqbody.filters || "{}");
     } catch (error) {
+      winstonLogger$1.error("Error in reportController.js 3:", error);
       return res.status(400).send({
         message: "Invalid filters JSON format",
         status: false,
@@ -5303,6 +5427,7 @@ async function getReservationBookingList(req, res) {
       Records: ReservationListAll,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in reportController.js 4:", error);
     console.error("Error fetching reservation list:", error);
 
     // Send error response
@@ -5324,6 +5449,7 @@ async function exportBookingReport(req, res) {
     try {
       parsedFilters = JSON.parse(reqbody.payload || "{}");
     } catch (error) {
+      winstonLogger$1.error("Error in reportController.js 5:", error);
       return res.status(400).send({
         message: "Invalid filters JSON format",
         status: false,
@@ -5439,6 +5565,7 @@ async function exportBookingReport(req, res) {
     await workbook.xlsx.write(res);
     res.end();
   } catch (error) {
+    winstonLogger$1.error("Error in reportController.js 6:", error);
     console.error("Error generating booking report:", error);
 
     // Send error response
@@ -5460,6 +5587,7 @@ async function exportReservationReport(req, res) {
     try {
       parsedFilters = JSON.parse(reqbody.filters || "{}");
     } catch (error) {
+      winstonLogger$1.error("Error in reportController.js 7:", error);
       return res.status(400).send({
         message: "Invalid filters JSON format",
         status: false,
@@ -5572,6 +5700,7 @@ async function exportReservationReport(req, res) {
     await workbook.xlsx.write(res);
     res.end();
   } catch (error) {
+    winstonLogger$1.error("Error in reportController.js 8:", error);
     console.error("Error generating reservation report:", error);
 
     // Send error response
@@ -5630,6 +5759,7 @@ async function getEventHomeDataById(req, res) {
       Records: response,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in reportController.js 9:", error);
     console.error("Error fetching event data:", error);
     return res.status(500).json({
       status: false,
@@ -5810,6 +5940,7 @@ async function resendTicketCustomer(req, res) {
       });
     }
   } catch (error) {
+    winstonLogger$1.error("Error in reportController.js 10:", error);
     console.error("Error sending ticket email:", error);
     return res.status(500).send({
       status: false,
@@ -5871,6 +6002,7 @@ async function getPassTransactionList(req, res) {
       Records: TransactionList,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in reportController.js 11:", error);
     console.error("Error fetching pass transactions:", error);
     return res.status(500).send({
       status: false,
@@ -6038,6 +6170,7 @@ async function addEdtUser(req, res) {
       });
     }
   } catch (error) {
+    winstonLogger$1.error("Error in userController.js 1:", error);
     console.error("Error in addEdtUser:", error);
     return res.status(500).send({
       status: false,
@@ -6526,6 +6659,7 @@ async function getUserList(req, res) {
       permissionArray: permissionArray,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in userController.js 2:", error);
     console.error("Error in getUserList:", error);
     return res.status(500).send({
       status: false,
@@ -6632,6 +6766,7 @@ async function getTransactionByCode(req, res) {
       Records: updatedTransactionList,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in bookingController.js 1:", error);
     // Log the error and send a response
     console.error("Error fetching ticket details: ", error);
     return res.send({
@@ -6667,6 +6802,7 @@ const checkPriceData = (seatLayoutData, price_array) => {
       }
     });
   } catch (error) {
+    winstonLogger$1.error("Error in websiteController.js 1:", error);
     console.error("Error in checkPriceData function:", error);
     price_data.status = false;
     price_data.records = [];
@@ -6765,6 +6901,7 @@ const checkSeatsAvailableWithoutSL = async ({
       }
     });
   } catch (error) {
+    winstonLogger$1.error("Error in websiteController.js 2:", error);
     console.error("Error in checkSeatsAvailableWithoutSL function:", error);
     seatCheck.status = false;
     seatCheck.records = [];
@@ -6798,6 +6935,7 @@ const checkPriceDataWithoutSL = (seatLayoutData, price_array) => {
       }
     });
   } catch (error) {
+    winstonLogger$1.error("Error in websiteController.js 3:", error);
     console.error("Error in checkPriceDataWithoutSL function:", error);
     price_data.status = false;
     price_data.records = [];
@@ -6861,6 +6999,7 @@ const addReservationSeat = async (req, res) => {
 
     // Wait for all seat validations to complete
     let arrayData = await Promise.all(seatValidationPromises).catch((error) => {
+      winstonLogger$1.error("Error in websiteController.js 4:", error);
       return res.send({ status: false, message: error.message });
     });
 
@@ -6933,6 +7072,7 @@ const addReservationSeat = async (req, res) => {
     // Respond with success and the reservation ID
     return res.send({ status: true, reservation_id });
   } catch (error) {
+    winstonLogger$1.error("Error in websiteController.js 5:", error);
     // Log any errors to the server console for debugging
     console.error("Error in addReservationSeat:", error);
 
@@ -6980,6 +7120,7 @@ const addReservationSeatWithoutSeatlayout = async (req, res) => {
 
     // Wait for all seat validations to complete
     let arrayData = await Promise.all(seatValidationPromises).catch((error) => {
+      winstonLogger$1.error("Error in websiteController.js 6:", error);
       return res.send({ status: false, message: error.message });
     });
 
@@ -7076,6 +7217,7 @@ const addReservationSeatWithoutSeatlayout = async (req, res) => {
       reservation_id,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in websiteController.js 7:", error);
     // Log any unexpected errors
     console.error("Error in addReservationSeatWithoutSeatlayout:", error);
 
@@ -7219,6 +7361,7 @@ const getReservationSeat = async (req, res) => {
       getReservationDetail,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in websiteController.js 8:", error);
     // Log any unexpected errors
     console.error("Error in getReservationSeat:", error);
     return res.send({
@@ -7276,6 +7419,7 @@ const resetReserveTime = async (req, res) => {
       Records: "Timer Reset", // Success message after resetting the timer
     });
   } catch (error) {
+    winstonLogger$1.error("Error in websiteController.js 9:", error);
     // Log the error and return a response indicating the failure
     console.error("Error in resetReserveTime:", error);
     return res.send({
@@ -7332,6 +7476,7 @@ const releaseSeats = async (req, res) => {
       update_obj, // Information about the updated reservation status
     });
   } catch (error) {
+    winstonLogger$1.error("Error in websiteController.js 10:", error);
     // Log the error and return a response indicating failure
     console.error("Error in releaseSeats:", error);
     return res.send({
@@ -7388,6 +7533,7 @@ const allReserveSeatBySchedule = async (req, res) => {
       message: "All Reserved and Blocked Seats Retrieved Successfully",
     });
   } catch (error) {
+    winstonLogger$1.error("Error in websiteController.js 11:", error);
     // Log the error for debugging and provide a response to the user
     console.error("Error in allReserveSeatBySchedule:", error);
     return res.send({
@@ -7514,6 +7660,7 @@ async function applyVoucher(req, res) {
       Records: voucher_code,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in websiteController.js 12:", error);
     // Log any unexpected errors for debugging
     console.error("Error in applyVoucher:", error);
     return res.send({
@@ -7570,6 +7717,7 @@ async function removeVoucher(req, res) {
     });
   } catch (error) {
     // Log the error for debugging
+    winstonLogger$1.error("Error in websiteController.js 13:", error);
     console.error("Error in removeVoucher:", error);
 
     return res.send({
@@ -7725,6 +7873,7 @@ const addReservationSeatsIo = async (req, res) => {
       reservation_id,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in websiteController.js 15:", error);
     console.error("Error in addReservationSeatsIo:", error);
     return res.send({
       status: false,
@@ -7795,6 +7944,7 @@ const reservePass = async (req, res) => {
       reservation_id,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in websiteController.js 16:", error);
     console.error("Error in reservePass:", error);
     return res.send({
       status: false,
@@ -7930,6 +8080,7 @@ const getReservePassDetails = async (req, res) => {
       Records: [obj],
     });
   } catch (error) {
+    winstonLogger$1.error("Error in websiteController.js 17:", error);
     console.error("Error in getReservePassDetails:", error);
     return res.send({
       status: false,
@@ -8095,6 +8246,7 @@ async function applyPass(req, res) {
       Records: getPass[0].pass_name,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in websiteController.js 18:", error);
     console.error("Error in applyPass:", error);
     return res.send({
       status: false,
@@ -8146,6 +8298,7 @@ async function getCustomerPassById(req, res) {
       Records: getCustomerPass,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in websiteController.js 19:", error);
     console.error("Error in getCustomerPassById:", error);
     return res.send({
       status: false,
@@ -8187,6 +8340,7 @@ async function removePass(req, res) {
       message: "Pass removed successfully",
     });
   } catch (error) {
+    winstonLogger$1.error("Error in websiteController.js 20:", error);
     console.error("Error in removePass:", error);
     return res.send({
       status: false,
@@ -8260,6 +8414,7 @@ async function getCustomerPassHistory(req, res) {
       Records: getCustomerPass,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in websiteController.js 21:", error);
     console.error("Error in getCustomerPassHistory:", error);
     return res.send({
       status: false,
@@ -8316,6 +8471,7 @@ async function getCustomerTicketHistory(req, res) {
       Records: getCustomerTickets,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in websiteController.js 22:", error);
     console.error("Error in getCustomerTicketHistory:", error);
     return res.send({
       status: false,
@@ -8609,6 +8765,7 @@ async function createTransation(req, res) {
           }
         }
       } catch (error) {
+        winstonLogger$1.error("Error in bookingHelper.js 1:", error);
         console.error("Seats.io Booking Error: ", error);
         return res.send({
           status: false,
@@ -8640,6 +8797,21 @@ async function createTransation(req, res) {
         totalAmount += parseFloat(z.seat_price);
       }
 
+      //check for voucher discount here
+      let discountedAmount =
+        z.voucher_applied == "Y" ? parseFloat(z.voucher_discount_amount) : 0;
+
+      //check for pass discount here
+      if (z.pass_applied == "Y") {
+        discountedAmount =
+          parseFloat(z.pass_discount_amount) + discountedAmount;
+        totalAmount -= discountedAmount;
+      }
+
+      totalAmount *= event_data.exchange_rate
+        ? parseFloat(event_data.exchange_rate)
+        : 1;
+
       let obj = {
         booking_id: insertBookingId[0],
         seat_name: z.seat_name,
@@ -8661,37 +8833,10 @@ async function createTransation(req, res) {
       .knexConnection("ms_booking_transaction")
       .insert(transaction_array);
 
-    const getDiscountData = await global
-      .knexConnection("ms_reserve_vouchers")
-      .where({ reservation_id: reservation_id, rv_is_active: "Y" });
-
     let voucher_code = "";
     let discountValue = 0;
     let discountPercent = "";
     let totalBeforeDiscount = totalAmount;
-
-    if (getDiscountData.length) {
-      voucher_code = getDiscountData[0].voucher_code;
-      discountPercent = getDiscountData[0].voucher_discount_percent;
-      discountValue =
-        (parseFloat(getDiscountData[0].voucher_discount_percent) / 100) *
-        totalAmount;
-
-      totalAmount = totalAmount - discountValue;
-    }
-
-    const getDiscountPassData = await global
-      .knexConnection("ms_reserve_pass")
-      .where({ reservation_id: reservation_id });
-
-    if (getDiscountPassData.length) {
-      discountPercent = getDiscountPassData[0].pass_discount_percent;
-      discountValue =
-        (parseFloat(getDiscountPassData[0].pass_discount_percent) / 100) *
-        singleTicketPrice;
-
-      totalAmount = totalAmount - discountValue;
-    }
 
     let booking_code = event_data.event_prefix_code
       ? event_data.event_prefix_code
@@ -8735,6 +8880,7 @@ async function createTransation(req, res) {
       booking_code,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in bookingHelper.js 2:", error);
     console.error("Transaction creation failed: ", error);
     return res.send({
       status: false,
@@ -8848,6 +8994,7 @@ const skipPaymentGateway = async (reqbody) => {
       redirectTo: redirectToUrl,
     };
   } catch (error) {
+    winstonLogger$1.error("Error in bookingHelper.js 3:", error);
     // Log the error and return an error message
     console.error("Error in SKIP_PAYMENT:", error);
     return {
@@ -8976,29 +9123,27 @@ async function tapPaymentCheckout(req, res) {
     let paymentCurrency = paymentCurrencyData[0].curr_code;
 
     // Calculate total amount
-    let totalAmount = checkReservation.reduce((sum, reservation) => {
+    let totalAmount = 0;
+    checkReservation.forEach((z) => {
       if (event_data[0].event_seating_type === "N") {
-        return (
-          sum +
-          parseFloat(reservation.seat_price) *
-            (reservation.no_of_seats ? parseFloat(reservation.no_of_seats) : 1)
-        );
+        totalAmount +=
+          parseFloat(z.seat_price) *
+          (z.no_of_seats ? parseFloat(z.no_of_seats) : 1);
       } else {
-        return sum + parseFloat(reservation.seat_price);
+        totalAmount += parseFloat(z.seat_price);
       }
-    }, 0);
 
-    // Apply discount if applicable
-    const discountData = await global
-      .knexConnection("ms_reserve_vouchers")
-      .where({ reservation_id, rv_is_active: "Y" });
+      //check for voucher discount here
+      let discountedAmount =
+        z.voucher_applied == "Y" ? parseFloat(z.voucher_discount_amount) : 0;
 
-    if (discountData.length) {
-      const discountValue =
-        (parseFloat(discountData[0].voucher_discount_percent) / 100) *
-        totalAmount;
-      totalAmount -= discountValue;
-    }
+      //check for pass discount here
+      if (z.pass_applied == "Y") {
+        discountedAmount =
+          parseFloat(z.pass_discount_amount) + discountedAmount;
+        totalAmount -= discountedAmount;
+      }
+    });
 
     totalAmount *= event_data[0].exchange_rate
       ? parseFloat(event_data[0].exchange_rate)
@@ -9110,6 +9255,7 @@ async function tapPaymentCheckout(req, res) {
       data: response.data.transaction.url,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in tapPayment.js 1:", error);
     console.error("Error in tapPaymentCheckout:", error);
     return res.send({
       status: false,
@@ -9210,6 +9356,7 @@ async function confirmTapPayment(req, res) {
       return res.redirect(failed_frontend_url);
     }
   } catch (error) {
+    winstonLogger$1.error("Error in payonePayment.js 2:", error);
     console.error("Error in confirmTapPayment:", error);
 
     // If an error occurs, update payment capture and redirect to failure URL
@@ -9315,29 +9462,22 @@ async function payonePaymentCheckout(req, res) {
       } else {
         totalAmount += parseFloat(z.seat_price);
       }
+
+      //check for voucher discount here
+      let discountedAmount =
+        z.voucher_applied == "Y" ? parseFloat(z.voucher_discount_amount) : 0;
+
+      //check for pass discount here
+      if (z.pass_applied == "Y") {
+        discountedAmount =
+          parseFloat(z.pass_discount_amount) + discountedAmount;
+        totalAmount -= discountedAmount;
+      }
     });
 
-    // Apply discounts (voucher)
-    const getDiscountData = await global
-      .knexConnection("ms_reserve_vouchers")
-      .where({ reservation_id, rv_is_active: "Y" });
-    if (getDiscountData.length) {
-      const discountValue =
-        (parseFloat(getDiscountData[0].voucher_discount_percent) / 100) *
-        totalAmount;
-      totalAmount -= discountValue;
-    }
-
-    // Apply discounts (pass)
-    const getDiscountPassData = await global
-      .knexConnection("ms_reserve_pass")
-      .where({ reservation_id, rp_is_active: "Y" });
-    if (getDiscountPassData.length) {
-      const discountValue =
-        (parseFloat(getDiscountPassData[0].pass_discount_percent) / 100) *
-        parseFloat(getDiscountPassData[0].seat_price);
-      totalAmount -= discountValue;
-    }
+    totalAmount *= event_data[0].exchange_rate
+      ? parseFloat(event_data[0].exchange_rate)
+      : 1;
 
     // Skip payment if total amount is zero
     if (totalAmount <= 0) {
@@ -9453,6 +9593,7 @@ async function payonePaymentCheckout(req, res) {
 
     return res.send({ status: true, payment_mode: "payone", data: formbody });
   } catch (error) {
+    winstonLogger$1.error("Error in payonePayment.js 1:", error);
     console.error("Error during Payone payment checkout:", error);
     return res.send({
       status: false,
@@ -9573,6 +9714,7 @@ async function confirmPayonePayment(req, res) {
       );
     }
   } catch (error) {
+    winstonLogger$1.error("Error in payonePayment.js 2:", error);
     console.error("Error during Payone payment confirmation:", error.message);
     await global
       .knexConnection("ms_payment_booking_detail")
@@ -9809,6 +9951,7 @@ async function payonePassPaymentCheckout(req, res) {
       data: formBody,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in payonePassPayment.js 1:", error);
     // Catch and log any unexpected errors
     console.error("Error processing payment checkout:", error);
     return res.status(500).send({
@@ -9846,6 +9989,7 @@ async function confirmPassPayonePayment(req, res) {
       .where({ reservation_id })
       .first(); // Using `.first()` to directly get the single record
   } catch (error) {
+    winstonLogger$1.error("Error in payonePassPayment.js 2:", error);
     console.error("Error fetching payment details:", error);
     return res.status(500).send({
       status: false,
@@ -9871,6 +10015,7 @@ async function confirmPassPayonePayment(req, res) {
   try {
     requestedPayload = JSON.parse(payment_request); // Safely parse payment request
   } catch (error) {
+    winstonLogger$1.error("Error in payonePassPayment.js 3:", error);
     console.error("Error parsing payment request:", error);
     return res.status(400).send({
       status: false,
@@ -9929,6 +10074,7 @@ async function confirmPassPayonePayment(req, res) {
       try {
         transactionResponse = await axios$1(config);
       } catch (axiosError) {
+        winstonLogger$1.error("Error in payonePassPayment.js 4:", axiosError);
         console.error("Error during transaction API call:", axiosError);
         return res.status(500).send({
           status: false,
@@ -9968,6 +10114,7 @@ async function confirmPassPayonePayment(req, res) {
       );
     }
   } catch (error) {
+    winstonLogger$1.error("Error in payonePassPayment.js 5:", error);
     console.error("Error during payment confirmation:", error);
     await global
       .knexConnection("ms_payment_booking_detail")
@@ -10003,6 +10150,7 @@ async function createPassTransation(req, res) {
         p_is_reserved: "Y",
       });
   } catch (error) {
+    winstonLogger$1.error("Error in payonePassPayment.js 6:", error);
     console.error("Error fetching reservation details:", error);
     return res.status(500).send({
       status: false,
@@ -10047,6 +10195,7 @@ async function createPassTransation(req, res) {
           is_paid: "Y",
         });
     } catch (error) {
+      winstonLogger$1.error("Error in payonePassPayment.js 7:", error);
       console.error("Error fetching payment details:", error);
       return res.status(500).send({
         status: false,
@@ -10083,6 +10232,7 @@ async function createPassTransation(req, res) {
         "movie_event_pass.pass_is_active": "Y",
       });
   } catch (error) {
+    winstonLogger$1.error("Error in payonePassPayment.js 8:", error);
     console.error("Error fetching pass details:", error);
     return res.status(500).send({
       status: false,
@@ -10148,6 +10298,7 @@ async function createPassTransation(req, res) {
       reservation_id,
     });
   } catch (error) {
+    winstonLogger$1.error("Error in payonePassPayment.js 9:", error);
     console.error("Error checking existing bookings:", error);
     return res.status(500).send({
       status: false,
@@ -10168,6 +10319,7 @@ async function createPassTransation(req, res) {
       .knexConnection("pass_booking")
       .insert(insertObj);
   } catch (error) {
+    winstonLogger$1.error("Error in payonePassPayment.js 10:", error);
     console.error("Error inserting booking:", error);
     return res.status(500).send({
       status: false,
@@ -10199,6 +10351,7 @@ async function createPassTransation(req, res) {
         is_booked: "Y",
       });
   } catch (error) {
+    winstonLogger$1.error("Error in payonePassPayment.js 11:", error);
     console.error("Error updating reservation and payment status:", error);
     return res.status(500).send({
       status: false,
@@ -10342,18 +10495,18 @@ async function mpgsPaymentCheckout(req, res) {
       } else {
         totalAmount += parseFloat(z.seat_price);
       }
+
+      //check for voucher discount here
+      let discountedAmount =
+        z.voucher_applied == "Y" ? parseFloat(z.voucher_discount_amount) : 0;
+
+      //check for pass discount here
+      if (z.pass_applied == "Y") {
+        discountedAmount =
+          parseFloat(z.pass_discount_amount) + discountedAmount;
+        totalAmount -= discountedAmount;
+      }
     });
-
-    const getDiscountData = await global
-      .knexConnection("ms_reserve_vouchers")
-      .where({ reservation_id: reservation_id, rv_is_active: "Y" });
-
-    if (getDiscountData.length) {
-      let discountValue =
-        (parseFloat(getDiscountData[0].voucher_discount_percent) / 100) *
-        totalAmount;
-      totalAmount = totalAmount - discountValue;
-    }
 
     totalAmount =
       totalAmount *
@@ -10482,6 +10635,7 @@ async function mpgsPaymentCheckout(req, res) {
       });
     }
   } catch (error) {
+    winstonLogger$1.error("Error in mpgsPayment.js 1:", error);
     console.log(error, "mpgs error");
     return res.send({
       status: false,
@@ -10582,6 +10736,7 @@ async function confirmMpgsPayment(req, res) {
       return res.redirect(`${failed_redirect_url}`);
     }
   } catch (error) {
+    winstonLogger$1.error("Error in mpgsPayment.js 2:", error);
     console.log("error in confirmMpgsPayment=>", error);
   }
 }
@@ -10717,7 +10872,7 @@ Promise.all([
     global.globalOptions = globalOptionsMap;
 
     //cron scripts
-    import('./index-BsFhdWrq.js');
+    import('./index-BfV8j_GH.js');
 
     //start server
     httpServer.listen(EXPRESS_PORT, () => {
@@ -10728,4 +10883,4 @@ Promise.all([
     console.log(`error in connecting database or redis=>`, error);
   });
 
-export { CreateInvSendTicketEmail$1 as C };
+export { CreateInvSendTicketEmail$1 as C, winstonLogger$1 as w };
