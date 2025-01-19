@@ -5584,157 +5584,210 @@ async function exportReservationReport(req, res) {
 }
 
 async function getEventHomeDataById(req, res) {
-  try {
-    const reqbody = { ...req.query, ...req.body, ...req.params };
+  const reqBody = { ...req.query, ...req.body, ...req.params };
+  const eventId = reqBody.event_id || null;
 
-    const { event_id, selectedEventType } = reqbody;
-
-    if (!event_id) {
-      return res.status(400).send({
-        status: false,
-        message: "Event Not Found",
-      });
-    }
-
-    // Fetch event total transactions
-    const [EventTransactionCount] = await global
-      .knexConnection("ms_booking")
-      .count("event_id as event_total_trans")
-      .where("ms_booking.event_id", event_id);
-
-    // Fetch event total seats scanned
-    const [EventTicketScannedCount] = await global
-      .knexConnection("ms_booking")
-      .sum("seats_scanned as event_total_seats_scanned")
-      .where("ms_booking.event_id", event_id);
-
-    // Fetch total voucher transactions
-    const [EventVoucherTransactionCount] = await global
-      .knexConnection("ms_booking")
-      .count("event_id as event_voucher_total_trans")
-      .where("ms_booking.event_id", event_id)
-      .whereRaw(
-        "ms_booking.voucher_code !='' AND ms_booking.voucher_code IS NOT NULL"
-      );
-
-    let EventTotalSeatsBookedCount = 0;
-
-    // Fetch scheduled events with booked seats
-    const EventAllBookedSeats = await global
-      .knexConnection("ms_reservation")
-      .select(
-        "ms_reservation.seat_type",
-        "ms_reservation.no_of_seats",
-        "event_schedule.sch_date",
-        "event_schedule.sch_time",
-        "event_schedule.sch_max_capacity",
-        "event_schedule.event_sch_id"
-      )
-      .leftJoin(
-        "event_schedule",
-        "event_schedule.event_sch_id",
-        "ms_reservation.event_sch_id"
-      )
-      .where({
-        "ms_reservation.is_booked": "Y",
-        "ms_reservation.event_id": event_id,
-      });
-
-    // Fetch seat types for the event schedule
-    const EventSeatTypes = await global
-      .knexConnection("event_sch_seat_type")
-      .select(
-        "event_sch_seat_type.*",
-        "ms_seat_class_type.seat_class_name",
-        "event_schedule.sch_date",
-        "event_schedule.sch_time",
-        "event_schedule.sch_max_capacity"
-      )
-      .leftJoin(
-        "ms_seat_class_type",
-        "ms_seat_class_type.sct_id",
-        "event_sch_seat_type.sct_id"
-      )
-      .leftJoin(
-        "event_schedule",
-        "event_schedule.event_sch_id",
-        "event_sch_seat_type.event_sch_id"
-      )
-      .where({
-        "ms_seat_class_type.sct_is_active": "Y",
-        "event_schedule.sch_is_active": "Y",
-        "event_sch_seat_type.event_id": event_id,
-      })
-      .orderBy("event_sch_seat_type.event_sch_ss_id", "asc");
-
-    let schDataArray = [];
-
-    // Process seat types and booked seats
-    for (let seatType of EventSeatTypes) {
-      let schIndex = schDataArray.findIndex(
-        (x) => x.event_sch_id == seatType.event_sch_id
-      );
-
-      let soldCount = 0;
-      let bookedSeatTypes = EventAllBookedSeats.filter(
-        (st) =>
-          st.event_sch_id == seatType.event_sch_id &&
-          st.seat_type == seatType.seat_class_name
-      );
-
-      if (bookedSeatTypes.length) {
-        soldCount = bookedSeatTypes.reduce(
-          (acc, sb) => acc + (parseInt(sb.no_of_seats) || 1),
-          0
-        );
-      }
-
-      const seatData = {
-        seat_type: seatType.seat_class_name,
-        count: soldCount,
-        total_allocated: seatType.available_seats,
-      };
-
-      if (schIndex >= 0) {
-        schDataArray[schIndex].seatTypes.push(seatData);
-        schDataArray[schIndex].sch_sold_seats += soldCount;
-      } else {
-        schDataArray.push({
-          event_sch_id: seatType.event_sch_id,
-          event_sch_date: seatType.sch_date,
-          event_sch_time: seatType.sch_time,
-          sch_max_capacity: seatType.sch_max_capacity,
-          sch_sold_seats: soldCount,
-          seatTypes: [seatData],
-        });
-      }
-
-      EventTotalSeatsBookedCount += soldCount;
-    }
-
-    const homeObj = {
-      event_total_trans: EventTransactionCount?.event_total_trans || 0,
-      event_total_seats_scanned:
-        EventTicketScannedCount?.event_total_seats_scanned || 0,
-      event_total_voucher_trans:
-        EventVoucherTransactionCount?.event_voucher_total_trans || 0,
-      event_total_bookedSeats: EventTotalSeatsBookedCount,
-      eventScheduleSummary: schDataArray,
-    };
-
-    return res.send({
-      message: "Transaction List",
-      status: true,
-      Records: homeObj,
-    });
-  } catch (error) {
-    console.error("Error fetching event home data:", error);
-    return res.status(500).send({
+  if (!eventId) {
+    return res.status(400).json({
       status: false,
-      message: "An error occurred while fetching event data",
-      error: error.message,
+      message: "Event Not Found",
     });
   }
+
+  try {
+    // Fetch data in parallel
+    const [eventTransactions, ticketScannedCount, bookedSeats, seatTypes] =
+      await Promise.all([
+        getEventTransactions(eventId),
+        getTicketScannedCount(eventId),
+        getAllBookedSeats(eventId),
+        getEventSeatTypes(eventId),
+      ]);
+
+    // Process voucher data
+    const { totalVoucherTransactionCount, voucherSummaryArray } =
+      processVoucherData(eventTransactions);
+
+    // Process schedule data
+    const { scheduleData, totalBookedSeats } = processScheduleData(
+      seatTypes,
+      bookedSeats
+    );
+
+    // Prepare response object
+    const response = {
+      event_total_trans: eventTransactions.length,
+      event_total_seats_scanned: ticketScannedCount,
+      event_total_voucher_trans: totalVoucherTransactionCount,
+      event_total_bookedSeats: totalBookedSeats,
+      eventScheduleSummary: scheduleData,
+      voucherSummaryArray,
+    };
+
+    return res.status(200).json({
+      message: "Transaction List",
+      status: true,
+      Records: response,
+    });
+  } catch (error) {
+    console.error("Error fetching event data:", error);
+    return res.status(500).json({
+      status: false,
+      message: "An error occurred while fetching event data.",
+    });
+  }
+}
+
+// Helper Functions
+async function getEventTransactions(eventId) {
+  return await global
+    .knexConnection("ms_booking")
+    .select("event_id", "booking_id", "seat_names", "voucher_code")
+    .where("ms_booking.event_id", eventId)
+    .andWhere("ms_booking.booking_is_active", "Y");
+}
+
+async function getTicketScannedCount(eventId) {
+  const result = await global
+    .knexConnection("ms_booking")
+    .sum("seats_scanned as event_total_seats_scanned")
+    .where("ms_booking.event_id", eventId)
+    .andWhere("ms_booking.booking_is_active", "Y");
+  return result[0]?.event_total_seats_scanned || 0;
+}
+
+async function getAllBookedSeats(eventId) {
+  return await global
+    .knexConnection("ms_reservation")
+    .select(
+      "ms_reservation.seat_type",
+      "ms_reservation.no_of_seats",
+      "event_schedule.sch_date",
+      "event_schedule.sch_time",
+      "event_schedule.sch_max_capacity",
+      "event_schedule.event_sch_id"
+    )
+    .leftJoin(
+      "event_schedule",
+      "event_schedule.event_sch_id",
+      "ms_reservation.event_sch_id"
+    )
+    .where({
+      is_booked: "Y",
+      "ms_reservation.event_id": eventId,
+    });
+}
+
+async function getEventSeatTypes(eventId) {
+  return await global
+    .knexConnection("event_sch_seat_type")
+    .select(
+      "event_sch_seat_type.*",
+      "ms_seat_class_type.seat_class_name",
+      "event_schedule.sch_date",
+      "event_schedule.sch_time",
+      "event_schedule.sch_max_capacity"
+    )
+    .leftJoin(
+      "ms_seat_class_type",
+      "ms_seat_class_type.sct_id",
+      "event_sch_seat_type.sct_id"
+    )
+    .leftJoin(
+      "event_schedule",
+      "event_schedule.event_sch_id",
+      "event_sch_seat_type.event_sch_id"
+    )
+    .where({
+      "ms_seat_class_type.sct_is_active": "Y",
+      "event_schedule.sch_is_active": "Y",
+      "event_sch_seat_type.event_id": eventId,
+    })
+    .orderBy("event_sch_seat_type.event_sch_ss_id", "asc");
+}
+
+function processVoucherData(eventTransactions) {
+  let totalVoucherTransactionCount = 0;
+  const voucherSummaryArray = [];
+
+  eventTransactions.forEach((booking) => {
+    if (booking.voucher_code) {
+      totalVoucherTransactionCount++;
+
+      const seatDetails = (booking.seat_names || "")
+        .split(",")
+        .map((seat) => seat.trim());
+
+      seatDetails.forEach((seat) => {
+        const [seatType, countStr] = seat.split("-");
+        const count = parseInt(countStr, 10) || 1;
+
+        const existingObj = voucherSummaryArray.find(
+          (obj) =>
+            obj.VoucherCode.toLowerCase() ===
+              booking.voucher_code.toLowerCase() && obj.SeatType === seatType
+        );
+
+        if (existingObj) {
+          existingObj.Count += count;
+        } else {
+          voucherSummaryArray.push({
+            VoucherCode: booking.voucher_code,
+            SeatType: seatType,
+            Count: count,
+          });
+        }
+      });
+    }
+  });
+
+  return { totalVoucherTransactionCount, voucherSummaryArray };
+}
+
+function processScheduleData(seatTypes, bookedSeats) {
+  const scheduleData = [];
+  let totalBookedSeats = 0;
+
+  seatTypes.forEach((type) => {
+    const scheduleIndex = scheduleData.findIndex(
+      (x) => x.event_sch_id === type.event_sch_id
+    );
+
+    const bookedSeatTypes = bookedSeats.filter(
+      (seat) =>
+        seat.event_sch_id === type.event_sch_id &&
+        seat.seat_type === type.seat_class_name
+    );
+
+    const soldCount = bookedSeatTypes.reduce(
+      (sum, seat) => sum + parseInt(seat.no_of_seats || 1, 10),
+      0
+    );
+
+    const seatInfo = {
+      seat_type: type.seat_class_name,
+      count: soldCount,
+      total_allocated: type.available_seats,
+    };
+
+    if (scheduleIndex >= 0) {
+      scheduleData[scheduleIndex].seatTypes.push(seatInfo);
+      scheduleData[scheduleIndex].sch_sold_seats += soldCount;
+    } else {
+      scheduleData.push({
+        event_sch_id: type.event_sch_id,
+        event_sch_date: type.sch_date,
+        event_sch_time: type.sch_time,
+        sch_max_capacity: type.sch_max_capacity,
+        sch_sold_seats: soldCount,
+        seatTypes: [seatInfo],
+      });
+    }
+
+    totalBookedSeats += soldCount;
+  });
+
+  return { scheduleData, totalBookedSeats };
 }
 
 async function resendTicketCustomer(req, res) {
