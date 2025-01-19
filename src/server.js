@@ -7685,27 +7685,17 @@ async function removeVoucher(req, res) {
       });
     }
 
-    // Check if the voucher exists for the given reservation_id
-    const existingVoucher = await global
-      .knexConnection("ms_reserve_vouchers")
-      .where({ reservation_id })
-      .first();
-
-    if (!existingVoucher) {
-      return res.send({
-        status: false,
-        message: "No voucher found for the provided reservation ID.",
-      });
-    }
-
-    // If a specific voucher ID (rv_id) is provided, validate it
-    if (rv_id && existingVoucher.rv_id !== rv_id) {
-      return res.send({
-        status: false,
-        message:
-          "The provided voucher ID does not match the existing voucher for this reservation.",
-      });
-    }
+    //Update Reservation Table
+    let update_obj = {
+      voucher_applied: "N",
+      voucher_code: "",
+      voucher_discount_percent: 0,
+      voucher_discount_amount: 0,
+    };
+    await global
+      .knexConnection("ms_reservation")
+      .update(update_obj)
+      .where({ reservation_id });
 
     // Delete the voucher record from ms_reserve_vouchers
     await global
