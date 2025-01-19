@@ -7305,25 +7305,26 @@ const getReservationSeat = async (req, res) => {
       const seatPrice = parseFloat(z.seat_price);
       const noOfSeats = parseFloat(z.no_of_seats) || 1;
       obj.priceBeforeDiscount += parseFloat(seatPrice) * noOfSeats;
-      //check for voucher discount here
-      let discountedAmount =
-        z.voucher_applied == "Y" ? parseFloat(z.voucher_discount_amount) : 0;
 
-      //check for pass discount here
-      if (z.pass_applied == "Y") {
-        discountedAmount =
-          parseFloat(z.voucher_discount_amount) + parseFloat(discountedAmount);
-        obj.pass_applied = true;
-        obj.discountPercent = `${z.pass_discount_percent}%`;
-        obj.discountValue = parseFloat(z.pass_discount_amount);
-      }
-
-      obj.totalprice +=
-        (parseFloat(seatPrice) - parseFloat(discountedAmount)) * noOfSeats;
+      obj.totalprice += parseFloat(seatPrice) * noOfSeats;
       obj.reserved_time = moment$1(z.created_at).format("YYYY-MM-DD HH:mm:ss");
       obj.release_time = moment$1(z.created_at)
         .add(z.seat_release_time || Booking_time, "minutes")
         .format("YYYY-MM-DD HH:mm:ss");
+
+      //check for voucher discount here
+      if (z.voucher_applied == "Y") {
+        obj.totalprice -= parseFloat(z.voucher_discount_amount || 0);
+      }
+
+      //check for pass discount here
+
+      if (z.pass_applied == "Y") {
+        obj.totalprice -= parseFloat(z.pass_discount_amount || 0);
+        obj.pass_applied = true;
+        obj.discountPercent = `${z.pass_discount_percent}%`;
+        obj.discountValue = parseFloat(z.pass_discount_amount);
+      }
     });
 
     // Calculate time difference for reservation release
@@ -7633,7 +7634,7 @@ async function applyVoucher(req, res) {
     //get reservation data
     const reservation = await global
       .knexConnection("ms_reservation")
-      .select("seat_price", "r_id")
+      .select("seat_price", "r_id", "no_of_seats")
       .where({ reservation_id, is_reserved: "Y" });
 
     //update voucher data in reservation table
@@ -7645,7 +7646,8 @@ async function applyVoucher(req, res) {
           parseFloat(getVoucher[0].voucher_discount_value) || 0,
         voucher_discount_amount:
           (parseFloat(getVoucher[0].voucher_discount_value || 0) / 100) *
-          parseFloat(item.seat_price),
+          parseFloat(item.seat_price) *
+          parseFloat(item.no_of_seats || 1),
       };
       await global
         .knexConnection("ms_reservation")
@@ -8471,7 +8473,7 @@ async function getCustomerTicketHistory(req, res) {
       Records: getCustomerTickets,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in websiteController.js 22:", error);
+    winstonLogger$1.error("Error in websiteController.js :", error);
     console.error("Error in getCustomerTicketHistory:", error);
     return res.send({
       status: false,
@@ -8798,14 +8800,13 @@ async function createTransation(req, res) {
       }
 
       //check for voucher discount here
-      let discountedAmount =
-        z.voucher_applied == "Y" ? parseFloat(z.voucher_discount_amount) : 0;
+      if (z.voucher_applied == "Y") {
+        totalAmount -= parseFloat(z.voucher_discount_amount || 0);
+      }
 
       //check for pass discount here
       if (z.pass_applied == "Y") {
-        discountedAmount =
-          parseFloat(z.pass_discount_amount) + discountedAmount;
-        totalAmount -= discountedAmount;
+        totalAmount -= parseFloat(z.pass_discount_amount || 0);
       }
 
       totalAmount *= event_data.exchange_rate
@@ -9134,14 +9135,13 @@ async function tapPaymentCheckout(req, res) {
       }
 
       //check for voucher discount here
-      let discountedAmount =
-        z.voucher_applied == "Y" ? parseFloat(z.voucher_discount_amount) : 0;
+      if (z.voucher_applied == "Y") {
+        totalAmount -= parseFloat(z.voucher_discount_amount || 0);
+      }
 
       //check for pass discount here
       if (z.pass_applied == "Y") {
-        discountedAmount =
-          parseFloat(z.pass_discount_amount) + discountedAmount;
-        totalAmount -= discountedAmount;
+        totalAmount -= parseFloat(z.pass_discount_amount || 0);
       }
     });
 
@@ -9464,14 +9464,13 @@ async function payonePaymentCheckout(req, res) {
       }
 
       //check for voucher discount here
-      let discountedAmount =
-        z.voucher_applied == "Y" ? parseFloat(z.voucher_discount_amount) : 0;
+      if (z.voucher_applied == "Y") {
+        totalAmount -= parseFloat(z.voucher_discount_amount || 0);
+      }
 
       //check for pass discount here
       if (z.pass_applied == "Y") {
-        discountedAmount =
-          parseFloat(z.pass_discount_amount) + discountedAmount;
-        totalAmount -= discountedAmount;
+        totalAmount -= parseFloat(z.pass_discount_amount || 0);
       }
     });
 
@@ -10497,14 +10496,13 @@ async function mpgsPaymentCheckout(req, res) {
       }
 
       //check for voucher discount here
-      let discountedAmount =
-        z.voucher_applied == "Y" ? parseFloat(z.voucher_discount_amount) : 0;
+      if (z.voucher_applied == "Y") {
+        totalAmount -= parseFloat(z.voucher_discount_amount || 0);
+      }
 
       //check for pass discount here
       if (z.pass_applied == "Y") {
-        discountedAmount =
-          parseFloat(z.pass_discount_amount) + discountedAmount;
-        totalAmount -= discountedAmount;
+        totalAmount -= parseFloat(z.pass_discount_amount || 0);
       }
     });
 
