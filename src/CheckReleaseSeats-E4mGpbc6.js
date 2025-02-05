@@ -30,6 +30,7 @@ import 'knex-paginate';
 import './knex/knex.js';
 import 'knex';
 import 'dotenv';
+import 'ioredis';
 
 const CheckReleaseSeats = async (reqbody) => {
   try {

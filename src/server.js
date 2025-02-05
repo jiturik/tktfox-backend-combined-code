@@ -27,6 +27,7 @@ import axios$1 from 'axios';
 import { fileURLToPath } from 'url';
 import { attachPaginate } from 'knex-paginate';
 import { KnexConnection } from './knex/knex.js';
+import Redis from 'ioredis';
 import 'knex';
 import 'dotenv';
 
@@ -74,6 +75,22 @@ const winstonLogger$1 = {
   debug: (message) => logger.debug(message),
 };
 
+const sendResponse = (
+  res,
+  message,
+  status,
+  data = {},
+  statusCode = 200,
+  apiVersion = process.env.API_VERSION || "v1"
+) => {
+  return res.status(statusCode).send({
+    message,
+    status,
+    ...data,
+    apiVersion,
+  });
+};
+
 //website token check
 
 async function checkWebsiteSessionExist(req, res, next) {
@@ -89,30 +106,19 @@ async function checkWebsiteSessionExist(req, res, next) {
 
       return next();
     } else {
-      return res.status(403).json({
-        status: false,
-        isAuthenticated: false,
-        message: "You are not authorized",
-      });
+      return sendResponse(res, "You are not authorized", false, {}, 403);
     }
   } catch (error) {
     winstonLogger$1.error("Error in VerifyToken.js 1:", error);
     console.error("Error in checkWebsiteSessionExist:", error);
-    return res.status(500).json({
-      status: false,
-      message: "Internal Server Error",
-    });
+    return sendResponse(res, "Internal Server Error", false, {}, 500);
   }
 }
 
 async function validateWebToken(req, res) {
   try {
     if (!req.headers.authorization) {
-      return res.status(403).json({
-        status: false,
-        isAuthenticated: false,
-        message: "You are not authorized",
-      });
+      return sendResponse(res, "You are not authorized", false, {}, 403);
     }
 
     const { customer_id, email, is_website_user } = jwtDecode(
@@ -134,20 +140,16 @@ async function validateWebToken(req, res) {
         org_id: null,
       };
     }
-    // else {
-    //   return res.status(403).json({
-    //     status: false,
-    //     isAuthenticated: false,
-    //     message: "You are not authorized",
-    //   });
-    // }
   } catch (error) {
     winstonLogger$1.error("Error in VerifyToken.js 2:", error);
     console.error("Error validating token:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred during website token validation",
-    });
+    return sendResponse(
+      res,
+      "An error occurred during website token validation",
+      false,
+      {},
+      500
+    );
   }
 }
 
@@ -160,22 +162,14 @@ async function checkSessionExist(req, res, next) {
     req.is_website_user = false;
     return next();
   } else {
-    return res.status(403).json({
-      status: false,
-      isAuthorization: true,
-      message: "You are not authorized",
-    });
+    return sendResponse(res, "You are not authorized", false, {}, 403);
   }
 }
 
 async function validateToken(req, res) {
   try {
     if (!req.headers.authorization) {
-      return res.status(403).json({
-        status: false,
-        isAuthorization: true,
-        message: "You are not authorized",
-      });
+      return sendResponse(res, "You are not authorized", false, {}, 403);
     }
 
     const { token, customer_id, email } = jwtDecode(req.headers.authorization);
@@ -210,10 +204,13 @@ async function validateToken(req, res) {
   } catch (error) {
     winstonLogger$1.error("Error in VerifyToken.js 3:", error);
     console.error("Error validating token:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred during admin token validation",
-    });
+    return sendResponse(
+      res,
+      "An error occurred during admin token validation",
+      false,
+      {},
+      500
+    );
   }
 }
 
@@ -661,6 +658,56 @@ async function pagination(perPage, currentPage) {
   }
 }
 
+//keys Used in project
+//redisCache:activeWebsiteEventList
+//redisCache:activeWebsiteEventList
+//redisCache:activeWebsiteBannerList
+const getFromRedis = async (cacheKey) => {
+  try {
+    // Fetch the data from Redis
+    const cachedData = await global.redisCache.get(cacheKey);
+
+    if (cachedData) {
+      return JSON.parse(cachedData);
+    }
+    return null;
+  } catch (error) {
+    winstonLogger$1.error("Error in redisHelper.js 1:", error);
+    console.error("Error fetching data from Redis:", error);
+    return null;
+  }
+};
+const storeInRedis = async (key, value, expiration) => {
+  try {
+    const stringValue = JSON.stringify(value);
+    if (expiration) {
+      await global.redisCache.set(key, stringValue, "EX", expiration);
+    } else {
+      await global.redisCache.set(key, stringValue);
+    }
+    console.log(`Data stored in Redis: ${key}`);
+  } catch (err) {
+    winstonLogger$1.error("Error in redisHelper.js 2:", err);
+    console.error("Error storing data in Redis:", err);
+    throw err;
+  }
+};
+
+const removeFromRedis = async (key) => {
+  try {
+    const result = await global.redisCache.del(key);
+    if (result === 1) {
+      console.log(`Data removed from Redis: ${key}`);
+    } else {
+      console.log(`Key not found in Redis: ${key}`);
+    }
+  } catch (err) {
+    winstonLogger$1.error("Error in redisHelper.js 3:", err);
+    console.error("Error removing data from Redis:", err);
+    throw err;
+  }
+};
+
 // Add or edit cinema information
 async function addEditCinema(req, res) {
   const { user_info } = req;
@@ -709,7 +756,7 @@ async function addEditCinema(req, res) {
     // Validate request fields
     let result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return res.status(400).send(result); // Bad request if validation fails
+      return sendResponse(res, "Invalid request data", false, {}, 400);
     }
 
     // Check if the cinema name already exists
@@ -724,11 +771,7 @@ async function addEditCinema(req, res) {
       });
 
     if (checkCinemaExist.length) {
-      return res.status(400).json({
-        message: "Cinema Name Already Exists",
-        status: false,
-        Records: checkCinemaExist,
-      });
+      return sendResponse(res, "Cinema Name Already Exists", false, {}, 400);
     }
 
     // Prepare cinema data for insertion or update
@@ -795,6 +838,17 @@ async function getCinemaList(req, res) {
   } = reqbody;
   const isWebsiteUser = req["is_website_user"] || false;
 
+  if (isWebsiteUser) {
+    const redisData = await getFromRedis("websiteCinemaList");
+    if (redisData) {
+      return res.send({
+        message: "Cinema List Fetched From Redis",
+        status: true,
+        Records: redisData,
+      });
+    }
+  }
+
   let cinema_is_active =
     reqbody.isMaster && reqbody.isMaster === "Y" ? null : "Y";
 
@@ -847,6 +901,10 @@ async function getCinemaList(req, res) {
       .orderBy("cinema_id", "desc")
       .paginate(pagination(limit, currentPage));
 
+    if (isWebsiteUser) {
+      storeInRedis("websiteCinemaList", CinemaList);
+    }
+
     return res.send({
       message: "Cinema List",
       status: true,
@@ -880,9 +938,7 @@ async function addWebCustomer(req, res) {
   let reqbody = req.body;
   const isWebsiteUser = req["is_website_user"] || false;
   if (!isWebsiteUser) {
-    return res
-      .status(400)
-      .send({ status: false, message: "User is not website user." }); // Return validation errors
+    return sendResponse(res, "User is not website user.", false, {}, 400);
   }
   const {
     first_name,
@@ -905,7 +961,13 @@ async function addWebCustomer(req, res) {
     // Validate request fields
     let result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return res.status(400).send(result); // Return validation errors
+      return sendResponse(
+        res,
+        "Invalid Request Data",
+        false,
+        { ...result },
+        400
+      );
     }
 
     // Check if email or phone already exists
@@ -1315,6 +1377,12 @@ async function addEditEvent(req, res) {
       return res.send(validation);
     }
 
+    // Remove redis cache
+    await removeFromRedis("redisCache:activeWebsiteEventList");
+    if (isUpdate && event_id) {
+      await removeFromRedis(`redisCache:activeWebsiteEventById-${event_id}`);
+    }
+
     // Validate event dates
     if (moment$1(event_end_date).isBefore(event_start_date)) {
       return res.send({
@@ -1548,8 +1616,33 @@ async function getEventList(req, res) {
       isWebsiteUser: req.is_website_user || false,
     };
 
+    //Check if event_id is present in redis cache
+    if (req.is_website_user && reqbody.event_id) {
+      const redisData = await getFromRedis(
+        `redisCache:activeWebsiteEventById-${reqbody.event_id}`
+      );
+
+      if (redisData) {
+        return sendResponse(
+          res,
+          "Active event list By Id fetched from Redis cache",
+          true,
+          { ...redisData },
+          200
+        );
+      }
+    }
+
     // Fetch event data
     const getEventData = await EVENT_DATA(reqbody);
+
+    if (req.is_website_user && reqbody.event_id) {
+      await storeInRedis(
+        `redisCache:activeWebsiteEventById-${reqbody.event_id}`,
+        getEventData,
+        3600
+      );
+    }
 
     // Send the response with event data
     return res.send({ ...getEventData });
@@ -1562,10 +1655,21 @@ async function getEventList(req, res) {
 
 async function getActiveEventList(req, res) {
   try {
+    const redisData = await getFromRedis("redisCache:activeWebsiteEventList");
+    if (redisData) {
+      return res.send({
+        message: "Active event list fetched from Redis cache",
+        status: true,
+        data: redisData,
+      });
+    }
     const reqbody = { ...req.query, ...req.body };
     const data = await getActiveListData(reqbody);
 
+    await storeInRedis("redisCache:activeWebsiteEventList", data, 3600);
+
     return res.send({
+      message: "Data fetched successfully",
       status: true,
       data,
     });
@@ -1607,6 +1711,12 @@ async function addEditEventExtra(req, res) {
     const result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
       return res.status(400).send(result); // Return a 400 for validation errors
+    }
+
+    //Remove redis cache
+    await removeFromRedis("redisCache:activeWebsiteEventList");
+    if (event_id) {
+      await removeFromRedis(`redisCache:activeWebsiteEventById-${event_id}`);
     }
 
     // Construct the object for insert or update
@@ -3366,6 +3476,8 @@ async function addEditBanner(req, res) {
     if (!result.status) {
       return res.send(result);
     }
+    //Remove redis cache
+    await removeFromRedis(`redisCache:activeWebsiteBanner`);
 
     let arrayBanner = [];
 
@@ -3413,6 +3525,16 @@ async function getBannerList(req, res) {
     } = reqbody;
     const isWebsiteUser = req["is_website_user"] || false;
     const { user_info } = req;
+    if (isWebsiteUser) {
+      const redisData = await getFromRedis(`redisCache:activeWebsiteBanner`);
+      if (redisData) {
+        return res.send({
+          message: "Banner List from Redis cache",
+          status: true,
+          Records: redisData,
+        });
+      }
+    }
 
     const BannerList = await global
       .knexConnection("ms_banner")
@@ -3438,6 +3560,10 @@ async function getBannerList(req, res) {
       })
       .orderBy("order", "asc")
       .paginate(pagination(limit, currentPage));
+
+    if (isWebsiteUser) {
+      await storeInRedis(`redisCache:activeWebsiteBanner`, BannerList, 3600);
+    }
 
     return res.send({
       message: "Banner List",
@@ -7838,7 +7964,7 @@ const addReservationSeatsIo = async (req, res) => {
     );
 
     // Prepare reservation data for database insertion
-    const currentDateTime = currentDateTime(
+    const currentDateTimeNew = currentDateTime(
       null,
       "YYYY-MM-DD HH:mm:ss",
       eventData.Records[0].tz_name
@@ -7849,7 +7975,7 @@ const addReservationSeatsIo = async (req, res) => {
       event_sch_id,
       event_id,
       is_seat_layout_exist: eventData.Records[0].event_seating_type,
-      created_at: currentDateTime,
+      created_at: currentDateTimeNew,
       timezone_name: eventData.Records[0].tz_name,
       created_by: user_info ? user_info.user_id : null,
       seat_release_time: eventData.Records[0].cinema_seat_release_time || 15,
@@ -10834,18 +10960,43 @@ app.use(
   })
 );
 
+const redisConnection = () => {
+  return new Promise((resolve, reject) => {
+    try {
+      const redis = new Redis({
+        host: process.env.REDIS_HOST || "127.0.0.1",
+        port: process.env.REDIS_PORT || 6379,
+        password: process.env.REDIS_PASSWORD || undefined,
+        retryStrategy: (times) => Math.min(times * 50, 2000), // Retry connection on failure
+      });
+
+      redis.on("connect", () => {
+        console.log("Redis connection established.");
+        resolve(redis);
+      });
+
+      redis.on("error", (error) => {
+        winstonLogger$1.error("Error in redis.js 1:", error);
+        console.error("Redis connection error:", error);
+        resolve(redis);
+      });
+    } catch (error) {
+      winstonLogger$1.error("Error in redis.js 2:", error);
+      console.error("Error initializing Redis connection:", error);
+      resolve(null);
+    }
+  });
+};
+
 const EXPRESS_PORT = process.env.EXPRESS_PORT || 3000;
 
 const httpServer = http.createServer(app);
 
-Promise.all([
-  KnexConnection(),
-  //redisConnection()
-])
+Promise.all([KnexConnection()])
   .then(async ([db, redis]) => {
     //global varaibles
     global.knexConnection = db;
-    // global.redisCache = redis;
+    global.redisCache = redis;
 
     //attach knex pagination
     attachPaginate();
@@ -10857,14 +11008,31 @@ Promise.all([
     const globalOptionsMap = {};
 
     //global from DB
-    const globalOptions = await global.knexConnection("global_options");
+    let globalOptions = await global.knexConnection("global_options");
     globalOptions.forEach((row) => {
       globalOptionsMap[row.go_key] = row.go_value;
     });
     global.globalOptions = globalOptionsMap;
 
+    // Start Redis connection
+    redisConnection()
+      .then((redis) => {
+        global.redisCache = redis;
+        console.log("Redis connection established successfully.");
+      })
+      .catch((error) => {
+        global.redisCache = null; // Set a fallback in case Redis is unavailable
+        winstonLogger$1.warn(
+          "Redis connection failed, but continuing execution:",
+          error
+        );
+        console.log(
+          "Warning: Redis connection failed. The app will run without caching."
+        );
+      });
+
     //cron scripts
-    import('./index-BfV8j_GH.js');
+    import('./index-B8jbhj46.js');
 
     //start server
     httpServer.listen(EXPRESS_PORT, () => {
@@ -10872,6 +11040,7 @@ Promise.all([
     });
   })
   .catch((error) => {
+    winstonLogger$1.error("error in server.js 1:", error);
     console.log(`error in connecting database or redis=>`, error);
   });
 
