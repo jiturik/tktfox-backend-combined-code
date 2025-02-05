@@ -7403,27 +7403,22 @@ const getReservationSeat = async (req, res) => {
       pass_applied: false,
     };
 
-    // Fetch event data and discount data in parallel
-    const eventDataPromise = EVENT_DATA({
+    // Fetch event data
+    const event_data = await EVENT_DATA({
       event_id: getReservationDetail[0].event_id,
       event_sch_id: getReservationDetail[0].event_sch_id,
     });
 
-    const cinemaPaymentGatewayPromise = global
+    //fetch cinema payment gateway
+    const cinemaPaymentGateway = await global
       .knexConnection("organization_setting")
-      .where({ org_id: getReservationDetail[0].event_id })
+      .where({ org_id: event_data.Records[0].org_id })
       .where((builder) =>
         builder
           .where({ setting_key: "tap_pay_payment" })
           .orWhere({ setting_key: "payone_payment" })
           .orWhere({ setting_key: "mpgs_network_payment" })
       );
-
-    // Wait for all promises to resolve
-    const [event_data, cinemaPaymentGateway] = await Promise.all([
-      eventDataPromise,
-      cinemaPaymentGatewayPromise,
-    ]);
 
     // Process reservation details
     getReservationDetail.forEach((z) => {
