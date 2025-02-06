@@ -5144,15 +5144,19 @@ var opts = {
   },
 };
 
-function createQRCode(qrcode_data, returnType = "buffer", logo = null) {
-  return new Promise((resolve, reject) => {
+async function createQRCode(
+  qrcode_data,
+  returnType = "buffer",
+  logo = null
+) {
+  return new Promise(async (resolve, reject) => {
     try {
       if (!qrcode_data) {
         console.error("QR code data is required.");
         return;
       }
 
-      QRCode.toDataURL(qrcode_data, opts)
+      await QRCode.toDataURL(qrcode_data, opts)
         .then((qrcode) => {
           resolve(qrcode);
         })
@@ -5221,15 +5225,17 @@ const CreateInvSendTicketEmail = async (reqbody) => {
 
         // Generate QR code
         const qrUrl = `${booking.success_frontend_url}/${booking.booking_code}`;
+        let qrImage = "";
         const qrcodeData = await createQRCode(qrUrl, "buffer")
           .then((qrcode) => {
+            qrImage = qrcode;
             console.log("QR Code generated:", booking.booking_code);
           })
           .catch((error) => {
             winstonLogger$1.error("Error in CreateInvSendTicketEmail 1:", error);
             console.error("error in qr generation", error.message);
           });
-
+        console.log("qrImage", qrImage);
         // Prepare email data
         const emailData = {
           booking_id: booking.booking_id,
@@ -5253,9 +5259,10 @@ const CreateInvSendTicketEmail = async (reqbody) => {
           seats: booking.seat_names,
           totalPrice: booking.total_price,
           currency: booking.currency,
-          qrcode_data: qrcodeData,
+          qrcode_data: qrImage,
           event_seating_type: booking.event_seating_type,
           attachments: [],
+          client_name: process.env.CLIENT_NAME || "Our Platform",
         };
 
         // Create invoice and ticket PDFs

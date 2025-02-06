@@ -6,7 +6,7 @@
 <body>
 <p>Hello <%= emailData.c_name %>,</p>
 <p> Attached is your ticket and invoice for the upcoming event <b><%= emailData.event_name %></b>, which will take place on <b><%= emailData.event_date_body %></b> at <b><%= emailData.event_time_body %> </b>, at <b><%= emailData.cinema_name %>,<%= emailData.city_name %></b>. </p>
-<p>Thank you for using Rainbow, we hope you enjoy the show!</p>
+<p>Thank you for using <%= emailData.client_name %>, we hope you enjoy the show!</p>
 </body>
 </html>
 
