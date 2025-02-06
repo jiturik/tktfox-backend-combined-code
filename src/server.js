@@ -5263,6 +5263,10 @@ const CreateInvSendTicketEmail = async (reqbody) => {
           event_seating_type: booking.event_seating_type,
           attachments: [],
           client_name: process.env.CLIENT_NAME || "Our Platform",
+          invoice_content:
+            process.env.CLIENT_NAME && process.env.CLIENT_NAME == "TKTFOX"
+              ? " and invoice "
+              : " ",
         };
 
         // Create invoice and ticket PDFs
