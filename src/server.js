@@ -10669,7 +10669,7 @@ async function mpgsPaymentCheckout(req, res) {
     let mpgsObj = {
       apiOperation: "INITIATE_CHECKOUT",
       interaction: {
-        operation: "AUTHORIZE",
+        operation: "PURCHASE",
         merchant: {
           name: API_USER_NAME, // Add the merchant user name here
         },
@@ -10689,73 +10689,82 @@ async function mpgsPaymentCheckout(req, res) {
       "base64"
     );
 
-    const response = await axios$1.post(URL, mpgsObj, {
-      headers: {
-        Authorization: `Basic ${auth}`,
-        "Content-Type": "application/json",
-      },
-    });
+    try {
+      const response = await axios$1.post(URL, mpgsObj, {
+        headers: {
+          Authorization: `Basic ${auth}`,
+          "Content-Type": "application/json",
+        },
+      });
 
-    if (
-      response &&
-      response.data &&
-      response.data.result &&
-      response.data.result.toLowerCase() == "success"
-    ) {
-      const sessionId = response.data.session.id;
-      mpgsObj["sessionResponse"] = response.data;
-      if (sessionId) {
-        let currentDateTimeNew = currentDateTime(
-          null,
-          "YYYY-MM-DD HH:mm:ss",
-          event_data[0].tz_name
-        );
+      if (
+        response &&
+        response.data &&
+        response.data.result &&
+        response.data.result.toLowerCase() == "success"
+      ) {
+        const sessionId = response.data.session.id;
+        mpgsObj["sessionResponse"] = response.data;
+        if (sessionId) {
+          let currentDateTimeNew = currentDateTime(
+            null,
+            "YYYY-MM-DD HH:mm:ss",
+            event_data[0].tz_name
+          );
 
-        let checkGuest = is_guest;
+          let checkGuest = is_guest;
 
-        if (!logged_in_customer_id) {
-          checkGuest = "Y";
-          logged_in_customer_id = 0;
+          if (!logged_in_customer_id) {
+            checkGuest = "Y";
+            logged_in_customer_id = 0;
+          } else {
+            checkGuest = "N";
+            logged_in_customer_id = logged_in_customer_id;
+          }
+
+          let insertPaymentDetail = {
+            reservation_id,
+            success_frontend_url,
+            failed_frontend_url,
+            c_name: customer_name,
+            email: customer_email,
+            phone_number: customer_mobile,
+            country_code: country_code,
+            is_guest: checkGuest,
+            customer_id: logged_in_customer_id,
+            created_at: currentDateTimeNew,
+            pm_id: 1,
+            payment_request: JSON.stringify(mpgsObj),
+          };
+
+          await global
+            .knexConnection("ms_payment_booking_detail")
+            .insert(insertPaymentDetail);
+
+          return res.send({
+            message: "MPGS Session created",
+            status: true,
+            payment_mode: "mpgs",
+            data: sessionId,
+          });
         } else {
-          checkGuest = "N";
-          logged_in_customer_id = logged_in_customer_id;
+          return res.send({
+            message: "MPGS Error",
+            status: false,
+          });
         }
-
-        let insertPaymentDetail = {
-          reservation_id,
-          success_frontend_url,
-          failed_frontend_url,
-          c_name: customer_name,
-          email: customer_email,
-          phone_number: customer_mobile,
-          country_code: country_code,
-          is_guest: checkGuest,
-          customer_id: logged_in_customer_id,
-          created_at: currentDateTimeNew,
-          pm_id: 1,
-          payment_request: JSON.stringify(mpgsObj),
-        };
-
-        await global
-          .knexConnection("ms_payment_booking_detail")
-          .insert(insertPaymentDetail);
-
-        return res.send({
-          message: "MPGS Session created",
-          status: true,
-          payment_mode: "mpgs",
-          data: sessionId,
-        });
       } else {
         return res.send({
           message: "MPGS Error",
           status: false,
         });
       }
-    } else {
+    } catch (error) {
+      winstonLogger$1.error("Error in mpgsPayment.js 0:", error);
+      console.log(error.response, "mpgs api error ");
       return res.send({
-        message: "MPGS Error",
         status: false,
+        message: "Something went wrong",
       });
     }
   } catch (error) {
