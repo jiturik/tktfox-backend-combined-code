@@ -5235,7 +5235,7 @@ const CreateInvSendTicketEmail = async (reqbody) => {
             winstonLogger$1.error("Error in CreateInvSendTicketEmail 1:", error);
             console.error("error in qr generation", error.message);
           });
-        console.log("qrImage", qrImage);
+
         // Prepare email data
         const emailData = {
           booking_id: booking.booking_id,
@@ -5348,6 +5348,12 @@ const getSeatsArray = async (seats) => {
 const createInvoicePdf = async (emailData) => {
   const pdfArray = [];
   return new Promise(async (resolve, reject) => {
+    if (!emailData.seats) {
+      return reject({
+        status: false,
+        message: "Seats data is missing",
+      });
+    }
     let seatsArray = emailData.seats.split(",");
     if (emailData.event_seating_type === "N") {
       seatsArray = await getSeatsArray(seatsArray);
