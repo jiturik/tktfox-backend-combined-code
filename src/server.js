@@ -6391,16 +6391,16 @@ async function getUserList(req, res) {
             value: "read",
             status: false,
           },
-          // {
-          //   text: 'Add',
-          //   value: 'create',
-          //   status: false,
-          // },
-          // {
-          //   text: 'Update',
-          //   value: 'update',
-          //   status: false,
-          // },
+          {
+            text: "Add",
+            value: "create",
+            status: false,
+          },
+          {
+            text: "Update",
+            value: "update",
+            status: false,
+          },
         ],
       },
       {
@@ -6417,11 +6417,11 @@ async function getUserList(req, res) {
             value: "create",
             status: false,
           },
-          // {
-          //   text: 'Update',
-          //   value: 'update',
-          //   status: false,
-          // },
+          {
+            text: "Update",
+            value: "update",
+            status: false,
+          },
         ],
       },
       {
@@ -6459,11 +6459,11 @@ async function getUserList(req, res) {
             value: "create",
             status: false,
           },
-          // {
-          //   text: 'Update',
-          //   value: 'update',
-          //   status: false,
-          // },
+          {
+            text: "Update",
+            value: "update",
+            status: false,
+          },
         ],
       },
       {
@@ -6480,11 +6480,11 @@ async function getUserList(req, res) {
             value: "create",
             status: false,
           },
-          // {
-          //   text: 'Update',
-          //   value: 'update',
-          //   status: false,
-          // },
+          {
+            text: "Update",
+            value: "update",
+            status: false,
+          },
         ],
       },
       {
@@ -6501,11 +6501,11 @@ async function getUserList(req, res) {
             value: "create",
             status: false,
           },
-          // {
-          //   text: 'Update',
-          //   value: 'update',
-          //   status: false,
-          // },
+          {
+            text: "Update",
+            value: "update",
+            status: false,
+          },
         ],
       },
       {
@@ -6522,11 +6522,11 @@ async function getUserList(req, res) {
             value: "create",
             status: false,
           },
-          // {
-          //   text: 'Update',
-          //   value: 'update',
-          //   status: false,
-          // },
+          {
+            text: "Update",
+            value: "update",
+            status: false,
+          },
         ],
       },
       {
