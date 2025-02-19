@@ -664,6 +664,11 @@ async function pagination(perPage, currentPage) {
 //redisCache:activeWebsiteBannerList
 const getFromRedis = async (cacheKey) => {
   try {
+    let redisOrgKey = process.env.REDIS_CLIENT_NAME;
+    if (!redisOrgKey) {
+      console.log("Redis client name is not set.");
+    }
+    cacheKey = `${redisOrgKey}:${cacheKey}`;
     // Fetch the data from Redis
     const cachedData = await global.redisCache.get(cacheKey);
 
@@ -679,6 +684,11 @@ const getFromRedis = async (cacheKey) => {
 };
 const storeInRedis = async (key, value, expiration) => {
   try {
+    let redisOrgKey = process.env.REDIS_CLIENT_NAME;
+    if (!redisOrgKey) {
+      console.log("Redis client name is not set.");
+    }
+    key = `${redisOrgKey}:${key}`;
     const stringValue = JSON.stringify(value);
     if (expiration) {
       await global.redisCache.set(key, stringValue, "EX", expiration);
@@ -695,6 +705,11 @@ const storeInRedis = async (key, value, expiration) => {
 
 const removeFromRedis = async (key) => {
   try {
+    let redisOrgKey = process.env.REDIS_CLIENT_NAME;
+    if (!redisOrgKey) {
+      console.log("Redis client name is not set.");
+    }
+    cacheKey = `${redisOrgKey}:${cacheKey}`;
     const result = await global.redisCache.del(key);
     if (result === 1) {
       console.log(`Data removed from Redis: ${key}`);
@@ -10706,7 +10721,6 @@ async function mpgsPaymentCheckout(req, res) {
         currency: paymentCurrency,
         amount: totalAmount.toFixed(2),
         id: reservation_id,
-        reference: `REF-${reservation_id}`, // Order Reference (Ensure it's unique)
         description: "Ticket",
       },
     };
