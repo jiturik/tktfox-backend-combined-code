@@ -667,6 +667,7 @@ const getFromRedis = async (cacheKey) => {
     let redisOrgKey = process.env.REDIS_CLIENT_NAME;
     if (!redisOrgKey) {
       console.log("Redis client name is not set.");
+      return;
     }
     cacheKey = `${redisOrgKey}:${cacheKey}`;
     // Fetch the data from Redis
@@ -687,8 +688,10 @@ const storeInRedis = async (key, value, expiration) => {
     let redisOrgKey = process.env.REDIS_CLIENT_NAME;
     if (!redisOrgKey) {
       console.log("Redis client name is not set.");
+      return;
     }
     key = `${redisOrgKey}:${key}`;
+    console.log(key);
     const stringValue = JSON.stringify(value);
     if (expiration) {
       await global.redisCache.set(key, stringValue, "EX", expiration);
@@ -708,6 +711,7 @@ const removeFromRedis = async (key) => {
     let redisOrgKey = process.env.REDIS_CLIENT_NAME;
     if (!redisOrgKey) {
       console.log("Redis client name is not set.");
+      return;
     }
     cacheKey = `${redisOrgKey}:${cacheKey}`;
     const result = await global.redisCache.del(key);
