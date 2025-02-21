@@ -669,9 +669,9 @@ const getFromRedis = async (cacheKey) => {
       console.log("Redis client name is not set.");
       return;
     }
-    cacheKey = `${redisOrgKey}:${cacheKey}`;
+    let cacheKeyNew = `${redisOrgKey}:${cacheKey}`;
     // Fetch the data from Redis
-    const cachedData = await global.redisCache.get(cacheKey);
+    const cachedData = await global.redisCache.get(cacheKeyNew);
 
     if (cachedData) {
       return JSON.parse(cachedData);
@@ -690,15 +690,15 @@ const storeInRedis = async (key, value, expiration) => {
       console.log("Redis client name is not set.");
       return;
     }
-    key = `${redisOrgKey}:${key}`;
-    console.log(key);
+    let cacheKeyNew = `${redisOrgKey}:${key}`;
+
     const stringValue = JSON.stringify(value);
     if (expiration) {
-      await global.redisCache.set(key, stringValue, "EX", expiration);
+      await global.redisCache.set(cacheKeyNew, stringValue, "EX", expiration);
     } else {
-      await global.redisCache.set(key, stringValue);
+      await global.redisCache.set(cacheKeyNew, stringValue);
     }
-    console.log(`Data stored in Redis: ${key}`);
+    console.log(`Data stored in Redis: ${cacheKeyNew}`);
   } catch (err) {
     winstonLogger$1.error("Error in redisHelper.js 2:", err);
     console.error("Error storing data in Redis:", err);
@@ -713,12 +713,12 @@ const removeFromRedis = async (key) => {
       console.log("Redis client name is not set.");
       return;
     }
-    cacheKey = `${redisOrgKey}:${cacheKey}`;
-    const result = await global.redisCache.del(key);
+    let cacheKeyNew = `${redisOrgKey}:${key}`;
+    const result = await global.redisCache.del(cacheKeyNew);
     if (result === 1) {
-      console.log(`Data removed from Redis: ${key}`);
+      console.log(`Data removed from Redis: ${cacheKeyNew}`);
     } else {
-      console.log(`Key not found in Redis: ${key}`);
+      console.log(`Key not found in Redis: ${cacheKeyNew}`);
     }
   } catch (err) {
     winstonLogger$1.error("Error in redisHelper.js 3:", err);
@@ -11037,7 +11037,7 @@ const redisConnection = () => {
       redis.on("error", (error) => {
         winstonLogger$1.error("Error in redis.js 1:", error);
         console.error("Redis connection error:", error);
-        resolve(redis);
+        resolve(null);
       });
     } catch (error) {
       winstonLogger$1.error("Error in redis.js 2:", error);
@@ -11076,6 +11076,9 @@ Promise.all([KnexConnection()])
     // Start Redis connection
     redisConnection()
       .then((redis) => {
+        if (!redis) {
+          global.redisCache = null; // Set a fallback in case Redis is unavailable
+        }
         global.redisCache = redis;
         console.log("Redis connection established successfully.");
       })
