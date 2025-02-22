@@ -77,12 +77,26 @@ const winstonLogger$1 = {
 
 const sendResponse = (
   res,
-  message,
-  status,
-  data = {},
   statusCode = 200,
+  message,
+  data = null,
+  status = true,
   apiVersion = process.env.API_VERSION || "v1"
 ) => {
+  if (statusCode === 500 && data) {
+    let errorMessage = data?.message || data?.error;
+    winstonLogger$1.error(`${message}=>`, errorMessage);
+  }
+  if (
+    statusCode === 400 ||
+    statusCode === 500 ||
+    statusCode === 404 ||
+    statusCode === 403 ||
+    statusCode === 401
+  ) {
+    status = false;
+  }
+
   return res.status(statusCode).send({
     message,
     status,
@@ -106,19 +120,22 @@ async function checkWebsiteSessionExist(req, res, next) {
 
       return next();
     } else {
-      return sendResponse(res, "You are not authorized", false, {}, 403);
+      return sendResponse(res, 403, "You are not authorized");
     }
   } catch (error) {
-    winstonLogger$1.error("Error in VerifyToken.js 1:", error);
-    console.error("Error in checkWebsiteSessionExist:", error);
-    return sendResponse(res, "Internal Server Error", false, {}, 500);
+    return sendResponse(
+      res,
+      500,
+      "An error occurred during website token validation",
+      error
+    );
   }
 }
 
 async function validateWebToken(req, res) {
   try {
     if (!req.headers.authorization) {
-      return sendResponse(res, "You are not authorized", false, {}, 403);
+      return sendResponse(res, 403, "You are not authorized");
     }
 
     const { customer_id, email, is_website_user } = jwtDecode(
@@ -141,14 +158,11 @@ async function validateWebToken(req, res) {
       };
     }
   } catch (error) {
-    winstonLogger$1.error("Error in VerifyToken.js 2:", error);
-    console.error("Error validating token:", error);
     return sendResponse(
       res,
+      500,
       "An error occurred during website token validation",
-      false,
-      {},
-      500
+      error
     );
   }
 }
@@ -162,14 +176,14 @@ async function checkSessionExist(req, res, next) {
     req.is_website_user = false;
     return next();
   } else {
-    return sendResponse(res, "You are not authorized", false, {}, 403);
+    return sendResponse(res, 403, "You are not authorized");
   }
 }
 
 async function validateToken(req, res) {
   try {
     if (!req.headers.authorization) {
-      return sendResponse(res, "You are not authorized", false, {}, 403);
+      return sendResponse(res, 403, "You are not authorized");
     }
 
     const { token, customer_id, email } = jwtDecode(req.headers.authorization);
@@ -202,14 +216,11 @@ async function validateToken(req, res) {
       }
     }
   } catch (error) {
-    winstonLogger$1.error("Error in VerifyToken.js 3:", error);
-    console.error("Error validating token:", error);
     return sendResponse(
       res,
+      500,
       "An error occurred during admin token validation",
-      false,
-      {},
-      500
+      error
     );
   }
 }
@@ -290,12 +301,12 @@ const CREATE_TOKEN_FOR_USER = async ({ user_id, role_id, org_id }) => {
     );
     return token;
   } catch (error) {
-    winstonLogger$1.error("Error in loginController.js 1:", error);
-    // Return error response without logging
-    return {
-      status: false,
-      message: "An error occurred while generating the user token.",
-    };
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while generating the user token.",
+      error
+    );
   }
 };
 
@@ -329,12 +340,7 @@ async function validateUserPassword(user_name, password) {
       return { error: "User not found" };
     }
   } catch (error) {
-    winstonLogger$1.error("Error in loginController.js 2:", error);
-    // Return error response without logging
-    return {
-      status: false,
-      message: "An error occurred while validating the user.",
-    };
+    return sendResponse(res, 500, "An error occurred during login.", error);
   }
 }
 
@@ -344,20 +350,11 @@ async function login(req, res) {
 
   // Check if required fields are present
   const checkFields = ["user_name", "password"];
-  let validationResult;
-  try {
-    validationResult = await checkValidation(checkFields, reqbody);
-  } catch (error) {
-    winstonLogger$1.error("Error in loginController.js 3:", error);
-    return res.status(500).json({
-      status: false,
-      message: "Validation error",
-      error: error.message,
-    });
-  }
+
+  let validationResult = await checkValidation(checkFields, reqbody);
 
   if (!validationResult.status) {
-    return res.status(400).json(validationResult);
+    return sendResponse(res, 400, "Username and password is required.");
   }
 
   try {
@@ -381,25 +378,15 @@ async function login(req, res) {
       });
 
       delete user.password; // Remove password from response for security
-      return res.status(200).json({
-        message: "Login Successfully",
-        status: true,
+      return sendResponse(res, 200, "Login Successfully", {
         Records: [user],
         access_token: token,
       });
     } else {
-      return res.status(400).json({
-        status: false,
-        message: "Password doesn't match.",
-      });
+      return sendResponse(res, 400, "Password doesn't match.");
     }
   } catch (error) {
-    winstonLogger$1.error("Error in loginController.js 4:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred during login",
-      error: error.message,
-    });
+    return sendResponse(res, 500, "An error occurred during login.", error);
   }
 }
 
@@ -407,17 +394,16 @@ async function checkLogin(req, res) {
   const { user_info } = req;
 
   try {
-    return res.status(200).json({
-      status: true,
+    return sendResponse(res, 200, "Login Successfully", {
       Records: [user_info],
     });
   } catch (error) {
-    winstonLogger$1.error("Error in loginController.js 5:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while checking login.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while checking login.",
+      error
+    );
   }
 }
 
@@ -775,7 +761,7 @@ async function addEditCinema(req, res) {
     // Validate request fields
     let result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return sendResponse(res, "Invalid request data", false, {}, 400);
+      return sendResponse(res, 400, "Invalid request data", result);
     }
 
     // Check if the cinema name already exists
@@ -790,7 +776,7 @@ async function addEditCinema(req, res) {
       });
 
     if (checkCinemaExist.length) {
-      return sendResponse(res, "Cinema Name Already Exists", false, {}, 400);
+      return sendResponse(res, 400, "Cinema Name Already Exists");
     }
 
     // Prepare cinema data for insertion or update
@@ -825,20 +811,14 @@ async function addEditCinema(req, res) {
     } else {
       await global.knexConnection("ms_cinemas").insert(obj);
     }
-
-    return res.send({
-      status: true,
-      message: `Cinema ${isUpdate ? "Updated" : "Created"} Successfully`,
-      obj,
-    });
+    return sendResponse(res, 200, "Cinema Updated Successfully");
   } catch (error) {
-    winstonLogger$1.error("Error in cinemaController.js 1:", error);
-    console.error("Error adding/editing cinema:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while processing your request.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while adding/editing cinema.",
+      error
+    );
   }
 }
 
@@ -860,9 +840,7 @@ async function getCinemaList(req, res) {
   if (isWebsiteUser) {
     const redisData = await getFromRedis("websiteCinemaList");
     if (redisData) {
-      return res.send({
-        message: "Cinema List Fetched From Redis",
-        status: true,
+      return sendResponse(res, 200, "Cinema List Fetched From Redis", {
         Records: redisData,
       });
     }
@@ -923,20 +901,16 @@ async function getCinemaList(req, res) {
     if (isWebsiteUser) {
       storeInRedis("websiteCinemaList", CinemaList);
     }
-
-    return res.send({
-      message: "Cinema List",
-      status: true,
+    return sendResponse(res, 200, "Cinema List", {
       Records: CinemaList,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in cinemaController.js 2:", error);
-    console.error("Error retrieving cinema list:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while retrieving the cinema list.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while retrieving the cinema list.",
+      error
+    );
   }
 }
 
@@ -957,7 +931,7 @@ async function addWebCustomer(req, res) {
   let reqbody = req.body;
   const isWebsiteUser = req["is_website_user"] || false;
   if (!isWebsiteUser) {
-    return sendResponse(res, "User is not website user.", false, {}, 400);
+    return sendResponse(res, 400, "User is not website user.");
   }
   const {
     first_name,
@@ -980,13 +954,7 @@ async function addWebCustomer(req, res) {
     // Validate request fields
     let result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return sendResponse(
-        res,
-        "Invalid Request Data",
-        false,
-        { ...result },
-        400
-      );
+      return sendResponse(res, 400, "Invalid Request Data", result);
     }
 
     // Check if email or phone already exists
@@ -999,11 +967,7 @@ async function addWebCustomer(req, res) {
       .where({ customer_is_active: "Y" });
 
     if (checkUserExist.length && checkUserExist[0].is_verified == "Y") {
-      return res.status(400).json({
-        message: "Customer Email Already Exist",
-        status: false,
-        Records: checkUserExist,
-      });
+      return sendResponse(res, 400, "Email already exists.");
     }
 
     // Prepare customer data object
@@ -1040,20 +1004,17 @@ async function addWebCustomer(req, res) {
     delete obj["email_otp"];
 
     // Send success response
-    return res.status(200).send({
-      status: true,
+    return sendResponse(res, 200, "Account Created Successfully.", {
       show_otp_screen: true,
-      message: `Account Created Successfully.!`,
       Records: [obj],
     });
   } catch (error) {
-    winstonLogger$1.error("Error in customerController.js 1:", error);
-    console.error("Error adding customer:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while processing your request.",
-      error: error?.message || error,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while adding customer.",
+      error
+    );
   }
 }
 //verify Customer OTP
@@ -1102,7 +1063,7 @@ async function verifyOTPAndUpdateUser(req, res) {
     // Verify the OTP matches the one sent (assuming it's stored in the user object or database)
     console.log(checkUser);
     if (checkUser[0].email_otp != otp) {
-      return res.status(400).send({ status: false, message: "Invalid OTP." });
+      return sendResponse(res, 400, "Invalid OTP.");
     }
 
     // Update user status or verification status
@@ -1116,19 +1077,22 @@ async function verifyOTPAndUpdateUser(req, res) {
 
     // This will only run if generateJWT succeeds
     console.log("Generated Token:", token);
-
-    return res.status(200).send({
-      status: true,
-      login_token: token,
-      message: "OTP verified and user logged in successful.",
-      Records: checkUser,
-    });
+    return sendResponse(
+      res,
+      200,
+      "OTP verified and user logged in successful.",
+      {
+        login_token: token,
+        Records: checkUser,
+      }
+    );
   } catch (err) {
-    winstonLogger$1.error("Error in customerController.js 2:", err);
-    console.error("Error:", err);
-    return res
-      .status(500)
-      .send({ status: false, message: "Something went wrong." });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while verifying OTP.",
+      err
+    );
   }
 }
 
@@ -1142,7 +1106,7 @@ async function customerSignIn(req, res) {
     // Validate fields
     let result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return res.status(400).send(result); // Return validation errors
+      return sendResponse(res, 400, "Username and password is required.");
     }
 
     // Check if user exists
@@ -1168,44 +1132,25 @@ async function customerSignIn(req, res) {
         async function (err, result) {
           if (result) {
             if (checkUserExist[0].customer_is_active != "Y") {
-              return res.status(403).json({
-                message: "Account is inactive.",
-                status: false,
-              });
+              return sendResponse(res, 403, "Account is inactive.");
             }
 
             // Generate JWT token
             const customerToken = await generateJWT(checkUserExist[0], true);
-
-            return res.status(200).json({
-              message: "Signin Successfully",
-              status: true,
+            return sendResponse(res, 200, "Signin Successfully", {
               customerToken, // Return the token
               Records: checkUserExist,
             });
           } else {
-            return res.status(400).json({
-              message: "Password doesn't match.",
-              status: false,
-              error: err,
-            });
+            return sendResponse(res, 400, "Invalid Password.");
           }
         }
       );
     } else {
-      return res.status(400).send({
-        status: false,
-        message: "Invalid Credential",
-      });
+      return sendResponse(res, 404, "Invalid Credential.");
     }
   } catch (error) {
-    winstonLogger$1.error("Error in customerController.js 3:", error);
-    console.error("Error during sign-in:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred during sign-in.",
-      error: error.message,
-    });
+    return sendResponse(res, 500, "An error occurred during sign-in.", error);
   }
 }
 
@@ -1215,10 +1160,7 @@ async function getCustomer(req, res) {
 
   try {
     if (!logged_in_customer_id) {
-      return res.status(403).json({
-        status: false,
-        message: "You are not authorized",
-      });
+      return sendResponse(res, 403, "You are not authorized.");
     }
 
     const getCustomer = await global
@@ -1240,92 +1182,20 @@ async function getCustomer(req, res) {
       });
 
     if (!getCustomer.length) {
-      return res.status(403).json({
-        status: false,
-        message: "You are not authorized",
-      });
+      return sendResponse(res, 400, "Customer not found.");
     }
-
-    return res.status(200).send({
-      message: "Logged in customer details.",
-      status: true,
+    return sendResponse(res, 200, "Customer details.", {
       Records: getCustomer[0],
     });
   } catch (error) {
-    winstonLogger$1.error("Error in customerController.js 4:", error);
-    console.error("Error retrieving customer details:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while retrieving the customer details.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while retrieving the customer details.",
+      error
+    );
   }
 }
-
-// // Sign-in Customer
-// export async function signInCustomer(req, res) {
-//   let reqbody = req.body;
-//   const { user_name, password } = reqbody;
-//   let checkFields = ["user_name", "password"];
-
-//   try {
-//     // Validate fields
-//     let result = await checkValidation(checkFields, reqbody);
-//     if (!result.status) {
-//       return res.status(400).send(result); // Return validation errors
-//     }
-
-//     // Check if user exists
-//     let checkUserExist = await global
-//       .knexConnection("ms_customers")
-//       .select([
-//         "first_name",
-//         "last_name",
-//         "phone_number",
-//         "phone_county_code",
-//         "password",
-//         "email",
-//         "customer_unique_id as customer_id",
-//         "customer_is_active",
-//         "customer_id as cust_id",
-//       ])
-//       .where({ email: user_name, is_verified: "Y" });
-
-//     if (checkUserExist.length) {
-//       bcrypt.compare(
-//         password,
-//         checkUserExist[0].password,
-//         function (err, result) {
-//           if (result) {
-//             return res.status(200).json({
-//               message: "Signin Successfully",
-//               status: true,
-//               Records: checkUserExist,
-//             });
-//           } else {
-//             return res.status(400).json({
-//               message: "Password doesn't match.",
-//               status: false,
-//               error: err,
-//             });
-//           }
-//         }
-//       );
-//     } else {
-//       return res.status(400).send({
-//         status: false,
-//         message: "Invalid Credential",
-//       });
-//     }
-//   } catch (error) {
-//     console.error("Error during sign-in:", error);
-//     return res.status(500).json({
-//       status: false,
-//       message: "An error occurred during sign-in.",
-//       error: error.message,
-//     });
-//   }
-// }
 
 const router$a = Router();
 
@@ -1393,7 +1263,7 @@ async function addEditEvent(req, res) {
 
     let validation = await checkValidation(requiredFields, reqbody);
     if (!validation.status) {
-      return res.send(validation);
+      return sendResponse(res, 400, "Validation Error", validation);
     }
 
     // Remove redis cache
@@ -1404,10 +1274,11 @@ async function addEditEvent(req, res) {
 
     // Validate event dates
     if (moment$1(event_end_date).isBefore(event_start_date)) {
-      return res.send({
-        status: false,
-        message: "Event Start Date should be less than Event End Date",
-      });
+      return sendResponse(
+        res,
+        400,
+        "Event Start Date should be less than Event End Date"
+      );
     }
 
     // Validate event schedule array
@@ -1418,7 +1289,7 @@ async function addEditEvent(req, res) {
           schedule
         );
         if (!scheduleValidation.status) {
-          return res.send(scheduleValidation);
+          return sendResponse(res, 400, "Validation Error", scheduleValidation);
         }
 
         // Validate schedule date is between event start and end date
@@ -1430,11 +1301,11 @@ async function addEditEvent(req, res) {
             "[]"
           )
         ) {
-          return res.send({
-            status: false,
-            message:
-              "Schedule Date should be between Event Start Date and End Date",
-          });
+          return sendResponse(
+            res,
+            400,
+            "Schedule Date should be between Event Start Date and End Date"
+          );
         }
 
         // Validate seat type details in schedule
@@ -1448,7 +1319,7 @@ async function addEditEvent(req, res) {
               seatType
             );
             if (!seatValidation.status) {
-              return res.send(seatValidation);
+              return sendResponse(res, 400, "Validation Error", seatValidation);
             }
           }
         }
@@ -1470,11 +1341,7 @@ async function addEditEvent(req, res) {
       });
 
     if (existingEvent.length) {
-      return res.status(200).json({
-        message: "Event Name Already Exists",
-        status: false,
-        Records: existingEvent,
-      });
+      return sendResponse(res, 400, "Event Name Already Exists");
     }
 
     // Prepare the event object for insertion or update
@@ -1603,21 +1470,14 @@ async function addEditEvent(req, res) {
         }
       }
     }
-
-    return res.send({
-      status: true,
-      message: `${type} ${isUpdate ? "Updated" : "Created"} Successfully`,
-      obj: eventObj,
-      insert_event_id,
-    });
+    return sendResponse(res, 200, "Event Updated Successfully");
   } catch (error) {
-    winstonLogger$1.error("Error in eventController.js 1:", error);
-    console.error("Error processing event:", error);
-    return res.status(500).send({
-      status: false,
-      message: "An error occurred while processing the event",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while processing the event",
+      error
+    );
   }
 }
 
@@ -1644,10 +1504,9 @@ async function getEventList(req, res) {
       if (redisData) {
         return sendResponse(
           res,
+          200,
           "Active event list By Id fetched from Redis cache",
-          true,
-          { ...redisData },
-          200
+          { ...redisData }
         );
       }
     }
@@ -1663,12 +1522,16 @@ async function getEventList(req, res) {
       );
     }
 
-    // Send the response with event data
-    return res.send({ ...getEventData });
+    return sendResponse(res, 200, "Event list fetched successfully", {
+      ...getEventData,
+    });
   } catch (error) {
-    winstonLogger$1.error("Error in eventController.js 2:", error);
-    console.error("Error fetching event list:", error);
-    return res.status(500).send({ message: "Internal Server Error" });
+    return sendResponse(
+      res,
+      500,
+      "Unable to fetch event list. Please try again later.",
+      error
+    );
   }
 }
 
@@ -1676,30 +1539,30 @@ async function getActiveEventList(req, res) {
   try {
     const redisData = await getFromRedis("redisCache:activeWebsiteEventList");
     if (redisData) {
-      return res.send({
-        message: "Active event list fetched from Redis cache",
-        status: true,
-        data: redisData,
-      });
+      return sendResponse(
+        res,
+        200,
+        "Active event list fetched from Redis cache",
+        { data: redisData }
+      );
     }
     const reqbody = { ...req.query, ...req.body };
     const data = await getActiveListData(reqbody);
 
     await storeInRedis("redisCache:activeWebsiteEventList", data, 3600);
-
-    return res.send({
-      message: "Data fetched successfully",
-      status: true,
-      data,
-    });
+    return sendResponse(
+      res,
+      200,
+      "Active event list fetched successfully",
+      data
+    );
   } catch (error) {
-    winstonLogger$1.error("Error in customerController.js 3:", error);
-    console.error("Error fetching active event list:", error);
-
-    return res.status(500).send({
-      status: false,
-      message: "Unable to fetch active event list. Please try again later.",
-    });
+    return sendResponse(
+      res,
+      500,
+      "Unable to fetch active event list. Please try again later.",
+      error
+    );
   }
 }
 
@@ -1729,7 +1592,7 @@ async function addEditEventExtra(req, res) {
     // Validate required fields
     const result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return res.status(400).send(result); // Return a 400 for validation errors
+      return sendResponse(res, 400, "Validation Error", result);
     }
 
     //Remove redis cache
@@ -1758,17 +1621,14 @@ async function addEditEventExtra(req, res) {
       await global.knexConnection("ms_event_extra_info").insert(obj);
     }
 
-    return res.send({
-      status: true,
-      message: `${isUpdate ? "Updated" : "Created"} Successfully`,
-    });
+    return sendResponse(res, 200, "Event Extra Info Updated Successfully");
   } catch (error) {
-    winstonLogger$1.error("Error in customerController.js 4:", error);
-    console.error("Error in addEditEventExtra:", error);
-    return res.status(500).send({
-      status: false,
-      message: "An error occurred. Please try again later.",
-    });
+    return sendResponse(
+      res,
+      500,
+      "Error in addEditEventExtra. Please try again later.",
+      error
+    );
   }
 }
 
@@ -1806,18 +1666,16 @@ async function getEventExtraInfoList(req, res) {
       .orderBy("extra_info_id", "desc")
       .paginate(pagination(limit, currentPage));
 
-    return res.send({
-      message: "Event Extra Info List",
-      status: true,
+    return sendResponse(res, 200, "Event Extra Info List", {
       Records: EventExtraInfoList,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in customerController.js 5:", error);
-    console.error("Error in getEventExtraInfoList:", error);
-    return res.status(500).send({
-      status: false,
-      message: "An error occurred while fetching the event extra info.",
-    });
+    return sendResponse(
+      res,
+      500,
+      "Error in getEventExtraInfoList. Please try again later.",
+      error
+    );
   }
 }
 
@@ -1920,9 +1778,12 @@ const getActiveListData = async (reqbody) => {
 
     return formattedRecords;
   } catch (error) {
-    winstonLogger$1.error("Error in customerController.js 6:", error);
-    console.error("Error fetching active event list:", error);
-    throw new Error("Unable to fetch event data");
+    return sendResponse(
+      res,
+      500,
+      "Error in getActiveListData. Please try again later.",
+      error
+    );
   }
 };
 const ExtraDetail = async ({
@@ -2245,10 +2106,11 @@ async function getTransactionByCodeScanner(req, res) {
   const { booking_code, booking_id } = reqbody;
 
   if (!booking_code) {
-    return res.status(400).json({
-      status: false,
-      message: "Invalid Booking Code or Booking code not provided!",
-    });
+    return sendResponse(
+      res,
+      400,
+      "Invalid Booking Code or Booking code not provided!"
+    );
   }
 
   try {
@@ -2269,24 +2131,22 @@ async function getTransactionByCodeScanner(req, res) {
       .paginate(pagination(req.query.limit || 100, req.query.currentPage || 1));
 
     if (!TransactionList.data.length) {
-      return res.status(404).json({
-        status: false,
-        message: "Ticket Details Not Found or booking cancelled admin!",
-      });
+      return sendResponse(
+        res,
+        400,
+        "Ticket Details Not Found or booking cancelled admin!"
+      );
     }
-
-    return res.status(200).json({
-      message: "Ticket Details",
-      status: true,
+    return sendResponse(res, 200, "Ticket Details", {
       Records: TransactionList,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in scannerController.js 1:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while retrieving the ticket details.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while retrieving the ticket details.",
+      error
+    );
   }
 }
 
@@ -2295,10 +2155,11 @@ async function getScannedTicketById(req, res) {
   const { booking_code, booking_id } = reqbody;
 
   if (!booking_id) {
-    return res.status(400).json({
-      status: false,
-      message: "Invalid Booking Id or Booking ID not provided!",
-    });
+    return sendResponse(
+      res,
+      400,
+      "Invalid Booking Id or Booking ID not provided!"
+    );
   }
 
   try {
@@ -2317,24 +2178,18 @@ async function getScannedTicketById(req, res) {
       .paginate(pagination(req.query.limit || 100, req.query.currentPage || 1));
 
     if (!ScannedTicketList.data.length) {
-      return res.status(404).json({
-        status: false,
-        message: "Scan Ticket Details Not Found",
-      });
+      return sendResponse(res, 400, "Scan Ticket Details Not Found ");
     }
-
-    return res.status(200).json({
-      message: "Scan Ticket Details",
-      status: true,
+    return sendResponse(res, 200, "Scan Ticket Details", {
       Records: ScannedTicketList,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in scannerController.js 2:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while retrieving scanned ticket details.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while retrieving the scanned ticket details.",
+      error
+    );
   }
 }
 
@@ -2351,11 +2206,7 @@ async function getScannedTicketList(req, res) {
       .where({ user_id });
 
     if (!EventArray.length) {
-      return res.status(404).json({
-        message: "Event not assigned",
-        status: false,
-        Records: [],
-      });
+      return sendResponse(res, 400, "Event not assigned");
     }
 
     const eventIds = EventArray.filter((e) => e.user_id === user_id).map(
@@ -2406,18 +2257,16 @@ async function getScannedTicketList(req, res) {
       .orderBy("scan_id", "desc")
       .paginate(pagination(req.query.limit || 100, req.query.currentPage || 1));
 
-    return res.status(200).json({
-      message: "Scan Ticket Details",
-      status: true,
+    return sendResponse(res, 200, "Scan Ticket Details", {
       Records: ScannedTicketList,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in scannerController.js 3:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while retrieving scanned ticket list.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while retrieving the scanned ticket details.",
+      error
+    );
   }
 }
 
@@ -2427,10 +2276,11 @@ async function addEditScanTicket(req, res) {
   const { booking_id, scan_id, add_scan_ticket_count } = reqbody;
 
   if (!booking_id) {
-    return res.status(400).json({
-      status: false,
-      message: "Invalid Booking Id or Booking ID not provided!",
-    });
+    return sendResponse(
+      res,
+      400,
+      "Invalid Booking Id or Booking ID not provided!"
+    );
   }
 
   try {
@@ -2439,10 +2289,7 @@ async function addEditScanTicket(req, res) {
       .where("booking_id", booking_id);
 
     if (!TransactionList.length) {
-      return res.status(404).json({
-        status: false,
-        message: "Ticket Details Not Found",
-      });
+      return sendResponse(res, 400, "Ticket Details Not Found");
     }
 
     const managerList = await global.knexConnection("event_managers").where({
@@ -2451,10 +2298,11 @@ async function addEditScanTicket(req, res) {
     });
 
     if (!managerList.length) {
-      return res.status(403).json({
-        status: false,
-        message: "Event Manager not assigned! Please contact admin.",
-      });
+      return sendResponse(
+        res,
+        400,
+        "Event Manager not assigned! Please contact admin."
+      );
     }
 
     if (scan_id) {
@@ -2472,21 +2320,18 @@ async function addEditScanTicket(req, res) {
           seats_tobe_scanned: TransactionList[0].seats_tobe_scanned + 1,
         });
 
-      return res.status(200).json({
-        message: "Scan Details Removed Successfully",
-        status: true,
-      });
+      return sendResponse(res, 200, "Scan Details Removed Successfully");
     }
 
     if (
       parseFloat(add_scan_ticket_count) >
       parseFloat(TransactionList[0].seats_tobe_scanned)
     ) {
-      return res.status(400).json({
-        status: false,
-        message:
-          "Seats to be scanned cannot be greater than total available seats",
-      });
+      return sendResponse(
+        res,
+        400,
+        "Seats to be scanned cannot be greater than total available seats"
+      );
     }
 
     for (let i = 1; i <= parseInt(add_scan_ticket_count); i++) {
@@ -2509,18 +2354,14 @@ async function addEditScanTicket(req, res) {
           TransactionList[0].seats_tobe_scanned -
           parseInt(add_scan_ticket_count),
       });
-
-    return res.status(200).json({
-      message: "Scan Details Added Successfully",
-      status: true,
-    });
+    return sendResponse(res, 200, "Scan Details Added Successfully");
   } catch (error) {
-    winstonLogger$1.error("Error in scannerController.js 4:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while adding/editing scan ticket.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while adding/editing scan ticket.",
+      error
+    );
   }
 }
 
@@ -2568,7 +2409,7 @@ async function addEditGuest(req, res) {
   try {
     let result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return res.status(400).send(result); // Responding with 400 for validation errors
+      return sendResponse(res, 400, "Guest phone number and email is required");
     }
 
     let checkUserExist = await global
@@ -2600,22 +2441,14 @@ async function addEditGuest(req, res) {
       obj["guest_unique_id"] = v4();
       await global.knexConnection("ms_guest_customers").insert(obj);
     }
-
-    return res.status(200).send({
-      status: true,
-      message: `Guest ${
-        checkUserExist.length ? "Updated" : "Created"
-      } Successfully`,
-      Records: [obj],
-    });
+    return sendResponse(res, 200, "Guest created successfully");
   } catch (error) {
-    winstonLogger$1.error("Error in guestController.js 1:", error);
-    console.error("Error in addEditGuest:", error); // Log the error for debugging
-    return res.status(500).send({
-      status: false,
-      message: "An error occurred while processing your request.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while adding/editing guest",
+      error
+    );
   }
 }
 
@@ -2631,7 +2464,7 @@ async function getGuestList(req, res) {
     if (isWebsiteUser) {
       let result = await checkValidation(["guest_id"], reqbody);
       if (!result.status) {
-        return res.status(400).send(result); // Responding with 400 for validation errors
+        return sendResponse(res, 400, "Guest id is required");
       }
     }
 
@@ -2658,20 +2491,16 @@ async function getGuestList(req, res) {
       })
       .orderBy("g_id", "desc")
       .paginate(pagination(limit, currentPage));
-
-    return res.status(200).send({
-      message: "Guest List",
-      status: true,
+    return sendResponse(res, 200, "Guest List", {
       Records: UserList,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in guestController.js 2:", error);
-    console.error("Error in getGuestList:", error); // Log the error for debugging
-    return res.status(500).send({
-      status: false,
-      message: "An error occurred while retrieving the guest list.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while retrieving guest",
+      error
+    );
   }
 }
 
@@ -2690,7 +2519,7 @@ async function addSubscriber(req, res) {
     let checkFields = ["subscriber_email"];
     let result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return res.status(400).send(result); // Responding with 400 for validation errors
+      return sendResponse(res, 400, "Subscriber email is required");
     }
 
     let checkSubscriberExist = await global
@@ -2710,10 +2539,7 @@ async function addSubscriber(req, res) {
     };
 
     if (checkSubscriberExist.length && is_subscriber == "Y") {
-      return res.status(400).send({
-        status: false,
-        message: "Already subscribed!",
-      });
+      return sendResponse(res, 400, "Email Already Subscribed");
     } else {
       await global.knexConnection("ms_subscriber").insert(obj);
       if (is_subscriber == "N") {
@@ -2733,26 +2559,21 @@ async function addSubscriber(req, res) {
         );
       }
     }
-
-    return res.status(200).send({
-      status: true,
-      message: `${
-        is_subscriber == "N"
-          ? "Response Received. We will get back to you soon!"
-          : checkSubscriberExist.length
-          ? "Already Subscribed"
-          : "Subscribed Successfully"
-      } `,
-      Records: [obj],
-    });
+    return sendResponse(
+      res,
+      200,
+      "Response Received. We will get back to you soon!",
+      {
+        Records: [obj],
+      }
+    );
   } catch (error) {
-    winstonLogger$1.error("Error in guestController.js 3:", error);
-    console.error("Error in addSubscriber:", error); // Log the error for debugging
-    return res.status(500).send({
-      status: false,
-      message: "An error occurred while processing the subscription.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while processing the subscription.",
+      error
+    );
   }
 }
 
@@ -2792,7 +2613,7 @@ async function addEditCountries(req, res) {
     // Validate required fields
     let validationResult = await checkValidation(checkFields, reqbody);
     if (!validationResult.status) {
-      return res.status(400).json(validationResult);
+      return sendResponse(res, 400, "Validation Error", validationResult);
     }
 
     // Check if country exists
@@ -2810,11 +2631,7 @@ async function addEditCountries(req, res) {
       });
 
     if (checkCountryExist.length) {
-      return res.status(200).json({
-        message: "Country Already Exists",
-        status: false,
-        Records: checkCountryExist,
-      });
+      return sendResponse(res, 400, "Country Already Exists");
     }
 
     // Prepare object for insert or update
@@ -2837,20 +2654,14 @@ async function addEditCountries(req, res) {
     } else {
       await global.knexConnection("ms_countries").insert(obj);
     }
-
-    return res.status(200).json({
-      status: true,
-      message: `Country ${isUpdate ? "Updated" : "Created"} Successfully`,
-      obj,
-    });
+    return sendResponse(res, 200, "Country Updated Successfully");
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 1:", error);
-    console.error("Error in addEditCountries:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while processing the country.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while processing the country.",
+      error
+    );
   }
 }
 
@@ -2894,19 +2705,16 @@ async function getCountryList(req, res) {
       .orderBy("ms_countries.country_id", "desc")
       .paginate(pagination(limit, currentPage));
 
-    return res.status(200).json({
-      message: "Country List Retrieved Successfully",
-      status: true,
+    return sendResponse(res, 200, "Country List Retrieved Successfully", {
       Records: CountryList,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 2:", error);
-    console.error("Error in getCountryList:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while fetching the country list.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while fetching the country list.",
+      error
+    );
   }
 }
 
@@ -2920,7 +2728,7 @@ async function addEditCities(req, res) {
     // Validate required fields
     let validationResult = await checkValidation(checkFields, reqbody);
     if (!validationResult.status) {
-      return res.status(400).json(validationResult);
+      return sendResponse(res, 400, "Validation Error", validationResult);
     }
 
     // Check if city exists
@@ -2933,11 +2741,7 @@ async function addEditCities(req, res) {
       });
 
     if (checkCityExist.length) {
-      return res.status(200).json({
-        message: "City Already Exists",
-        status: false,
-        Records: checkCityExist,
-      });
+      return sendResponse(res, 400, "City Already Exists");
     }
 
     // Prepare object for insert or update
@@ -2955,20 +2759,14 @@ async function addEditCities(req, res) {
     } else {
       await global.knexConnection("ms_cities").insert(obj);
     }
-
-    return res.status(200).json({
-      status: true,
-      message: `City ${isUpdate ? "Updated" : "Created"} Successfully`,
-      obj,
-    });
+    return sendResponse(res, 200, "City Updated Successfully");
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 3:", error);
-    console.error("Error in addEditCities:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while processing the city.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while processing the city.",
+      error
+    );
   }
 }
 
@@ -3019,20 +2817,14 @@ async function getCityList(req, res) {
       })
       .orderBy("country_id", "desc")
       .paginate(pagination(limit, currentPage));
-
-    return res.send({
-      message: "City List",
-      status: true,
-      Records: CityList,
-    });
+    return sendResponse(res, 200, "City List", { Records: CityList });
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 4:", error);
-    console.error("Error fetching city list:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while fetching city list.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while fetching city list.",
+      error
+    );
   }
 }
 
@@ -3047,7 +2839,7 @@ async function addEditLanguages(req, res) {
     let result = await checkValidation(checkFields, reqbody);
 
     if (!result.status) {
-      return res.send(result);
+      return sendResponse(res, 400, "Validation Error", result);
     }
 
     let checkLanguageExist = await global
@@ -3061,11 +2853,7 @@ async function addEditLanguages(req, res) {
       });
 
     if (checkLanguageExist.length) {
-      return res.status(200).json({
-        message: "Language Already Exist",
-        status: false,
-        Records: checkLanguageExist,
-      });
+      return sendResponse(res, 400, "Language Already Exist");
     } else {
       let obj = {
         lang_name: lang_name || null,
@@ -3084,21 +2872,15 @@ async function addEditLanguages(req, res) {
       } else {
         await global.knexConnection("ms_languages").insert(obj);
       }
-
-      return res.send({
-        status: true,
-        message: `Language ${isUpdate ? "Updated" : "Created"} Successfully`,
-        obj,
-      });
+      return sendResponse(res, 200, "Language Updated Successfully");
     }
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 5:", error);
-    console.error("Error in add/edit language:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while adding or updating the language.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while processing the language.",
+      error
+    );
   }
 }
 
@@ -3146,19 +2928,14 @@ async function getLanguageList(req, res) {
       .orderBy("lang_id", "desc")
       .paginate(pagination(limit, currentPage));
 
-    return res.send({
-      message: "Language List",
-      status: true,
-      Records: LanguageList,
-    });
+    return sendResponse(res, 200, "Language List", { Records: LanguageList });
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 6:", error);
-    console.error("Error fetching language list:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while fetching language list.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while fetching language list.",
+      error
+    );
   }
 }
 
@@ -3172,7 +2949,7 @@ async function addEditGenre(req, res) {
     let result = await checkValidation(checkFields, reqbody);
 
     if (!result.status) {
-      return res.send(result);
+      return sendResponse(res, 400, "Validation Error", result);
     }
 
     let checkGenreExist = await global
@@ -3186,11 +2963,7 @@ async function addEditGenre(req, res) {
       });
 
     if (checkGenreExist.length) {
-      return res.status(200).json({
-        message: "Genre Already Exist",
-        status: false,
-        Records: checkGenreExist,
-      });
+      return sendResponse(res, 400, "Genre Already Exist");
     } else {
       let obj = {
         genre_name: genre_name || null,
@@ -3205,20 +2978,15 @@ async function addEditGenre(req, res) {
         await global.knexConnection("ms_genre").insert(obj);
       }
 
-      return res.send({
-        status: true,
-        message: `Genre ${isUpdate ? "Updated" : "Created"} Successfully`,
-        obj,
-      });
+      return sendResponse(res, 200, "Genre Updated Successfully");
     }
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 7:", error);
-    console.error("Error in add/edit genre:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while adding or updating the genre.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while processing genre.",
+      error
+    );
   }
 }
 
@@ -3254,20 +3022,14 @@ async function getGenreList(req, res) {
       })
       .orderBy("genre_id", "desc")
       .paginate(pagination(limit, currentPage));
-
-    return res.send({
-      message: "Genre List",
-      status: true,
-      Records: GenreList,
-    });
+    return sendResponse(res, 200, "Genre List", { Records: GenreList });
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 8:", error);
-    console.error("Error fetching genre list:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while fetching genre list.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while fetching genre list.",
+      error
+    );
   }
 }
 
@@ -3280,7 +3042,7 @@ async function addEditSeatType(req, res) {
     let checkFields = ["seat_class_name", "sct_is_active"];
     let result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return res.send(result);
+      return sendResponse(res, 400, "Validation Error", result);
     }
 
     let checkSeatTypeExist = await global
@@ -3294,11 +3056,7 @@ async function addEditSeatType(req, res) {
       });
 
     if (checkSeatTypeExist.length) {
-      return res.status(200).json({
-        message: "Seat Type Already Exist",
-        status: false,
-        Records: checkSeatTypeExist,
-      });
+      return sendResponse(res, 400, "Seat Type Already Exist");
     } else {
       let obj = {
         seat_class_name: seat_class_name || null,
@@ -3314,21 +3072,15 @@ async function addEditSeatType(req, res) {
       } else {
         await global.knexConnection("ms_seat_class_type").insert(obj);
       }
-
-      return res.send({
-        status: true,
-        message: `Seat Type ${isUpdate ? "Updated" : "Created"} Successfully`,
-        obj,
-      });
+      return sendResponse(res, 200, "Seat Type Updated Successfully");
     }
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 9:", error);
-    console.error("Error in addEditSeatType:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while adding or updating the seat type.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while processing seat type.",
+      error
+    );
   }
 }
 
@@ -3360,20 +3112,14 @@ async function getSeatTypeList(req, res) {
       })
       .orderBy("sct_id", "desc")
       .paginate(pagination(limit, currentPage));
-
-    return res.send({
-      message: "Seat Type List",
-      status: true,
-      Records: SeatTypeList,
-    });
+    return sendResponse(res, 200, "Seat Type List", { Records: SeatTypeList });
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 10:", error);
-    console.error("Error in getSeatTypeList:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while fetching the seat type list.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while fetching the seat type list.",
+      error
+    );
   }
 }
 
@@ -3386,7 +3132,7 @@ async function addEditCurrency(req, res) {
     let checkFields = ["curr_code", "curr_is_active", "curr_name"];
     let result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return res.send(result);
+      return sendResponse(res, 400, "Validation Error", result);
     }
 
     let checkCurrencyExist = await global
@@ -3400,11 +3146,7 @@ async function addEditCurrency(req, res) {
       });
 
     if (checkCurrencyExist.length) {
-      return res.status(200).json({
-        message: "Currency Already Exist",
-        status: false,
-        Records: checkCurrencyExist,
-      });
+      return sendResponse(res, 400, "Currency Already Exist");
     } else {
       let obj = {
         curr_code: curr_code || null,
@@ -3421,21 +3163,15 @@ async function addEditCurrency(req, res) {
       } else {
         await global.knexConnection("ms_currencies").insert(obj);
       }
-
-      return res.send({
-        status: true,
-        message: `Currency ${isUpdate ? "Updated" : "Created"} Successfully`,
-        obj,
-      });
+      return sendResponse(res, 200, "Currency Updated Successfully");
     }
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 11:", error);
-    console.error("Error in addEditCurrency:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while adding or updating the currency.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while processing currency.",
+      error
+    );
   }
 }
 
@@ -3468,20 +3204,14 @@ async function getCurrencyList(req, res) {
       })
       .orderBy("curr_id", "desc")
       .paginate(pagination(limit, currentPage));
-
-    return res.send({
-      message: "Currency List",
-      status: true,
-      Records: CurrencyList,
-    });
+    return sendResponse(res, 200, "Currency List", { Records: CurrencyList });
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 12:", error);
-    console.error("Error in getCurrencyList:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while fetching the currency list.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while fetching the currency list.",
+      error
+    );
   }
 }
 
@@ -3493,7 +3223,7 @@ async function addEditBanner(req, res) {
     let checkFields = ["bannerArray", "country_id"];
     let result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return res.send(result);
+      return sendResponse(res, 400, "Validation Error", result);
     }
     //Remove redis cache
     await removeFromRedis(`redisCache:activeWebsiteBanner`);
@@ -3504,7 +3234,7 @@ async function addEditBanner(req, res) {
       let checkFields2 = ["event_id", "order"];
       let result2 = await checkValidation(checkFields2, objBanner);
       if (!result2.status) {
-        return res.send(result2);
+        return sendResponse(res, 400, "Validation Error", result2);
       }
       arrayBanner.push({
         event_id: objBanner.event_id,
@@ -3515,20 +3245,14 @@ async function addEditBanner(req, res) {
 
     await global.knexConnection("ms_banner").where({ country_id }).del();
     await global.knexConnection("ms_banner").insert(arrayBanner);
-
-    return res.send({
-      status: true,
-      message: `Banner Updated Successfully`,
-      arrayBanner,
-    });
+    return sendResponse(res, 200, "Banner Updated Successfully");
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 13:", error);
-    console.error("Error in addEditBanner:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while adding or updating the banner.",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while processing banner.",
+      error
+    );
   }
 }
 
@@ -3547,9 +3271,7 @@ async function getBannerList(req, res) {
     if (isWebsiteUser) {
       const redisData = await getFromRedis(`redisCache:activeWebsiteBanner`);
       if (redisData) {
-        return res.send({
-          message: "Banner List from Redis cache",
-          status: true,
+        return sendResponse(res, 200, "Banner List from Redis cache", {
           Records: redisData,
         });
       }
@@ -3583,20 +3305,14 @@ async function getBannerList(req, res) {
     if (isWebsiteUser) {
       await storeInRedis(`redisCache:activeWebsiteBanner`, BannerList, 3600);
     }
-
-    return res.send({
-      message: "Banner List",
-      status: true,
-      Records: BannerList,
-    });
+    return sendResponse(res, 200, "Banner List", { Records: BannerList });
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 14:", error);
-    console.error("Error in getBannerList:", error);
-    return res.status(500).send({
-      message: "Internal server error",
-      status: false,
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while fetching banner.",
+      error
+    );
   }
 }
 
@@ -3623,7 +3339,7 @@ async function addEditSeatLayout(req, res) {
     let result = await checkValidation(checkFields, reqbody);
 
     if (!result.status) {
-      return res.send(result);
+      return sendResponse(res, 400, "Validation Error", result);
     }
 
     let checkExist = await global
@@ -3635,11 +3351,7 @@ async function addEditSeatLayout(req, res) {
       });
 
     if (checkExist.length) {
-      return res.status(400).json({
-        message: "Seat Layout Name Already Exist",
-        status: false,
-        Records: checkExist,
-      });
+      return sendResponse(res, 400, "Seat Layout Name Already Exist");
     }
 
     const obj =
@@ -3668,19 +3380,14 @@ async function addEditSeatLayout(req, res) {
     } else {
       await global.knexConnection("ms_seat_layout").insert(obj);
     }
-
-    return res.send({
-      status: true,
-      message: `Seat Layout ${isUpdate ? "Updated" : "Created"} Successfully`,
-    });
+    return sendResponse(res, 200, `Seat Layout Updated Successfully`);
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 15:", error);
-    console.error("Error in addEditSeatLayout:", error);
-    return res.status(500).send({
-      message: "Internal server error",
-      status: false,
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while processing seat layout.",
+      error
+    );
   }
 }
 
@@ -3723,33 +3430,34 @@ async function getSeatLayoutList(req, res) {
           });
 
         if (getSeatBooked.length) {
-          return res.send({
-            message:
-              "Seats booked for this layout cannot edit, please contact admin",
-            status: false,
-            Records: [],
-          });
+          return sendResponse(
+            res,
+            400,
+            "Seats booked for this layout cannot edit, please contact admin"
+          );
         }
       }
 
       if (layout_admin && layout_admin == "Y") {
         const cachedLayoutAdmin = eventCache.get("SL_ADMIN" + sl_id);
         if (cachedLayoutAdmin) {
-          return res.send({
-            message: "Seat Layout List from cache",
-            status: true,
-            Records: cachedLayoutAdmin,
-          });
+          return sendResponse(
+            res,
+            200,
+            "Seat Layout List from cache",
+            cachedLayoutAdmin
+          );
         }
         seat_layout_select.push("seat_layout_data");
       } else {
         const cachedLayout = eventCache.get("SL" + sl_id);
         if (cachedLayout) {
-          return res.send({
-            message: "Seat Layout List from cache",
-            status: true,
-            Records: cachedLayout,
-          });
+          return sendResponse(
+            res,
+            200,
+            "Seat Layout List from cache",
+            cachedLayout
+          );
         }
         seat_layout_select.push("seat_layout_data");
       }
@@ -3783,20 +3491,14 @@ async function getSeatLayoutList(req, res) {
         layout_admin && layout_admin == "Y" ? "SL_ADMIN" + sl_id : "SL" + sl_id;
       eventCache.set(cacheKey, SeatLayoutList, 9000000);
     }
-
-    return res.send({
-      message: "Seat Layout List",
-      status: true,
-      Records: SeatLayoutList,
-    });
+    return sendResponse(res, 200, "Seat Layout List", SeatLayoutList);
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 16:", error);
-    console.error("Error in getSeatLayoutList:", error);
-    return res.status(500).send({
-      message: "Internal server error",
-      status: false,
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while processing seat layout.",
+      error
+    );
   }
 }
 
@@ -3817,20 +3519,14 @@ async function getTimeZoneList(req, res) {
       })
       .orderBy("tz_id", "desc")
       .paginate(pagination(limit, currentPage));
-
-    return res.send({
-      message: "Time Zone List",
-      status: true,
-      Records: TimeZoneList,
-    });
+    return sendResponse(res, 200, "Time Zone List", { Records: TimeZoneList });
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 17:", error);
-    console.error("Error in getTimeZoneList:", error);
-    return res.status(500).send({
-      message: "Internal server error",
-      status: false,
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while processing time zone.",
+      error
+    );
   }
 }
 
@@ -3842,7 +3538,7 @@ async function addEditOrgWebsite(req, res) {
 
     const result = await checkValidation(["org_id", "website_url"], reqbody);
     if (!result.status) {
-      return res.send(result);
+      return sendResponse(res, 400, "Validation Error", result);
     }
 
     await global.knexConnection("org_website").where({ org_id }).del();
@@ -3855,19 +3551,14 @@ async function addEditOrgWebsite(req, res) {
       }));
 
     await global.knexConnection("org_website").insert(webArry);
-
-    return res.send({
-      status: true,
-      message: `Org Website Linked`,
-    });
+    return sendResponse(res, 200, "Org Website Linked");
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 18:", error);
-    console.error("Error in addEditOrgWebsite:", error);
-    return res.status(500).send({
-      message: "Internal server error",
-      status: false,
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while processing org website.",
+      error
+    );
   }
 }
 
@@ -3882,7 +3573,7 @@ async function addEditRoles(req, res) {
     // Validate required fields
     let result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return res.send(result);
+      return sendResponse(res, 400, "Validation Error", result);
     }
 
     // Check if the role already exists
@@ -3897,11 +3588,7 @@ async function addEditRoles(req, res) {
       });
 
     if (checkRoleExist.length) {
-      return res.status(400).json({
-        message: "Role Already Exists",
-        status: false,
-        Records: checkRoleExist,
-      });
+      return sendResponse(res, 400, "Role Already Exists");
     }
 
     // Prepare data to insert/update
@@ -3917,20 +3604,14 @@ async function addEditRoles(req, res) {
     } else {
       await global.knexConnection("ms_roles").insert(obj);
     }
-
-    return res.send({
-      status: true,
-      message: `Role ${isUpdate ? "Updated" : "Created"} Successfully`,
-      obj,
-    });
+    return sendResponse(res, 200, `Role Updated Successfully`);
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 19:", error);
-    console.error("Error in addEditRoles:", error);
-    return res.status(500).send({
-      message: "Internal server error",
-      status: false,
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while processing role.",
+      error
+    );
   }
 }
 
@@ -3957,20 +3638,14 @@ async function getRolesList(req, res) {
       })
       .orderBy("role_id", "desc")
       .paginate(pagination(limit, currentPage));
-
-    return res.send({
-      message: "Roles List",
-      status: true,
-      Records: RolesList,
-    });
+    return sendResponse(res, 200, "Roles List", { Records: RolesList });
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 20:", error);
-    console.error("Error in getRolesList:", error);
-    return res.status(500).send({
-      message: "Internal server error",
-      status: false,
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while processing role.",
+      error
+    );
   }
 }
 
@@ -3978,11 +3653,7 @@ async function getOrgList(req, res) {
   try {
     const { user_info } = req;
     if (user_info.is_super_admin !== "Y") {
-      return res.status(403).json({
-        message: "Access Denied!",
-        status: false,
-        Records: null,
-      });
+      return sendResponse(res, 403, "Access Denied!");
     }
 
     const reqbody = { ...req.query, ...req.body };
@@ -4006,20 +3677,14 @@ async function getOrgList(req, res) {
       .orderBy("organizations.org_id", "desc")
       .groupBy("organizations.org_id")
       .paginate(pagination(limit, currentPage));
-
-    return res.send({
-      message: "Org List",
-      status: true,
-      Records: OrgList,
-    });
+    return sendResponse(res, 200, "Org List", { Records: OrgList });
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 21:", error);
-    console.error("Error in getOrgList:", error);
-    return res.status(500).send({
-      message: "Internal server error",
-      status: false,
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while processing org.",
+      error
+    );
   }
 }
 
@@ -4028,11 +3693,7 @@ async function addEditOrg(req, res) {
     const reqbody = req.body;
     const { user_info } = req;
     if (user_info.is_super_admin !== "Y") {
-      return res.status(403).json({
-        message: "Access Denied!",
-        status: false,
-        Records: null,
-      });
+      return sendResponse(res, 403, "Access Denied! Only Super Admin");
     }
 
     const {
@@ -4074,7 +3735,7 @@ async function addEditOrg(req, res) {
 
     let result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return res.send(result);
+      return sendResponse(res, 400, "Invalid Request Data", result);
     }
 
     const checkUserExist = await global
@@ -4101,11 +3762,7 @@ async function addEditOrg(req, res) {
       });
 
     if (checkUserExist.length) {
-      return res.status(400).json({
-        message: "User Already Exists",
-        status: false,
-        Records: checkUserExist,
-      });
+      return sendResponse(res, 400, "User Already Exists");
     }
 
     const obj = {
@@ -4139,19 +3796,14 @@ async function addEditOrg(req, res) {
       await global.knexConnection("users").insert(obj);
     }
 
-    return res.send({
-      status: true,
-      message: `User ${isUpdate ? "Updated" : "Created"} Successfully`,
-      obj,
-    });
+    return sendResponse(res, 200, "User Updated Successfully.");
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 22:", error);
-    console.error("Error in addEditOrg:", error);
-    return res.status(500).send({
-      message: "Internal server error",
-      status: false,
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while processing org.",
+      error
+    );
   }
 }
 
@@ -4186,7 +3838,7 @@ async function addEditVouchers(req, res) {
 
     let result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return res.send(result);
+      return sendResponse(res, 400, "Invalid Request Data", result);
     }
 
     const checkVoucherExist = await global
@@ -4200,11 +3852,7 @@ async function addEditVouchers(req, res) {
       });
 
     if (checkVoucherExist.length) {
-      return res.status(400).json({
-        message: "Voucher Already Exists",
-        status: false,
-        Records: checkVoucherExist,
-      });
+      return sendResponse(res, 400, "Voucher Already Exists");
     }
 
     const obj = {
@@ -4228,20 +3876,14 @@ async function addEditVouchers(req, res) {
     } else {
       await global.knexConnection("ms_vouchers").insert(obj);
     }
-
-    return res.send({
-      status: true,
-      message: `Voucher ${isUpdate ? "Updated" : "Created"} Successfully`,
-      obj,
-    });
+    return sendResponse(res, 200, "Voucher Updated Successfully.");
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 23:", error);
-    console.error("Error in addEditVouchers:", error);
-    return res.status(500).send({
-      message: "Internal server error",
-      status: false,
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while creating voucher.",
+      error
+    );
   }
 }
 
@@ -4275,19 +3917,16 @@ async function getVoucherList(req, res) {
       .orderBy("voucher_id", "desc")
       .paginate(pagination(limit, currentPage));
 
-    return res.send({
-      message: "Voucher List Retrieved Successfully",
-      status: true,
+    return sendResponse(res, 200, "Voucher List Retrieved Successfully.", {
       Records: VoucherList,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 24:", error);
-    console.error("Error retrieving voucher list:", error);
-    return res.status(500).json({
-      message: "Internal server error",
-      status: false,
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while retrieving vouchers.",
+      error
+    );
   }
 }
 
@@ -4302,7 +3941,7 @@ async function addEditBlockedSeats(req, res) {
     // Validate input fields
     let result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return res.send(result);
+      return sendResponse(res, 400, "Invalid Request Data", result);
     }
 
     let arraySeats = [];
@@ -4322,11 +3961,11 @@ async function addEditBlockedSeats(req, res) {
         });
 
       if (get_all_active_reserve_data.length) {
-        return res.status(400).json({
-          message:
-            "Some of the given seats are already reserved. Please check.",
-          status: false,
-        });
+        return sendResponse(
+          res,
+          400,
+          "Some of the given seats are already reserved. Please check."
+        );
       }
 
       // Prepare seat data for insertion
@@ -4353,20 +3992,14 @@ async function addEditBlockedSeats(req, res) {
     await global
       .knexConnection("event_manual_blocked_seats")
       .insert(arraySeats);
-
-    return res.send({
-      status: true,
-      message: "Seats Blocked/Released Successfully",
-      arraySeats,
-    });
+    return sendResponse(res, 200, "Seats Blocked/Released Successfully");
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 25:", error);
-    console.error("Error in addEditBlockedSeats:", error);
-    return res.status(500).json({
-      message: "Internal server error",
-      status: false,
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while blocking/unblocking seats.",
+      error
+    );
   }
 }
 
@@ -4416,20 +4049,19 @@ async function getEventBlockedSeats(req, res) {
       customerBlockedSeats: getReservationDetail,
       adminBlockedSeats: getManualBlockDetail,
     };
-
-    return res.send({
-      message: "Blocked Seats Retrieved Successfully",
-      status: true,
-      Records: objBlocked,
-    });
+    return sendResponse(
+      res,
+      200,
+      "Blocked Seats Retrieved Successfully",
+      objBlocked
+    );
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 26:", error);
-    console.error("Error retrieving event blocked seats:", error);
-    return res.status(500).json({
-      message: "Internal server error",
-      status: false,
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while retrieving blocked seats.",
+      error
+    );
   }
 }
 
@@ -4445,20 +4077,16 @@ async function getContactUsList(req, res) {
       .knexConnection("ms_subscriber")
       .orderBy("subscriber_id", "desc")
       .paginate(pagination(limit, currentPage));
-
-    return res.send({
-      message: "Contact Us List Retrieved Successfully",
-      status: true,
+    return sendResponse(res, 200, "Contact Us List Retrieved Successfully", {
       Records: ContactList,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in masterController.js 27:", error);
-    console.error("Error retrieving Contact Us list:", error);
-    return res.status(500).json({
-      message: "Internal server error",
-      status: false,
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while retrieving contact us list.",
+      error
+    );
   }
 }
 
@@ -4572,17 +4200,11 @@ async function uploadImageController(req, res) {
     // Handle image upload
     uploadImage(req, res, (uploadImageError) => {
       if (uploadImageError) {
-        return res.status(400).json({
-          status: false,
-          message: uploadImageError,
-        });
+        return sendResponse(res, 400, "Error uploading image");
       }
 
       if (!req.file || !req.file.originalname) {
-        return res.status(400).json({
-          status: false,
-          message: "Please select a file",
-        });
+        return sendResponse(res, 400, "Please select a file");
       }
 
       // Sanitize image file name
@@ -4617,22 +4239,14 @@ async function uploadImageController(req, res) {
         path.normalize(`${global.__base}/public${storInto}`),
         (error) => {
           if (error) {
-            return res.status(500).json({
-              status: false,
-              message: "Image uploading failed",
-              error,
-            });
+            return sendResponse(res, 500, "Image uploading failed");
           }
 
           // If S3 upload is enabled, upload to S3
           if (S3_UPLOAD === "Y") {
             uploadToS3(SetPath, newFileName, (s3error, result) => {
               if (s3error) {
-                return res.status(500).json({
-                  status: false,
-                  message: "Error uploading image to S3",
-                  error: s3error,
-                });
+                return sendResponse(res, 500, "Error uploading image to S3");
               }
 
               // Clean up local file after successful upload to S3
@@ -4644,33 +4258,36 @@ async function uploadImageController(req, res) {
                   );
                 }
               });
-
-              return res.status(200).json({
-                status: true,
-                message: "Image uploaded successfully to S3",
-                path: result,
-              });
+              return sendResponse(
+                res,
+                200,
+                "Image uploaded successfully to S3",
+                {
+                  path: result,
+                }
+              );
             });
           } else {
-            return res.status(200).json({
-              status: true,
-              message: "Image uploaded successfully to server",
-              imageBaseURL,
-              path: storInto,
-              fullpath: imageBaseURL + storInto,
-            });
+            return sendResponse(
+              res,
+              200,
+              "Image uploaded successfully to server",
+              {
+                path: storInto,
+                fullpath: imageBaseURL + storInto,
+              }
+            );
           }
         }
       );
     });
   } catch (error) {
-    winstonLogger$1.error("Error in fileUploadController.js 2:", error);
-    console.error("Error during image upload:", error);
-    return res.status(500).json({
-      status: false,
-      message: "Unexpected error occurred during image upload",
-      error,
-    });
+    return sendResponse(
+      res,
+      500,
+      "Unexpected error occurred during image upload",
+      error
+    );
   }
 }
 
@@ -4779,15 +4396,16 @@ async function addEditPass(req, res) {
     // Validate input fields
     let validationResult = await checkValidation(checkFields, reqbody);
     if (!validationResult.status) {
-      return res.status(400).send(validationResult);
+      return sendResponse(res, 400, "Validation Error", validationResult);
     }
 
     // Validate date range
     if (moment$1(pass_validity_to).isBefore(pass_validity_from)) {
-      return res.status(400).send({
-        status: false,
-        message: "Pass from date should be less than pass to date",
-      });
+      return sendResponse(
+        res,
+        400,
+        "Pass from date should be less than pass to date"
+      );
     }
 
     // Check if the pass name already exists
@@ -4802,10 +4420,7 @@ async function addEditPass(req, res) {
       });
 
     if (checkPassExist.length) {
-      return res.status(400).json({
-        message: "Pass Name Already Exists",
-        status: false,
-      });
+      return sendResponse(res, 400, "Pass Name Already Exists");
     } else {
       const obj = {
         pass_name,
@@ -4909,20 +4524,10 @@ async function addEditPass(req, res) {
         .knexConnection("movie_event_pass_mapper")
         .insert(insert_arry);
 
-      return res.status(200).send({
-        status: true,
-        message: `${isUpdate ? "Updated" : "Created"} Successfully`,
-        obj,
-        insert_pass_id,
-      });
+      return sendResponse(res, 200, "Pass Updated Successfully");
     }
   } catch (error) {
-    winstonLogger$1.error("Error in passController.js 1:", error);
-    console.error("Error in addEditPass:", error);
-    return res.status(500).send({
-      status: false,
-      message: "An unexpected error occurred. Please try again later.",
-    });
+    return sendResponse(res, 500, "Error in addEditPass", error);
   }
 }
 
@@ -4993,19 +4598,12 @@ async function getPassList(req, res) {
       return z;
     });
 
-    return res.status(200).send({
-      message: "Pass List",
-      status: true,
+    return sendResponse(res, 200, "Pass List", {
       Records: newRecords,
       Pagination: passList ? passList.pagination : null,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in passController.js 2:", error);
-    console.error("Error in getPassList:", error);
-    return res.status(500).send({
-      status: false,
-      message: "An unexpected error occurred. Please try again later.",
-    });
+    return sendResponse(res, 500, "Error in getPassList", error);
   }
 }
 
@@ -5024,7 +4622,11 @@ async function addEditPassDiscount(req, res) {
     // Validate input fields
     let validationResult = await checkValidation(checkFields, req.body);
     if (!validationResult.status) {
-      return res.status(400).json(validationResult); // Improved consistency with `json()` for responses
+      return sendResponse(
+        res,
+        400,
+        "Pass ID is required and arrayDiscountedEvents is required"
+      );
     }
 
     // Ensure arrayDiscountedEvents is an array and has valid structure
@@ -5036,10 +4638,8 @@ async function addEditPassDiscount(req, res) {
         .knexConnection("pass_event_movie_discount")
         .where({ pass_id })
         .del();
-      return res.status(200).json({
-        status: true,
-        message: "Updated",
-      });
+
+      return sendResponse(res, 200, "updated");
     }
 
     let arrayDiscount = arrayDiscountedEvents.map((item) => ({
@@ -5060,19 +4660,9 @@ async function addEditPassDiscount(req, res) {
       .insert(arrayDiscount);
 
     // Send a success response
-    return res.status(200).json({
-      message: "Discounts added successfully",
-      status: true,
-    });
+    return sendResponse(res, 200, "Discounts added successfully");
   } catch (error) {
-    winstonLogger$1.error("Error in passController.js 3:", error);
-    // Log the error and send a response
-    console.error("Error in addEditPassDiscount:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An unexpected error occurred. Please try again later.",
-      error: error.message, // Optional: You can include error details for debugging (ensure not exposed in production)
-    });
+    return sendResponse(res, 500, "Error in addEditPassDiscount", error);
   }
 }
 
@@ -5083,10 +4673,7 @@ async function getPassDiscountList(req, res) {
 
     // Check if pass_id is provided
     if (!pass_id) {
-      return res.status(400).json({
-        status: false,
-        message: "Pass Numbers Not Found!",
-      });
+      return sendResponse(res, 400, "Pass ID is required");
     }
 
     // Initialize the discount array to hold the results
@@ -5099,10 +4686,7 @@ async function getPassDiscountList(req, res) {
 
     // Check if any discounts are found
     if (getDiscountList.length === 0) {
-      return res.status(404).json({
-        status: false,
-        message: "No discounts found for the given pass.",
-      });
+      return sendResponse(res, 400, "No discounts found for the given pass");
     }
 
     // Populate the discount array
@@ -5114,22 +4698,11 @@ async function getPassDiscountList(req, res) {
     }
 
     // Return the discount list with a successful status
-    return res.status(200).send({
-      message: "Discount List Retrieved Successfully",
-      status: true,
+    return sendResponse(res, 200, "Discount List Retrieved Successfully", {
       Records: discountArray,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in passController.js 4:", error);
-    // Log the error details (for internal debugging purposes)
-    console.error("Error in getPassDiscountList:", error);
-
-    // Return a generic error message with status code 500
-    return res.status(500).json({
-      status: false,
-      message: "An unexpected error occurred. Please try again later.",
-      error: process.env.NODE_ENV === "production" ? undefined : error.message, // Don't expose error details in production
-    });
+    return sendResponse(res, 500, "Error in getPassDiscountList", error);
   }
 }
 
@@ -5432,15 +5005,7 @@ async function getTransactionList(req, res) {
 
     // Safely parse filters with error handling
     let parsedFilters = {};
-    try {
-      parsedFilters = JSON.parse(reqbody.filters || "{}");
-    } catch (error) {
-      winstonLogger$1.error("Error in reportController.js 1:", error);
-      return res.status(400).send({
-        message: "Invalid filters JSON format",
-        status: false,
-      });
-    }
+    parsedFilters = JSON.parse(reqbody.filters || "{}");
 
     // Extract filters
     const {
@@ -5490,21 +5055,11 @@ async function getTransactionList(req, res) {
       .paginate(pagination(limit, currentPage));
 
     // Send response
-    return res.send({
-      message: "Transaction List",
-      status: true,
+    return sendResponse(res, 200, "Transaction List", {
       Records: TransactionList,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in reportController.js 2:", error);
-    console.error("Error fetching transaction list:", error);
-
-    // Send error response
-    return res.status(500).send({
-      message: "An error occurred while fetching the transaction list.",
-      status: false,
-      error: error.message,
-    });
+    return sendResponse(res, 500, "Error fetching transaction list", error);
   }
 }
 
@@ -5515,15 +5070,8 @@ async function getReservationBookingList(req, res) {
 
     // Safely parse filters with error handling
     let parsedFilters = {};
-    try {
-      parsedFilters = JSON.parse(reqbody.filters || "{}");
-    } catch (error) {
-      winstonLogger$1.error("Error in reportController.js 3:", error);
-      return res.status(400).send({
-        message: "Invalid filters JSON format",
-        status: false,
-      });
-    }
+
+    parsedFilters = JSON.parse(reqbody.filters || "{}");
 
     // Extract parameters and filters
     const booking_id = reqbody.booking_id || null;
@@ -5582,22 +5130,11 @@ async function getReservationBookingList(req, res) {
       .orderBy("R.r_id", "desc")
       .paginate(pagination(limit, currentPage));
 
-    // Send response
-    return res.send({
-      message: "Reservation List",
-      status: true,
+    return sendResponse(res, 200, "Reservation List", {
       Records: ReservationListAll,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in reportController.js 4:", error);
-    console.error("Error fetching reservation list:", error);
-
-    // Send error response
-    return res.status(500).send({
-      message: "An error occurred while fetching the reservation list.",
-      status: false,
-      error: error.message,
-    });
+    return sendResponse(res, 500, "Error fetching reservation list", error);
   }
 }
 
@@ -5608,15 +5145,8 @@ async function exportBookingReport(req, res) {
 
     // Safely parse filters with error handling
     let parsedFilters = {};
-    try {
-      parsedFilters = JSON.parse(reqbody.payload || "{}");
-    } catch (error) {
-      winstonLogger$1.error("Error in reportController.js 5:", error);
-      return res.status(400).send({
-        message: "Invalid filters JSON format",
-        status: false,
-      });
-    }
+
+    parsedFilters = JSON.parse(reqbody.payload || "{}");
 
     // Extract filters
     const {
@@ -5727,15 +5257,12 @@ async function exportBookingReport(req, res) {
     await workbook.xlsx.write(res);
     res.end();
   } catch (error) {
-    winstonLogger$1.error("Error in reportController.js 6:", error);
-    console.error("Error generating booking report:", error);
-
-    // Send error response
-    return res.status(500).send({
-      message: "An error occurred while generating the booking report.",
-      status: false,
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while generating the booking report.",
+      error
+    );
   }
 }
 
@@ -5746,15 +5273,8 @@ async function exportReservationReport(req, res) {
 
     // Safely parse filters with error handling
     let parsedFilters = {};
-    try {
-      parsedFilters = JSON.parse(reqbody.filters || "{}");
-    } catch (error) {
-      winstonLogger$1.error("Error in reportController.js 7:", error);
-      return res.status(400).send({
-        message: "Invalid filters JSON format",
-        status: false,
-      });
-    }
+
+    parsedFilters = JSON.parse(reqbody.filters || "{}");
 
     // Extract filters
     const {
@@ -5862,15 +5382,12 @@ async function exportReservationReport(req, res) {
     await workbook.xlsx.write(res);
     res.end();
   } catch (error) {
-    winstonLogger$1.error("Error in reportController.js 8:", error);
-    console.error("Error generating reservation report:", error);
-
-    // Send error response
-    return res.status(500).send({
-      message: "An error occurred while generating the reservation report.",
-      status: false,
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while generating the reservation report.",
+      error
+    );
   }
 }
 
@@ -5879,10 +5396,7 @@ async function getEventHomeDataById(req, res) {
   const eventId = reqBody.event_id || null;
 
   if (!eventId) {
-    return res.status(400).json({
-      status: false,
-      message: "Event Not Found",
-    });
+    return sendResponse(res, 400, "Event ID is required");
   }
 
   try {
@@ -5914,19 +5428,14 @@ async function getEventHomeDataById(req, res) {
       eventScheduleSummary: scheduleData,
       voucherSummaryArray,
     };
-
-    return res.status(200).json({
-      message: "Transaction List",
-      status: true,
-      Records: response,
-    });
+    return sendResponse(res, 200, "Event Home Data", { Records: response });
   } catch (error) {
-    winstonLogger$1.error("Error in reportController.js 9:", error);
-    console.error("Error fetching event data:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while fetching event data.",
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while fetching home data.",
+      error
+    );
   }
 }
 
@@ -6090,25 +5599,17 @@ async function resendTicketCustomer(req, res) {
     const data = await CreateInvSendTicketEmail(reqbody);
 
     if (data && data.status) {
-      return res.send({
-        status: true,
-        message: "Email Ticket Sent",
-        data,
-      });
+      return sendResponse(res, 200, "Email Ticket Sent");
     } else {
-      return res.send({
-        status: false,
-        message: "Failed to send email",
-      });
+      return sendResponse(res, 400, "Failed to send email");
     }
   } catch (error) {
-    winstonLogger$1.error("Error in reportController.js 10:", error);
-    console.error("Error sending ticket email:", error);
-    return res.status(500).send({
-      status: false,
-      message: "An error occurred while sending the email",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while sending the email",
+      error
+    );
   }
 }
 
@@ -6157,20 +5658,16 @@ async function getPassTransactionList(req, res) {
     const TransactionList = await query
       .orderBy("pass_booking_id", "desc")
       .paginate(pagination(limit, currentPage));
-
-    return res.send({
-      message: "Pass Transaction List",
-      status: true,
+    return sendResponse(res, 200, "Pass Transaction List", {
       Records: TransactionList,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in reportController.js 11:", error);
-    console.error("Error fetching pass transactions:", error);
-    return res.status(500).send({
-      status: false,
-      message: "An error occurred while fetching pass transactions",
-      error: error.message,
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while fetching pass transactions",
+      error
+    );
   }
 }
 
@@ -6253,7 +5750,7 @@ async function addEdtUser(req, res) {
   try {
     let result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return res.send(result);
+      return sendResponse(res, 400, "Invalid Request Data", result);
     }
 
     let checkUserExist = await global
@@ -6280,11 +5777,7 @@ async function addEdtUser(req, res) {
       });
 
     if (checkUserExist.length) {
-      return res.status(200).json({
-        message: "User Already Exist",
-        status: false,
-        Records: checkUserExist,
-      });
+      return sendResponse(res, 400, "User Already Exist");
     } else {
       let obj = {
         first_name: first_name || null,
@@ -6310,11 +5803,11 @@ async function addEdtUser(req, res) {
             });
 
           if (getUser[0].is_super_admin == "Y") {
-            return res.status(200).json({
-              message: "Access Denied to change this login password",
-              status: false,
-              Records: [],
-            });
+            return sendResponse(
+              res,
+              400,
+              "Access Denied to change Super Admin password"
+            );
           }
           obj["password"] = bcrypt.hashSync(password, 10);
         }
@@ -6325,20 +5818,15 @@ async function addEdtUser(req, res) {
         await global.knexConnection("users").insert(obj);
       }
 
-      return res.send({
-        status: true,
-        message: `User ${isUpdate ? "Updated" : "Created"} Successfully`,
-        obj,
-      });
+      return sendResponse(res, 200, "User Created Successfully");
     }
   } catch (error) {
-    winstonLogger$1.error("Error in userController.js 1:", error);
-    console.error("Error in addEdtUser:", error);
-    return res.status(500).send({
-      status: false,
-      message: "An unexpected error occurred while processing your request.",
-      error: error.message, // Optional: Include error details for debugging (ensure not exposed in production)
-    });
+    return sendResponse(
+      res,
+      500,
+      "An unexpected error occurred in addEdtUser",
+      error
+    );
   }
 }
 
@@ -6813,21 +6301,17 @@ async function getUserList(req, res) {
       //   ],
       // },
     ];
-
-    return res.send({
-      message: "User List",
-      status: true,
+    return sendResponse(res, 200, "User List", {
       Records: UserList,
       permissionArray: permissionArray,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in userController.js 2:", error);
-    console.error("Error in getUserList:", error);
-    return res.status(500).send({
-      status: false,
-      message: "An unexpected error occurred while retrieving user list.",
-      error: error.message, // Optional: Include error details for debugging (ensure not exposed in production)
-    });
+    return sendResponse(
+      res,
+      500,
+      "An unexpected error occurred in getUserList.",
+      error
+    );
   }
 }
 
@@ -6849,10 +6333,7 @@ async function getTransactionByCode(req, res) {
 
   // Ensure booking code or booking ID is provided
   if (!booking_code && !booking_id) {
-    return res.send({
-      status: false,
-      message: "Invalid Booking Code or Booking ID not provided!",
-    });
+    return sendResponse(res, 400, "Booking Code or Booking ID is required.");
   }
 
   const limit = parseInt(req.query.limit) || 100;
@@ -6860,10 +6341,7 @@ async function getTransactionByCode(req, res) {
 
   // Ensure limit and currentPage are valid numbers
   if (limit <= 0 || currentPage <= 0) {
-    return res.send({
-      status: false,
-      message: "Invalid pagination parameters.",
-    });
+    return sendResponse(res, 400, "Invalid pagination parameters.");
   }
 
   try {
@@ -6888,11 +6366,7 @@ async function getTransactionByCode(req, res) {
 
     // Check if no records are found
     if (!TransactionList.data.length) {
-      return res.send({
-        status: false,
-        message: "Ticket details not found.",
-        Records: [],
-      });
+      return sendResponse(res, 400, "Ticket details not found.");
     }
 
     // Process the records asynchronously
@@ -6922,21 +6396,17 @@ async function getTransactionByCode(req, res) {
     );
 
     // Return the response with the updated data
-    return res.send({
-      message: "Ticket Details retrieved successfully.",
-      status: true,
+
+    return sendResponse(res, 200, "Ticket Details retrieved successfully.", {
       Records: updatedTransactionList,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in bookingController.js 1:", error);
-    // Log the error and send a response
-    console.error("Error fetching ticket details: ", error);
-    return res.send({
-      status: false,
-      message:
-        error.message ||
-        "An error occurred while fetching the transaction details.",
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while fetching ticket details.",
+      error
+    );
   }
 }
 
@@ -6964,10 +6434,9 @@ const checkPriceData = (seatLayoutData, price_array) => {
       }
     });
   } catch (error) {
-    winstonLogger$1.error("Error in websiteController.js 1:", error);
-    console.error("Error in checkPriceData function:", error);
     price_data.status = false;
     price_data.records = [];
+    return sendResponse(res, 500, "Error in checkPriceData function", error);
   }
 
   return price_data;
@@ -7063,10 +6532,14 @@ const checkSeatsAvailableWithoutSL = async ({
       }
     });
   } catch (error) {
-    winstonLogger$1.error("Error in websiteController.js 2:", error);
-    console.error("Error in checkSeatsAvailableWithoutSL function:", error);
     seatCheck.status = false;
     seatCheck.records = [];
+    return sendResponse(
+      res,
+      500,
+      "Error in checkSeatsAvailableWithoutSL function",
+      error
+    );
   }
 
   return seatCheck;
@@ -7097,10 +6570,14 @@ const checkPriceDataWithoutSL = (seatLayoutData, price_array) => {
       }
     });
   } catch (error) {
-    winstonLogger$1.error("Error in websiteController.js 3:", error);
-    console.error("Error in checkPriceDataWithoutSL function:", error);
     price_data.status = false;
     price_data.records = [];
+    return sendResponse(
+      res,
+      500,
+      "Error in checkPriceDataWithoutSL function",
+      error
+    );
   }
 
   return price_data;
@@ -7116,7 +6593,7 @@ const addReservationSeat = async (req, res) => {
     const checkFields = ["event_sch_id", "event_id", "selectedSeatsArray"];
     let result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return res.send(result); // Respond with validation errors
+      return sendResponse(res, 400, "Event Schedule, Event or Seats not found");
     }
 
     // Validate seats in parallel
@@ -7161,8 +6638,7 @@ const addReservationSeat = async (req, res) => {
 
     // Wait for all seat validations to complete
     let arrayData = await Promise.all(seatValidationPromises).catch((error) => {
-      winstonLogger$1.error("Error in websiteController.js 4:", error);
-      return res.send({ status: false, message: error.message });
+      return sendResponse(res, 400, "Error in adding reservation seat");
     });
 
     // Generate unique reservation ID
@@ -7172,7 +6648,7 @@ const addReservationSeat = async (req, res) => {
     let event_data_all = await EVENT_DATA({ event_id });
     let event_data = event_data_all.Records;
     if (!event_data.length) {
-      return res.send({ status: false, message: "Event Doesn't Exist" });
+      return sendResponse(res, 400, "Event Doesn't Exist");
     }
 
     let event_data_sch = await global
@@ -7180,7 +6656,7 @@ const addReservationSeat = async (req, res) => {
       .where({ event_sch_id });
 
     if (!event_data_sch.length) {
-      return res.send({ status: false, message: "Schedule Doesn't Exist" });
+      return sendResponse(res, 400, "Event Schedule Doesn't Exist");
     }
 
     // Fetch seat layout data and validate price
@@ -7190,7 +6666,7 @@ const addReservationSeat = async (req, res) => {
       .where({ sl_id: event_data[0].sl_id });
 
     if (!seatLayoutData.length) {
-      return res.send({ status: false, message: "Seat Layout Doesn't Exist" });
+      return sendResponse(res, 400, "Seat Layout Doesn't Exist");
     }
 
     let priceArray = seatLayoutData[0].price_data
@@ -7199,11 +6675,7 @@ const addReservationSeat = async (req, res) => {
     let checkPrice = checkPriceData(arrayData, priceArray || []);
 
     if (!checkPrice.status) {
-      return res.send({
-        status: false,
-        message: "Price Unmatched",
-        checkPrice,
-      });
+      return sendResponse(res, 400, "Price not matched");
     }
 
     // Get current time for reservation creation
@@ -7232,17 +6704,11 @@ const addReservationSeat = async (req, res) => {
     });
 
     // Respond with success and the reservation ID
-    return res.send({ status: true, reservation_id });
-  } catch (error) {
-    winstonLogger$1.error("Error in websiteController.js 5:", error);
-    // Log any errors to the server console for debugging
-    console.error("Error in addReservationSeat:", error);
-
-    // Respond with a generic error message
-    return res.send({
-      status: false,
-      message: "An error occurred while adding reservation seat.",
+    return sendResponse(res, 200, "Reservation seat added successfully", {
+      reservation_id: reservation_id,
     });
+  } catch (error) {
+    return sendResponse(res, 500, "Error in adding reservation seat", error);
   }
 };
 
@@ -7256,7 +6722,7 @@ const addReservationSeatWithoutSeatlayout = async (req, res) => {
     const checkFields = ["event_sch_id", "event_id", "selectedSeatsArray"];
     let result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return res.send(result); // Respond with validation errors
+      return sendResponse(res, 400, "Validation Error", result);
     }
 
     // Validate each seat in parallel
@@ -7282,8 +6748,7 @@ const addReservationSeatWithoutSeatlayout = async (req, res) => {
 
     // Wait for all seat validations to complete
     let arrayData = await Promise.all(seatValidationPromises).catch((error) => {
-      winstonLogger$1.error("Error in websiteController.js 6:", error);
-      return res.send({ status: false, message: error.message });
+      return sendResponse(res, 400, "Error in adding reservation seat");
     });
 
     // Check seat availability
@@ -7293,11 +6758,7 @@ const addReservationSeatWithoutSeatlayout = async (req, res) => {
     });
 
     if (!checkSeatExist.status) {
-      return res.send({
-        status: false,
-        message: "Seat Already Booked or Reserved",
-        checkSeatExist, // Provide the conflicting seats for debugging
-      });
+      return sendResponse(res, 400, "Seat Already Booked or Reserved");
     }
 
     // Generate unique reservation ID
@@ -7307,7 +6768,7 @@ const addReservationSeatWithoutSeatlayout = async (req, res) => {
     let event_data_all = await EVENT_DATA({ event_id });
     let event_data = event_data_all.Records;
     if (!event_data.length) {
-      return res.send({ status: false, message: "Event Doesn't Exist" });
+      return sendResponse(res, 400, "Event Doesn't Exist");
     }
 
     // Check if the event schedule exists
@@ -7316,7 +6777,7 @@ const addReservationSeatWithoutSeatlayout = async (req, res) => {
       .where({ event_sch_id });
 
     if (!event_data_sch.length) {
-      return res.send({ status: false, message: "Schedule Doesn't Exist" });
+      return sendResponse(res, 400, "Schedule Doesn't Exist");
     }
 
     // Fetch seat price data for price validation
@@ -7326,7 +6787,7 @@ const addReservationSeatWithoutSeatlayout = async (req, res) => {
       .where({ event_sch_id });
 
     if (!priceArray.length) {
-      return res.send({ status: false, message: "Seat Layout Doesn't Exist" });
+      return sendResponse(res, 400, "Seat Layout Doesn't Exist");
     }
 
     // Validate price data
@@ -7335,12 +6796,7 @@ const addReservationSeatWithoutSeatlayout = async (req, res) => {
       priceArray || []
     );
     if (!checkPrice.status) {
-      return res.send({
-        status: false,
-        message: "Price Unmatched",
-        checkPrice,
-        priceArray,
-      });
+      return sendResponse(res, 400, "Price Unmatched");
     }
 
     // Get current time for reservation creation
@@ -7374,20 +6830,16 @@ const addReservationSeatWithoutSeatlayout = async (req, res) => {
     });
 
     // Respond with the reservation ID
-    return res.send({
-      status: true,
-      reservation_id,
+    return sendResponse(res, 200, "Reservation Added Successfully", {
+      reservation_id: reservation_id,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in websiteController.js 7:", error);
-    // Log any unexpected errors
-    console.error("Error in addReservationSeatWithoutSeatlayout:", error);
-
-    // Return a generic error message
-    return res.send({
-      status: false,
-      message: "An error occurred while adding the reservation seat.",
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while adding reservation seat.",
+      error
+    );
   }
 };
 
@@ -7401,7 +6853,7 @@ const getReservationSeat = async (req, res) => {
     const checkFields = ["reservation_id"];
     let result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return res.send(result); // Respond with validation error
+      return sendResponse(res, 400, "Validation Error", result);
     }
 
     // Get reservation details
@@ -7410,10 +6862,11 @@ const getReservationSeat = async (req, res) => {
       .where({ reservation_id, is_reserved: "Y" });
 
     if (!getReservationDetail.length) {
-      return res.send({
-        status: false,
-        Records: "Seat Released or Booked",
-      });
+      return sendResponse(
+        res,
+        400,
+        "Reservation not found or seat is released"
+      );
     }
 
     // Get current date/time
@@ -7512,20 +6965,17 @@ const getReservationSeat = async (req, res) => {
       ...event_data.Records[0],
       ...obj,
     };
-
-    return res.send({
-      status: true,
+    return sendResponse(res, 200, "Success", {
       Records: [...event_data.Records],
       getReservationDetail,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in websiteController.js 8:", error);
-    // Log any unexpected errors
-    console.error("Error in getReservationSeat:", error);
-    return res.send({
-      status: false,
-      message: "An error occurred while retrieving reservation details.",
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while retrieving reservation details.",
+      error
+    );
   }
 };
 
@@ -7538,7 +6988,7 @@ const resetReserveTime = async (req, res) => {
     const checkFields = ["reservation_id"];
     const result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return res.send(result); // Respond with validation error
+      return sendResponse(res, 400, "Reservation ID is required");
     }
 
     // Get reservation details to ensure the reservation exists and is active
@@ -7547,10 +6997,7 @@ const resetReserveTime = async (req, res) => {
       .where({ reservation_id, is_reserved: "Y" });
 
     if (!getReservationDetail) {
-      return res.send({
-        status: false,
-        Records: "Seat Released or Booked", // Improved error message for better clarity
-      });
+      return sendResponse(res, 400, "Reservation not found");
     }
 
     // Get current date and time based on the timezone of the reservation
@@ -7571,19 +7018,14 @@ const resetReserveTime = async (req, res) => {
       .knexConnection("ms_reservation")
       .update(update_obj)
       .where({ reservation_id });
-
-    return res.send({
-      status: true,
-      Records: "Timer Reset", // Success message after resetting the timer
-    });
+    return sendResponse(res, 200, "Timer Reset");
   } catch (error) {
-    winstonLogger$1.error("Error in websiteController.js 9:", error);
-    // Log the error and return a response indicating the failure
-    console.error("Error in resetReserveTime:", error);
-    return res.send({
-      status: false,
-      message: "An error occurred while resetting the reservation time.", // Improved error message
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while resetting the reservation time.",
+      error
+    );
   }
 };
 
@@ -7596,7 +7038,7 @@ const releaseSeats = async (req, res) => {
     const checkFields = ["reservation_id"];
     const validationResult = await checkValidation(checkFields, reqbody);
     if (!validationResult.status) {
-      return res.send(validationResult); // Respond with validation error
+      return sendResponse(res, 400, "Reservation ID is required");
     }
 
     // Get reservation details to ensure the reservation exists and is active
@@ -7605,10 +7047,7 @@ const releaseSeats = async (req, res) => {
       .where({ reservation_id, is_reserved: "Y" });
 
     if (!reservation) {
-      return res.send({
-        status: false,
-        Records: "Seat Released or Already Booked", // Improved error message for clarity
-      });
+      return sendResponse(res, 400, "Seat Released or Already Booked");
     }
 
     // Get the current date and time based on the reservation's timezone
@@ -7628,19 +7067,17 @@ const releaseSeats = async (req, res) => {
       .where({ reservation_id });
 
     // Return a success response
-    return res.send({
-      status: true,
+    return sendResponse(res, 200, "Seat Released", {
       Records: "Seat Released", // Success message
       update_obj, // Information about the updated reservation status
     });
   } catch (error) {
-    winstonLogger$1.error("Error in websiteController.js 10:", error);
-    // Log the error and return a response indicating failure
-    console.error("Error in releaseSeats:", error);
-    return res.send({
-      status: false,
-      message: "An error occurred while releasing the seat.", // Error message for failure
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while releasing the seat.",
+      error
+    );
   }
 };
 
@@ -7653,7 +7090,7 @@ const allReserveSeatBySchedule = async (req, res) => {
     let checkFields = ["event_sch_id"];
     let result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return res.send(result); // Respond with validation error
+      return sendResponse(res, 400, "Event Schedule ID is required");
     }
 
     // Fetch reserved seat details
@@ -7685,19 +7122,16 @@ const allReserveSeatBySchedule = async (req, res) => {
       .where({ event_sch_id });
 
     // Combine the results and return them in a response
-    return res.send({
-      status: true,
+    return sendResponse(res, 200, "All Reserved and Blocked Seats", {
       Records: [...getReservationDetail, ...getManualBlockDetail],
-      message: "All Reserved and Blocked Seats Retrieved Successfully",
     });
   } catch (error) {
-    winstonLogger$1.error("Error in websiteController.js 11:", error);
-    // Log the error for debugging and provide a response to the user
-    console.error("Error in allReserveSeatBySchedule:", error);
-    return res.send({
-      status: false,
-      message: "An error occurred while retrieving seat reservations.",
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while retrieving seat reservations.",
+      error
+    );
   }
 };
 
@@ -7708,10 +7142,11 @@ async function applyVoucher(req, res) {
   try {
     // Validate required fields
     if (!reservation_id || !event_id || !voucher_code) {
-      return res.send({
-        status: false,
-        message: "Invalid Voucher Code or Voucher code not provided!",
-      });
+      return sendResponse(
+        res,
+        400,
+        "Reservation ID, Event ID, and Voucher Code are required."
+      );
     }
 
     // Fetch the voucher details from the database
@@ -7723,10 +7158,7 @@ async function applyVoucher(req, res) {
 
     // Check if the voucher exists
     if (!getVoucher.length) {
-      return res.send({
-        status: false,
-        Records: "Invalid Voucher Code",
-      });
+      return sendResponse(res, 400, "Invalid Voucher Code");
     }
 
     // Check if the voucher has already been applied to the reservation
@@ -7751,10 +7183,7 @@ async function applyVoucher(req, res) {
       getAddedVouchers.length >=
       parseFloat(getVoucher[0].total_available_voucher)
     ) {
-      return res.send({
-        status: false,
-        Records: "Total Voucher Code limit exceeded",
-      });
+      return sendResponse(res, 400, "Total Voucher Code limit exceeded");
     }
 
     // Validate seat count against the voucher's minimum and maximum seat requirements
@@ -7762,17 +7191,19 @@ async function applyVoucher(req, res) {
     const { min_seats_required, max_seats_required } = getVoucher[0];
 
     if (seatCountValue < min_seats_required) {
-      return res.send({
-        status: false,
-        Records: `Minimum seat count should be greater than ${min_seats_required}`,
-      });
+      return sendResponse(
+        res,
+        400,
+        `Minimum seat count should be greater than ${min_seats_required}`
+      );
     }
 
     if (seatCountValue > max_seats_required) {
-      return res.send({
-        status: false,
-        Records: `Maximum seat count should not be greater than ${max_seats_required}`,
-      });
+      return sendResponse(
+        res,
+        400,
+        `Maximum seat count should not be greater than ${max_seats_required}`
+      );
     }
 
     // Prepare the object to insert into ms_reserve_vouchers
@@ -7813,19 +7244,16 @@ async function applyVoucher(req, res) {
     }
 
     // Send success response
-    return res.send({
-      message: "Voucher Code Applied",
-      status: true,
-      Records: voucher_code,
+    return sendResponse(res, 200, "Voucher Code Applied", {
+      voucher_code: voucher_code,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in websiteController.js 12:", error);
-    // Log any unexpected errors for debugging
-    console.error("Error in applyVoucher:", error);
-    return res.send({
-      status: false,
-      message: "An error occurred while applying the voucher code.",
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while applying the voucher code.",
+      error
+    );
   }
 }
 
@@ -7836,10 +7264,11 @@ async function removeVoucher(req, res) {
   try {
     // Validate the presence of reservation_id
     if (!reservation_id) {
-      return res.send({
-        status: false,
-        message: "Reservation ID is required to remove the voucher!",
-      });
+      return sendResponse(
+        res,
+        400,
+        "Reservation ID is required to remove the voucher!"
+      );
     }
 
     //Update Reservation Table
@@ -7860,20 +7289,14 @@ async function removeVoucher(req, res) {
       .where({ reservation_id })
       .del();
 
-    return res.send({
-      status: true,
-      message: "Voucher Code Removed Successfully",
-    });
+    return sendResponse(res, 200, "Voucher Code Removed Successfully");
   } catch (error) {
-    // Log the error for debugging
-    winstonLogger$1.error("Error in websiteController.js 13:", error);
-    console.error("Error in removeVoucher:", error);
-
-    return res.send({
-      status: false,
-      message:
-        "An error occurred while removing the voucher. Please try again.",
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while removing the voucher.",
+      error
+    );
   }
 }
 
@@ -7892,7 +7315,7 @@ const addReservationSeatsIo = async (req, res) => {
     ];
     const validationResult = await checkValidation(requiredFields, req.body);
     if (!validationResult.status) {
-      return res.send(validationResult);
+      return sendResponse(res, 400, "Validation Error", validationResult);
     }
 
     let seatsIoSeatArray = [];
@@ -7910,7 +7333,7 @@ const addReservationSeatsIo = async (req, res) => {
       ];
       const seatValidationResult = await checkValidation(seatFields, seat);
       if (!seatValidationResult.status) {
-        return res.send(seatValidationResult);
+        return sendResponse(res, 400, "Validation Error", seatValidationResult);
       }
 
       // Check if the seat is already reserved
@@ -7927,11 +7350,7 @@ const addReservationSeatsIo = async (req, res) => {
         existingReservation.length &&
         existingReservation[0].row_name !== "GA-"
       ) {
-        return res.send({
-          status: false,
-          message: "Seat Already Reserved",
-          checkAlready: existingReservation,
-        });
+        return sendResponse(res, 400, "Seat Already Reserved");
       }
 
       // Add seat to SeatsIO holding array
@@ -7962,7 +7381,7 @@ const addReservationSeatsIo = async (req, res) => {
     // Retrieve event data
     const eventData = await EVENT_DATA({ event_id });
     if (!eventData.Records.length) {
-      return res.send({ status: false, message: "Event Doesn't Exist" });
+      return sendResponse(res, 400, "Event Doesn't Exist");
     }
 
     // Check if event schedule exists
@@ -7970,7 +7389,7 @@ const addReservationSeatsIo = async (req, res) => {
       .knexConnection("event_schedule")
       .where({ event_sch_id });
     if (!scheduleData.length) {
-      return res.send({ status: false, message: "Schedule Doesn't Exist" });
+      return sendResponse(res, 400, "Schedule Doesn't Exist");
     }
 
     // Fetch SeatsIO credentials
@@ -7980,7 +7399,11 @@ const addReservationSeatsIo = async (req, res) => {
     });
 
     if (seatsioCredential.false) {
-      return res.send({ status: false, message: "Invalid Payment Mode" });
+      return sendResponse(
+        res,
+        400,
+        "Seats.io credentials not found for this organization"
+      );
     }
 
     const { SEATSIO_SECRET_WORKSPACE_KEY } = seatsioCredential.data;
@@ -8016,19 +7439,16 @@ const addReservationSeatsIo = async (req, res) => {
 
     // Insert reservation data into the database
     await global.knexConnection("ms_reservation").insert(reservationData);
-
-    return res.send({
-      status: true,
-      reservation_id,
+    return sendResponse(res, 200, "Reservation Created Successfully", {
+      reservation_id: reservation_id,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in websiteController.js 15:", error);
-    console.error("Error in addReservationSeatsIo:", error);
-    return res.send({
-      status: false,
-      message:
-        "An error occurred while processing the reservation. Please try again.",
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while processing the reservation. Please try again.",
+      error
+    );
   }
 };
 
@@ -8042,7 +7462,7 @@ const reservePass = async (req, res) => {
     const result = await checkValidation(checkFields, reqbody);
 
     if (!result.status) {
-      return res.send(result);
+      return sendResponse(res, 400, "Pass ID is required");
     }
 
     const reservation_id = v4();
@@ -8062,10 +7482,7 @@ const reservePass = async (req, res) => {
       });
 
     if (!passData.length) {
-      return res.send({
-        status: false,
-        message: "Pass not exists",
-      });
+      return sendResponse(res, 400, "Pass does not exists");
     }
 
     // Simplify amount and tax calculation
@@ -8087,19 +7504,16 @@ const reservePass = async (req, res) => {
 
     // Insert reservation data into database
     await global.knexConnection("ms_pass_reservation").insert(insertData);
-
-    return res.send({
-      status: true,
-      reservation_id,
+    return sendResponse(res, 200, "Reservation Created Successfully", {
+      reservation_id: reservation_id,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in websiteController.js 16:", error);
-    console.error("Error in reservePass:", error);
-    return res.send({
-      status: false,
-      message:
-        "An error occurred while processing the reservation. Please try again.",
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while processing the reservation. Please try again.",
+      error
+    );
   }
 };
 
@@ -8114,7 +7528,7 @@ const getReservePassDetails = async (req, res) => {
     const result = await checkValidation(checkFields, reqbody);
 
     if (!result.status) {
-      return res.send(result);
+      return sendResponse(res, 400, "Reservation ID is required");
     }
 
     // Fetch reservation details
@@ -8152,10 +7566,7 @@ const getReservePassDetails = async (req, res) => {
       });
 
     if (!getReservationDetail.length) {
-      return res.send({
-        status: false,
-        Records: `Reservation not found or pass released`,
-      });
+      return sendResponse(res, 400, "Reservation not found or pass released");
     }
 
     const currentDateTimeNew = currentDateTime(
@@ -8224,18 +7635,16 @@ const getReservePassDetails = async (req, res) => {
     }
 
     // Return response
-    return res.send({
-      status: true,
+    return sendResponse(res, 200, "Reservation details fetched successfully", {
       Records: [obj],
     });
   } catch (error) {
-    winstonLogger$1.error("Error in websiteController.js 17:", error);
-    console.error("Error in getReservePassDetails:", error);
-    return res.send({
-      status: false,
-      message:
-        "An error occurred while fetching reservation details. Please try again.",
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred in getReservePassDetails",
+      error
+    );
   }
 };
 
@@ -8245,20 +7654,18 @@ async function applyPass(req, res) {
     const { reservation_id, pass_id, customer_email } = reqbody;
 
     if (!reservation_id || !pass_id || !customer_email) {
-      return res.send({
-        status: false,
-        message: "Invalid Voucher Code or Pass not provided!",
-      });
+      return sendResponse(
+        res,
+        400,
+        "Reservation ID, Pass ID and Customer Email are required"
+      );
     }
 
     let logged_in_customer_id = req["logged_in_customer_id"] || null;
     // Get customer details
 
     if (!logged_in_customer_id) {
-      return res.send({
-        status: false,
-        message: "User not found!",
-      });
+      return sendResponse(res, 400, "User not found");
     }
 
     // Get pass details
@@ -8270,10 +7677,7 @@ async function applyPass(req, res) {
         "movie_event_pass.pass_is_active": "Y",
       });
     if (!getPass.length) {
-      return res.send({
-        status: false,
-        message: "Pass not found for the user",
-      });
+      return sendResponse(res, 400, "Pass not found");
     }
 
     // Get reservation details
@@ -8285,10 +7689,11 @@ async function applyPass(req, res) {
         is_reserved: "Y",
       });
     if (!getReservationDetail.length) {
-      return res.send({
-        status: false,
-        message: "Seat Released or Booked",
-      });
+      return sendResponse(
+        res,
+        400,
+        "Reservation not found or seat is released"
+      );
     }
 
     // Get event details and validate pass type
@@ -8299,18 +7704,16 @@ async function applyPass(req, res) {
         event_id: getReservationDetail[0].event_id,
       });
     if (!getEventDetail.length) {
-      return res.send({
-        status: false,
-        message: "Event or movie not found!",
-      });
+      return sendResponse(res, 400, "Event not found");
     }
 
     // Check pass type compatibility
     if (getPass[0].pass_type !== getEventDetail[0].type) {
-      return res.send({
-        status: false,
-        message: "Invalid pass type",
-      });
+      return sendResponse(
+        res,
+        400,
+        "Pass type and event type are not compatible"
+      );
     }
 
     // Validate seat type for the pass
@@ -8318,10 +7721,7 @@ async function applyPass(req, res) {
       (z) => z.seat_type_id === getPass[0].seat_type_id
     );
     if (!validSeatType) {
-      return res.send({
-        status: false,
-        message: "Seat type not eligible for pass!",
-      });
+      return sendResponse(res, 400, "Seat type not eligible for pass!");
     }
 
     // Check if user has already bought the pass and handle limits
@@ -8337,10 +7737,7 @@ async function applyPass(req, res) {
     if (getAlreadyBoughtUserPass.length) {
       const maxPerUser = parseFloat(getPass[0].max_transaction_per_user);
       if (getAlreadyBoughtUserPass.length >= maxPerUser) {
-        return res.send({
-          status: false,
-          message: "Pass limit exceed!",
-        });
+        return sendResponse(res, 400, "Per user pass limit exceed!");
       }
 
       // Filter bookings for today's date
@@ -8350,10 +7747,7 @@ async function applyPass(req, res) {
 
       const maxPerDay = parseFloat(getPass[0].max_transaction_per_day);
       if (filterForPerDayPass.length >= maxPerDay) {
-        return res.send({
-          status: false,
-          message: "Per day pass limit exceed!",
-        });
+        return sendResponse(res, 400, "Per day pass limit exceed!");
       }
     }
 
@@ -8388,19 +7782,16 @@ async function applyPass(req, res) {
         .update(update_obj)
         .where({ reservation_id: getvalidSeatType[0].reservation_id });
     }
-
-    return res.send({
-      status: true,
-      message: "Pass applied successfully",
-      Records: getPass[0].pass_name,
+    return sendResponse(res, 200, "Pass applied successfully", {
+      pass_name: getPass[0].pass_name,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in websiteController.js 18:", error);
-    console.error("Error in applyPass:", error);
-    return res.send({
-      status: false,
-      message: "An error occurred while applying the pass. Please try again.",
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while applying the pass.",
+      error
+    );
   }
 }
 
@@ -8410,10 +7801,7 @@ async function getCustomerPassById(req, res) {
     const logged_in_customer_id = req["logged_in_customer_id"] || null;
 
     if (!logged_in_customer_id) {
-      return res.send({
-        status: false,
-        message: "Customer ID not provided!",
-      });
+      return sendResponse(res, 400, "Customer ID not provided!");
     }
 
     // Fetching customer pass details
@@ -8435,25 +7823,19 @@ async function getCustomerPassById(req, res) {
       });
 
     if (!getCustomerPass.length) {
-      return res.send({
-        status: false,
-        message: "Pass not found for user",
-      });
+      return sendResponse(res, 400, "Pass not found for user");
     }
 
-    return res.send({
-      status: true,
-      message: "Customer valid pass found",
+    return sendResponse(res, 200, "Customer valid pass found", {
       Records: getCustomerPass,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in websiteController.js 19:", error);
-    console.error("Error in getCustomerPassById:", error);
-    return res.send({
-      status: false,
-      message:
-        "An error occurred while fetching the pass details. Please try again.",
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while fetching the pass.",
+      error
+    );
   }
 }
 
@@ -8464,10 +7846,7 @@ async function removePass(req, res) {
 
     // Validate the required field
     if (!reservation_id) {
-      return res.send({
-        status: false,
-        message: "Reservation ID is required!",
-      });
+      return sendResponse(res, 400, "Reservation ID is required!");
     }
 
     // Delete pass from reservation
@@ -8478,23 +7857,21 @@ async function removePass(req, res) {
 
     // Check if any row was deleted
     if (rowsAffected === 0) {
-      return res.send({
-        status: false,
-        message: "No pass found with the provided reservation ID!",
-      });
+      return sendResponse(
+        res,
+        400,
+        "No pass found with the provided reservation ID!"
+      );
     }
 
-    return res.send({
-      status: true,
-      message: "Pass removed successfully",
-    });
+    return sendResponse(res, 200, "Pass removed successfully");
   } catch (error) {
-    winstonLogger$1.error("Error in websiteController.js 20:", error);
-    console.error("Error in removePass:", error);
-    return res.send({
-      status: false,
-      message: "An error occurred while removing the pass. Please try again.",
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while removing the pass.",
+      error
+    );
   }
 }
 
@@ -8505,10 +7882,7 @@ async function getCustomerPassHistory(req, res) {
 
     // Validate customer_id
     if (!logged_in_customer_id) {
-      return res.send({
-        status: false,
-        message: "Customer ID is required!",
-      });
+      return sendResponse(res, 400, "Customer ID is required!");
     }
 
     // Fetch customer pass details
@@ -8527,10 +7901,11 @@ async function getCustomerPassHistory(req, res) {
 
     // If no passes found, return a message
     if (!getCustomerPass.length) {
-      return res.send({
-        status: false,
-        message: "No active passes found for this customer!",
-      });
+      return sendResponse(
+        res,
+        400,
+        "No active passes found for this customer!"
+      );
     }
 
     // Process each pass history asynchronously
@@ -8556,20 +7931,21 @@ async function getCustomerPassHistory(req, res) {
           ticketsBought[0].total_pass_booked_tickets;
       })
     );
-
-    return res.send({
-      message: "Customer Pass History retrieved successfully",
-      status: true,
-      Records: getCustomerPass,
-    });
+    return sendResponse(
+      res,
+      200,
+      "Customer Pass History retrieved successfully",
+      {
+        Records: getCustomerPass,
+      }
+    );
   } catch (error) {
-    winstonLogger$1.error("Error in websiteController.js 21:", error);
-    console.error("Error in getCustomerPassHistory:", error);
-    return res.send({
-      status: false,
-      message:
-        "An error occurred while fetching pass history. Please try again.",
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while fetching the pass history.",
+      error
+    );
   }
 }
 
@@ -8580,10 +7956,7 @@ async function getCustomerTicketHistory(req, res) {
 
     // Validate customer_id
     if (!logged_in_customer_id) {
-      return res.send({
-        status: false,
-        message: "Customer ID is required!",
-      });
+      return sendResponse(res, 400, "Customer ID is required!");
     }
 
     // Fetch customer tickets from the database
@@ -8599,34 +7972,28 @@ async function getCustomerTicketHistory(req, res) {
         "ms_customers.customer_id": logged_in_customer_id,
       });
 
-    // If no tickets are found, return a message
-    if (!getCustomerTickets.length) {
-      return res.send({
-        status: false,
-        message: "No tickets found for this customer.",
-      });
-    }
-
     // Format the purchase date for each ticket
+
     getCustomerTickets.forEach((ticket) => {
       ticket["purches_on"] = moment$1(ticket.booking_date_time).format(
         "DD/MM/YYYY"
       );
     });
-
-    return res.send({
-      message: "Customer Ticket History retrieved successfully",
-      status: true,
-      Records: getCustomerTickets,
-    });
+    return sendResponse(
+      res,
+      200,
+      "Customer Ticket History retrieved successfully",
+      {
+        Records: getCustomerTickets,
+      }
+    );
   } catch (error) {
-    winstonLogger$1.error("Error in websiteController.js :", error);
-    console.error("Error in getCustomerTicketHistory:", error);
-    return res.send({
-      status: false,
-      message:
-        "An error occurred while fetching the ticket history. Please try again.",
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while fetching the ticket history.",
+      error
+    );
   }
 }
 
@@ -8752,7 +8119,7 @@ async function createTransation(req, res) {
   // Validate incoming data
   let result = await checkValidation(checkFields, reqbody);
   if (!result.status) {
-    return res.send(result);
+    return sendResponse(res, 400, "Validation Error", result);
   }
 
   try {
@@ -8793,10 +8160,7 @@ async function createTransation(req, res) {
         .where({ reservation_id, is_paid: "Y" });
 
       if (!getPaymentDetail.length) {
-        return res.send({
-          status: false,
-          message: "Payment Not Done from Website",
-        });
+        return sendResponse(res, 400, "Payment Not Done from Website");
       }
     }
 
@@ -8854,10 +8218,7 @@ async function createTransation(req, res) {
     });
 
     if (checkExistingBooking && checkExistingBooking.length) {
-      return res.send({
-        status: false,
-        message: "Transaction already initiated",
-      });
+      return sendResponse(res, 400, "Transaction already initiated");
     }
 
     // Handle seat booking for event seating type "seats_io"
@@ -8882,10 +8243,7 @@ async function createTransation(req, res) {
       });
 
       if (seatsio_credential.false) {
-        return res.send({
-          status: false,
-          message: "Invalid Payment Mode",
-        });
+        return sendResponse(res, 400, "Seats.io Credential not found");
       }
 
       const { SEATSIO_SECRET_WORKSPACE_KEY } = seatsio_credential.data;
@@ -8906,20 +8264,12 @@ async function createTransation(req, res) {
               value.status.toLowerCase() !== "booked" &&
               value.objectType !== "generalAdmission"
             ) {
-              return res.send({
-                status: false,
-                message: "Seat Booking failed at Seats.io",
-              });
+              return sendResponse(res, 400, "Issue in Seats.io Booking");
             }
           }
         }
       } catch (error) {
-        winstonLogger$1.error("Error in bookingHelper.js 1:", error);
-        console.error("Seats.io Booking Error: ", error);
-        return res.send({
-          status: false,
-          message: "Issue in Seats.io Booking",
-        });
+        return sendResponse(res, 500, "Issue in Seats.io Booking", error);
       }
     }
 
@@ -9028,19 +8378,11 @@ async function createTransation(req, res) {
         total_before_discount: totalBeforeDiscount,
       });
 
-    return res.send({
-      status: true,
-      message: "Transaction created successfully",
-      booking_code,
+    return sendResponse(res, 200, "Transaction created successfully", {
+      booking_code: booking_code,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in bookingHelper.js 2:", error);
-    console.error("Transaction creation failed: ", error);
-    return res.send({
-      status: false,
-      message:
-        error.message || "An error occurred while processing the transaction.",
-    });
+    return sendResponse(res, 500, "Transaction creation failed", error);
   }
 }
 
@@ -9148,14 +8490,7 @@ const skipPaymentGateway = async (reqbody) => {
       redirectTo: redirectToUrl,
     };
   } catch (error) {
-    winstonLogger$1.error("Error in bookingHelper.js 3:", error);
-    // Log the error and return an error message
-    console.error("Error in SKIP_PAYMENT:", error);
-    return {
-      status: false,
-      message:
-        error.message || "An error occurred while processing the payment.",
-    };
+    return sendResponse(res, 500, "Transaction creation failed", error);
   }
 };
 
@@ -9185,7 +8520,7 @@ async function tapPaymentCheckout(req, res) {
     ];
     const validationResult = await checkValidation(requiredFields, req.body);
     if (!validationResult.status) {
-      return res.send(validationResult);
+      return sendResponse(res, 400, "Validation Error", validationResult);
     }
 
     // Check if payment has already been initiated for this reservation
@@ -9194,10 +8529,7 @@ async function tapPaymentCheckout(req, res) {
       .where({ reservation_id });
 
     if (paymentDetailExists.length) {
-      return res.send({
-        status: false,
-        message: "Payment Already Initiated with reservation id",
-      });
+      return sendResponse(res, 400, "Payment Already Initiated");
     }
 
     // Check reservation status
@@ -9206,10 +8538,7 @@ async function tapPaymentCheckout(req, res) {
       .where({ is_reserved: "Y", reservation_id });
 
     if (checkReservation.length === 0) {
-      return res.send({
-        status: false,
-        message: "Seat Already Reserved or Booked",
-      });
+      return sendResponse(res, 400, "Invalid Reservation");
     }
 
     // Get event data
@@ -9230,10 +8559,7 @@ async function tapPaymentCheckout(req, res) {
 
     // Check if organization data exists
     if (!event_data[0].org_id) {
-      return res.send({
-        status: false,
-        message: "Invalid organization",
-      });
+      return sendResponse(res, 400, "Invalid organization");
     }
 
     // Fetch payment credentials
@@ -9243,21 +8569,14 @@ async function tapPaymentCheckout(req, res) {
     });
 
     if (payment_credential.false) {
-      return res.send({
-        status: false,
-        message: "Invalid Payment Mode",
-      });
+      return sendResponse(res, 400, "Invalid Payment Mode");
     }
 
     const { MERCHANT_ID, SOURCE_ID, URL, PAYTAP_SECRET_KEY } =
       payment_credential.data;
 
     if (!MERCHANT_ID || !SOURCE_ID || !URL || !PAYTAP_SECRET_KEY) {
-      return res.send({
-        status: false,
-        message: "Missing Payment Data",
-        data: payment_credential.data,
-      });
+      return sendResponse(res, 400, "Missing Payment Data");
     }
 
     // Get payment currency
@@ -9267,11 +8586,7 @@ async function tapPaymentCheckout(req, res) {
       .where({ curr_id: event_data[0].pay_currency_id, curr_is_active: "Y" });
 
     if (!paymentCurrencyData.length) {
-      return res.send({
-        status: false,
-        message: "Add Payment Currency in cinema",
-        data: [],
-      });
+      return sendResponse(res, 400, "Add Payment Currency in cinema");
     }
 
     let paymentCurrency = paymentCurrencyData[0].curr_code;
@@ -9318,12 +8633,17 @@ async function tapPaymentCheckout(req, res) {
         webtoken,
       });
 
-      return res.send({
-        status: skipBookingData.status ? true : false,
-        data: skipBookingData.status
-          ? skipBookingData.redirectTo
-          : failed_frontend_url,
-      });
+      return sendResponse(
+        res,
+        200,
+        "Success",
+        {
+          data: skipBookingData.status
+            ? skipBookingData.redirectTo
+            : failed_frontend_url,
+        },
+        skipBookingData.status ? true : false
+      );
     }
 
     // Prepare the payment request object
@@ -9401,19 +8721,17 @@ async function tapPaymentCheckout(req, res) {
     await global
       .knexConnection("ms_payment_booking_detail")
       .insert(insertPaymentDetail);
-
-    return res.send({
-      status: true,
+    return sendResponse(res, 200, "Success", {
       payment_mode: "tappay",
       data: response.data.transaction.url,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in tapPayment.js 1:", error);
-    console.error("Error in tapPaymentCheckout:", error);
-    return res.send({
-      status: false,
-      message: "An error occurred during the payment process.",
-    });
+    return sendResponse(
+      res,
+      500,
+      "An error occurred during the payment process.",
+      error
+    );
   }
 }
 async function confirmTapPayment(req, res) {
@@ -9431,7 +8749,7 @@ async function confirmTapPayment(req, res) {
       .where({ reservation_id, event_is_active: "Y" });
 
     if (!detailPayment || !reservationDetail) {
-      return res.send({ status: false, message: "Detail Not Found" });
+      return sendResponse(res, 400, "Detail Not Found");
     }
 
     const { success_frontend_url, failed_frontend_url } = detailPayment;
@@ -9444,14 +8762,14 @@ async function confirmTapPayment(req, res) {
     });
 
     if (paymentCredential.false) {
-      return res.send({ status: false, message: "Invalid Payment Mode" });
+      return sendResponse(res, 400, "Invalid Payment Mode");
     }
 
     const { MERCHANT_ID, SOURCE_ID, URL, PAYTAP_SECRET_KEY } =
       paymentCredential.data;
 
     if (!MERCHANT_ID || !SOURCE_ID || !URL || !PAYTAP_SECRET_KEY) {
-      return res.send({ status: false, message: "Missing Payment Data" });
+      return sendResponse(res, 400, "Invalid Payment Credentials");
     }
 
     // Make the API request to TapPay to get payment status
@@ -9551,7 +8869,7 @@ async function payonePaymentCheckout(req, res) {
   const validationResult = await checkValidation(requiredFields, req.body);
 
   if (!validationResult.status) {
-    return res.send(validationResult);
+    return sendResponse(res, 400, "Validation Error", validationResult);
   }
 
   try {
@@ -9560,10 +8878,11 @@ async function payonePaymentCheckout(req, res) {
       .knexConnection("ms_payment_booking_detail")
       .where({ reservation_id });
     if (paymentDetail.length) {
-      return res.send({
-        status: false,
-        message: "Payment Already Initiated with reservation id",
-      });
+      return sendResponse(
+        res,
+        400,
+        "Payment Already Initiated with reservation id"
+      );
     }
 
     // Validate reservation
@@ -9571,10 +8890,7 @@ async function payonePaymentCheckout(req, res) {
       .knexConnection("ms_reservation")
       .where({ is_reserved: "Y", reservation_id });
     if (reservation.length === 0) {
-      return res.send({
-        status: false,
-        message: "Seat Already Reserved or Booked",
-      });
+      return sendResponse(res, 400, "Invalid reservation id");
     }
 
     // Fetch event data
@@ -9584,7 +8900,7 @@ async function payonePaymentCheckout(req, res) {
     });
     const event_data = event_data_all.Records;
     if (!event_data[0].org_id) {
-      return res.send({ status: false, message: "Invalid organization" });
+      return sendResponse(res, 400, "Invalid organization");
     }
 
     // Get payment credentials
@@ -9593,16 +8909,12 @@ async function payonePaymentCheckout(req, res) {
       setting_key: "payone_payment",
     });
     if (paymentCredential.false) {
-      return res.send({ status: false, message: "Invalid Payment Mode" });
+      return sendResponse(res, 400, "Invalid Payment Mode");
     }
 
     const { MERCHANT_ID, URL, SECRET_KEY } = paymentCredential.data;
     if (!MERCHANT_ID || !URL || !SECRET_KEY) {
-      return res.send({
-        status: false,
-        message: "Missing Payment Data",
-        data: paymentCredential.data,
-      });
+      return sendResponse(res, 400, "Missing Payment Data");
     }
 
     // Calculate total amount
@@ -9646,8 +8958,7 @@ async function payonePaymentCheckout(req, res) {
         webtoken,
       });
 
-      return res.send({
-        status: true,
+      return sendResponse(res, 200, "Success", {
         data: skipBookingData.status
           ? skipBookingData.redirectTo
           : failed_frontend_url,
@@ -9660,11 +8971,7 @@ async function payonePaymentCheckout(req, res) {
       .select("curr_code", "curr_id", "curr_name", "curr_iso")
       .where({ curr_id: event_data[0].pay_currency_id, curr_is_active: "Y" });
     if (!paymentCurrencyData.length) {
-      return res.send({
-        status: false,
-        message: "Add Payment Currency in cinema",
-        data: [],
-      });
+      return sendResponse(res, 400, "Add Payment Currency");
     }
 
     const paymentCurrencyIso = paymentCurrencyData[0].curr_iso;
@@ -9741,16 +9048,17 @@ async function payonePaymentCheckout(req, res) {
     await global
       .knexConnection("ms_payment_booking_detail")
       .insert(paymentDetails);
-
-    return res.send({ status: true, payment_mode: "payone", data: formbody });
-  } catch (error) {
-    winstonLogger$1.error("Error in payonePayment.js 1:", error);
-    console.error("Error during Payone payment checkout:", error);
-    return res.send({
-      status: false,
-      message: "An error occurred",
-      error: error.message,
+    return sendResponse(res, 200, "Success", {
+      payment_mode: "payone",
+      data: formbody,
     });
+  } catch (error) {
+    return sendResponse(
+      res,
+      400,
+      "An error occurred in payonePayment.js",
+      error
+    );
   }
 }
 
@@ -9913,7 +9221,7 @@ async function payonePassPaymentCheckout(req, res) {
 
     const validationResult = await checkValidation(requiredFields, reqbody);
     if (!validationResult.status) {
-      return res.status(400).send(validationResult); // Return bad request if validation fails
+      return sendResponse(res, 400, "Validation Error", validationResult);
     }
 
     // Check if payment already exists for the reservation
@@ -9922,10 +9230,11 @@ async function payonePassPaymentCheckout(req, res) {
       .where({ reservation_id });
 
     if (paymentDetailC.length) {
-      return res.status(400).send({
-        status: false,
-        message: "Payment already initiated with this reservation ID.",
-      });
+      return sendResponse(
+        res,
+        400,
+        "Payment already initiated with this reservation ID."
+      );
     }
 
     // Check if the reservation is valid and reserved
@@ -9934,10 +9243,11 @@ async function payonePassPaymentCheckout(req, res) {
       .where({ p_is_reserved: "Y", p_reservation_id: reservation_id });
 
     if (!checkReservation.length) {
-      return res.status(404).send({
-        status: false,
-        message: "Reservation not found or pass already released.",
-      });
+      return sendResponse(
+        res,
+        400,
+        "Reservation not found or pass already released."
+      );
     }
 
     // Get pass details
@@ -9955,10 +9265,7 @@ async function payonePassPaymentCheckout(req, res) {
       });
 
     if (!getPassDetail.length || !getPassDetail[0].org_id) {
-      return res.status(400).send({
-        status: false,
-        message: "Invalid or inactive pass organization.",
-      });
+      return sendResponse(res, 400, "Invalid or inactive pass organization.");
     }
 
     // Fetch payment credentials for the organization
@@ -9968,20 +9275,13 @@ async function payonePassPaymentCheckout(req, res) {
     });
 
     if (paymentCredential.false) {
-      return res.status(400).send({
-        status: false,
-        message: "Invalid payment mode or credentials.",
-      });
+      return sendResponse(res, 400, "Invalid payment mode or credentials.");
     }
 
     const { MERCHANT_ID, URL, SECRET_KEY } = paymentCredential.data;
 
     if (!MERCHANT_ID || !URL || !SECRET_KEY) {
-      return res.status(400).send({
-        status: false,
-        message: "Missing payment data.",
-        data: paymentCredential.data,
-      });
+      return sendResponse(res, 400, "Invalid payment mode or credentials.");
     }
 
     // Prepare transaction details and hash
@@ -9995,10 +9295,11 @@ async function payonePassPaymentCheckout(req, res) {
       });
 
     if (!paymentCurrencyData.length) {
-      return res.status(400).send({
-        status: false,
-        message: "No valid payment currency found for the pass.",
-      });
+      return sendResponse(
+        res,
+        400,
+        "No valid payment currency found for the pass."
+      );
     }
 
     const paymentCurrencyIso = paymentCurrencyData[0].curr_iso;
@@ -10063,10 +9364,7 @@ async function payonePassPaymentCheckout(req, res) {
         .where({ customer_id: logged_in_customer_id, is_active: "Y" });
 
       if (existingPass.length) {
-        return res.status(400).send({
-          status: false,
-          message: "Pass already bought for this customer.",
-        });
+        return sendResponse(res, 400, "Pass already bought for this customer.");
       }
     }
 
@@ -10095,20 +9393,17 @@ async function payonePassPaymentCheckout(req, res) {
     await global
       .knexConnection("ms_payment_booking_detail")
       .insert(insertPaymentDetail);
-
-    return res.send({
-      status: true,
+    return sendResponse(res, 200, "Success", {
       payment_mode: "payone",
       data: formBody,
     });
   } catch (error) {
-    winstonLogger$1.error("Error in payonePassPayment.js 1:", error);
-    // Catch and log any unexpected errors
-    console.error("Error processing payment checkout:", error);
-    return res.status(500).send({
-      status: false,
-      message: "An unexpected error occurred. Please try again later.",
-    });
+    return sendResponse(
+      res,
+      500,
+      "An unexpected error occurred in payone payment checkout.",
+      error
+    );
   }
 }
 
@@ -10116,43 +9411,29 @@ async function confirmPassPayonePayment(req, res) {
   const { reservation_id_token } = req.query;
 
   if (!reservation_id_token) {
-    return res.status(400).send({
-      status: false,
-      message: "Missing reservation_id_token in query.",
-    });
+    return sendResponse(res, 400, "Missing reservation_id_token in query.");
   }
 
   const [reservation_id, event_token] = reservation_id_token.split("///");
 
   if (!reservation_id || !event_token) {
-    return res.status(400).send({
-      status: false,
-      message: "Invalid reservation_id_token format.",
-    });
+    return sendResponse(res, 400, "Invalid reservation_id_token format.");
   }
 
   const body = req.body;
-  let detailPayment;
-  try {
-    // Fetch payment details from the database
-    detailPayment = await global
-      .knexConnection("ms_payment_booking_detail")
-      .where({ reservation_id })
-      .first(); // Using `.first()` to directly get the single record
-  } catch (error) {
-    winstonLogger$1.error("Error in payonePassPayment.js 2:", error);
-    console.error("Error fetching payment details:", error);
-    return res.status(500).send({
-      status: false,
-      message: "Error fetching payment details.",
-    });
-  }
+
+  // Fetch payment details from the database
+  let detailPayment = await global
+    .knexConnection("ms_payment_booking_detail")
+    .where({ reservation_id })
+    .first(); // Using `.first()` to directly get the single record
 
   if (!detailPayment) {
-    return res.status(404).send({
-      status: false,
-      message: "Payment details not found for this reservation.",
-    });
+    return sendResponse(
+      res,
+      400,
+      "Payment details not found for this reservation."
+    );
   }
 
   const {
@@ -10162,17 +9443,8 @@ async function confirmPassPayonePayment(req, res) {
     payment_transaction_id,
   } = detailPayment;
   const failed_redirect_url = failed_frontend_url;
-  let requestedPayload;
-  try {
-    requestedPayload = JSON.parse(payment_request); // Safely parse payment request
-  } catch (error) {
-    winstonLogger$1.error("Error in payonePassPayment.js 3:", error);
-    console.error("Error parsing payment request:", error);
-    return res.status(400).send({
-      status: false,
-      message: "Invalid payment request data.",
-    });
-  }
+
+  let requestedPayload = JSON.parse(payment_request); // Safely parse payment request
 
   requestedPayload.hashCode;
   const requestPaymentAmt = parseFloat(requestedPayload.Amount) / 1000 + " JOD";
@@ -10205,10 +9477,7 @@ async function confirmPassPayonePayment(req, res) {
 
       if (!BACKEND_URL) {
         console.error("BASE_URL_BACKEND not found.");
-        return res.status(500).send({
-          status: false,
-          message: "Backend URL not configured.",
-        });
+        return sendResponse(res, 400, "Backend URL not configured.");
       }
 
       const BASEURL = BACKEND_URL.go_value;
@@ -10225,12 +9494,12 @@ async function confirmPassPayonePayment(req, res) {
       try {
         transactionResponse = await axios$1(config);
       } catch (axiosError) {
-        winstonLogger$1.error("Error in payonePassPayment.js 4:", axiosError);
-        console.error("Error during transaction API call:", axiosError);
-        return res.status(500).send({
-          status: false,
-          message: "Error during transaction processing.",
-        });
+        return sendResponse(
+          res,
+          500,
+          "Error during transaction API call.",
+          axiosError
+        );
       }
 
       if (
@@ -10281,46 +9550,35 @@ async function confirmPassPayonePayment(req, res) {
 }
 
 async function createPassTransation(req, res) {
-  let reqbody = { ...req.body, ...req.params };
-  const isWebsiteUser = req["is_website_user"] || false;
-  const { reservation_id } = reqbody;
-
-  // Validate the reservation_id
-  let checkFields = ["reservation_id"];
-  let result = await checkValidation(checkFields, reqbody);
-  if (!result.status) {
-    return res.status(400).send(result); // Invalid input
-  }
-
-  let getReservationDetail;
   try {
-    getReservationDetail = await global
+    let reqbody = { ...req.body, ...req.params };
+    const { user_info } = req;
+    const isWebsiteUser = req["is_website_user"] || false;
+    const { reservation_id } = reqbody;
+
+    // Validate the reservation_id
+    let checkFields = ["reservation_id"];
+    let result = await checkValidation(checkFields, reqbody);
+    if (!result.status) {
+      return sendResponse(res, 400, "Validation Error", result);
+    }
+
+    let getReservationDetail = await global
       .knexConnection("ms_pass_reservation")
       .where({
         p_reservation_id: reservation_id,
         p_is_reserved: "Y",
       });
-  } catch (error) {
-    winstonLogger$1.error("Error in payonePassPayment.js 6:", error);
-    console.error("Error fetching reservation details:", error);
-    return res.status(500).send({
-      status: false,
-      message: "Error fetching reservation details.",
-    });
-  }
 
-  if (!getReservationDetail.length) {
-    return res.status(404).send({
-      status: false,
-      message: "Reservation not found or already booked.",
-    });
-  }
+    if (!getReservationDetail.length) {
+      return sendResponse(res, 400, "Reservation not found or already booked.");
+    }
 
-  let getPaymentDetail = [];
+    let getPaymentDetail = [];
+    let qrUrl = "";
 
-  // Check for website user payment details
-  if (isWebsiteUser) {
-    try {
+    // Check for website user payment details
+    if (isWebsiteUser) {
       getPaymentDetail = await global
         .knexConnection("ms_payment_booking_detail")
         .select(
@@ -10345,31 +9603,24 @@ async function createPassTransation(req, res) {
           reservation_id,
           is_paid: "Y",
         });
-    } catch (error) {
-      winstonLogger$1.error("Error in payonePassPayment.js 7:", error);
-      console.error("Error fetching payment details:", error);
-      return res.status(500).send({
-        status: false,
-        message: "Error fetching payment details.",
-      });
+
+      if (!getPaymentDetail.length) {
+        return sendResponse(
+          res,
+          400,
+          "Payment not completed from the website."
+        );
+      }
     }
 
-    if (!getPaymentDetail.length) {
-      return res.status(400).send({
-        status: false,
-        message: "Payment not completed from the website.",
-      });
-    }
-  }
+    let currentDateTimeNew = currentDateTime(
+      null,
+      "YYYY-MM-DD HH:mm:ss",
+      "Asia/Bahrain"
+    );
 
-  let currentDateTimeNew = currentDateTime(
-    null,
-    "YYYY-MM-DD HH:mm:ss",
-    "Asia/Bahrain"
-  );
+    let getPassDetail;
 
-  let getPassDetail;
-  try {
     getPassDetail = await global
       .knexConnection("movie_event_pass")
       .select("movie_event_pass.*", "ms_currencies.curr_code")
@@ -10382,112 +9633,86 @@ async function createPassTransation(req, res) {
         "movie_event_pass.pass_id": getReservationDetail[0].pass_id,
         "movie_event_pass.pass_is_active": "Y",
       });
-  } catch (error) {
-    winstonLogger$1.error("Error in payonePassPayment.js 8:", error);
-    console.error("Error fetching pass details:", error);
-    return res.status(500).send({
-      status: false,
-      message: "Error fetching pass details.",
-    });
-  }
 
-  let event_data = getPassDetail[0];
-  getPaymentDetail[0].success_frontend_url;
+    let event_data = getPassDetail[0];
+    qrUrl = getPaymentDetail[0].success_frontend_url;
 
-  let insertObj = {
-    pass_id: getReservationDetail[0].pass_id,
-    pass_name: event_data.pass_name,
-    pass_price: parseFloat(getReservationDetail[0].pass_price),
-    pass_tax_percent: parseFloat(getReservationDetail[0].pass_tax_percent),
-    pass_tax_value: parseFloat(getReservationDetail[0].pass_tax_value),
-    pass_total_price: parseFloat(getReservationDetail[0].pass_total_price),
-    pass_discount_percent: parseFloat(event_data.pass_discount_value),
-    pass_valid_days: parseFloat(event_data.pass_valid_days),
-    c_email:
-      getPaymentDetail[0] && getPaymentDetail[0].email
-        ? getPaymentDetail[0].email
-        : null,
-    c_name:
-      getPaymentDetail[0] && getPaymentDetail[0].c_name
-        ? getPaymentDetail[0].c_name
-        : null,
-    c_country_code:
-      getPaymentDetail[0] && getPaymentDetail[0].country_code
-        ? getPaymentDetail[0].country_code
-        : null,
-    is_guest:
-      getPaymentDetail[0] && getPaymentDetail[0].is_guest
-        ? getPaymentDetail[0].is_guest
-        : null,
-    customer_id:
-      getPaymentDetail[0] && getPaymentDetail[0].customer_id
-        ? getPaymentDetail[0].customer_id
-        : 0,
-    c_phone_number:
-      getPaymentDetail[0] && getPaymentDetail[0].phone_number
-        ? getPaymentDetail[0].phone_number
-        : null,
-    currency: event_data.curr_code || null,
-    payment_mode_id:
-      getPaymentDetail[0] && getPaymentDetail[0].pm_id
-        ? getPaymentDetail[0].pm_id
-        : null,
-    payment_mode:
-      getPaymentDetail[0] && getPaymentDetail[0].payment_mode_name
-        ? getPaymentDetail[0].payment_mode_name
-        : null,
-    booking_type_name: isWebsiteUser ? "Website" : "Box Office",
-    booking_date_time: currentDateTimeNew,
-    reservation_id,
-    payment_transaction_id: getPaymentDetail[0].payment_transaction_id,
-  };
-
-  // Check if the booking already exists
-  let checkExistingBooking;
-  try {
-    checkExistingBooking = await global.knexConnection("pass_booking").where({
+    let insertObj = {
+      pass_id: getReservationDetail[0].pass_id,
+      pass_name: event_data.pass_name,
+      pass_price: parseFloat(getReservationDetail[0].pass_price),
+      pass_tax_percent: parseFloat(getReservationDetail[0].pass_tax_percent),
+      pass_tax_value: parseFloat(getReservationDetail[0].pass_tax_value),
+      pass_total_price: parseFloat(getReservationDetail[0].pass_total_price),
+      pass_discount_percent: parseFloat(event_data.pass_discount_value),
+      pass_valid_days: parseFloat(event_data.pass_valid_days),
+      c_email:
+        getPaymentDetail[0] && getPaymentDetail[0].email
+          ? getPaymentDetail[0].email
+          : null,
+      c_name:
+        getPaymentDetail[0] && getPaymentDetail[0].c_name
+          ? getPaymentDetail[0].c_name
+          : null,
+      c_country_code:
+        getPaymentDetail[0] && getPaymentDetail[0].country_code
+          ? getPaymentDetail[0].country_code
+          : null,
+      is_guest:
+        getPaymentDetail[0] && getPaymentDetail[0].is_guest
+          ? getPaymentDetail[0].is_guest
+          : null,
+      customer_id:
+        getPaymentDetail[0] && getPaymentDetail[0].customer_id
+          ? getPaymentDetail[0].customer_id
+          : 0,
+      c_phone_number:
+        getPaymentDetail[0] && getPaymentDetail[0].phone_number
+          ? getPaymentDetail[0].phone_number
+          : null,
+      currency: event_data.curr_code || null,
+      payment_mode_id:
+        getPaymentDetail[0] && getPaymentDetail[0].pm_id
+          ? getPaymentDetail[0].pm_id
+          : null,
+      payment_mode:
+        getPaymentDetail[0] && getPaymentDetail[0].payment_mode_name
+          ? getPaymentDetail[0].payment_mode_name
+          : null,
+      booking_type_name: isWebsiteUser ? "Website" : "Box Office",
+      booking_date_time: currentDateTimeNew,
       reservation_id,
-    });
-  } catch (error) {
-    winstonLogger$1.error("Error in payonePassPayment.js 9:", error);
-    console.error("Error checking existing bookings:", error);
-    return res.status(500).send({
-      status: false,
-      message: "Error checking existing bookings.",
-    });
-  }
+      payment_transaction_id: getPaymentDetail[0].payment_transaction_id,
+    };
 
-  if (checkExistingBooking.length) {
-    return res.status(400).send({
-      status: false,
-      message: "Transaction already initiated for this reservation.",
-    });
-  }
+    // Check if the booking already exists
 
-  let insertBookingId;
-  try {
-    insertBookingId = await global
+    let checkExistingBooking = await global
+      .knexConnection("pass_booking")
+      .where({
+        reservation_id,
+      });
+
+    if (checkExistingBooking.length) {
+      return sendResponse(
+        res,
+        400,
+        "Transaction already initiated for this reservation."
+      );
+    }
+
+    let insertBookingId = await global
       .knexConnection("pass_booking")
       .insert(insertObj);
-  } catch (error) {
-    winstonLogger$1.error("Error in payonePassPayment.js 10:", error);
-    console.error("Error inserting booking:", error);
-    return res.status(500).send({
-      status: false,
-      message: "Error creating booking.",
-    });
-  }
 
-  let booking_code = "PASS";
-  let prefix_array = ["00000", "0000", "000", "00", "0"];
-  let string_length = String(insertBookingId[0]).length - 1;
-  let booking_number_new = prefix_array[string_length]
-    ? `${prefix_array[string_length]}${insertBookingId[0]}`
-    : insertBookingId[0];
-  booking_code += booking_number_new;
+    let booking_code = "PASS";
+    let prefix_array = ["00000", "0000", "000", "00", "0"];
+    let string_length = String(insertBookingId[0]).length - 1;
+    let booking_number_new = prefix_array[string_length]
+      ? `${prefix_array[string_length]}${insertBookingId[0]}`
+      : insertBookingId[0];
+    booking_code += booking_number_new;
 
-  // Update reservation and payment status
-  try {
     await global
       .knexConnection("ms_pass_reservation")
       .where({ p_reservation_id: reservation_id })
@@ -10501,20 +9726,17 @@ async function createPassTransation(req, res) {
       .update({
         is_booked: "Y",
       });
-  } catch (error) {
-    winstonLogger$1.error("Error in payonePassPayment.js 11:", error);
-    console.error("Error updating reservation and payment status:", error);
-    return res.status(500).send({
-      status: false,
-      message: "Error updating reservation and payment status.",
+    return sendResponse(res, 200, "Transaction created successfully.", {
+      booking_code: booking_code,
     });
+  } catch (error) {
+    return sendResponse(
+      res,
+      500,
+      "Error updating reservation and payment status.",
+      error
+    );
   }
-
-  return res.send({
-    status: true,
-    message: "Transaction created successfully.",
-    booking_code,
-  });
 }
 
 async function mpgsPaymentCheckout(req, res) {
@@ -10545,7 +9767,7 @@ async function mpgsPaymentCheckout(req, res) {
     ];
     let result = await checkValidation(checkFields, reqbody);
     if (!result.status) {
-      return res.send(result);
+      return sendResponse(res, 400, "Validation Error", result);
     }
 
     const paymentDetailC = await global
@@ -10555,10 +9777,11 @@ async function mpgsPaymentCheckout(req, res) {
       });
 
     if (paymentDetailC.length) {
-      return res.send({
-        status: false,
-        message: "Payment Already Initiated with reservation id",
-      });
+      return sendResponse(
+        res,
+        400,
+        "Payment Already Initiated with reservation id"
+      );
     }
 
     const checkReservation = await global
@@ -10569,10 +9792,7 @@ async function mpgsPaymentCheckout(req, res) {
       });
 
     if (checkReservation.length == 0) {
-      return res.send({
-        status: false,
-        message: "Seat Already Reserved or Booked",
-      });
+      return sendResponse(res, 400, "Seat Already Reserved or Booked");
     }
 
     const event_data_all = await EVENT_DATA({
@@ -10592,10 +9812,7 @@ async function mpgsPaymentCheckout(req, res) {
 
     // @ts-ignore
     if (!event_data[0].org_id) {
-      return res.send({
-        status: false,
-        message: "Invalid organization",
-      });
+      return sendResponse(res, 400, "Invalid Organization");
     }
 
     const payment_credential = await PaymentCredentialFunction({
@@ -10604,21 +9821,14 @@ async function mpgsPaymentCheckout(req, res) {
     });
 
     if (payment_credential.false) {
-      return res.send({
-        status: false,
-        message: "Invalid Payment Mode",
-      });
+      return sendResponse(res, 400, "Invalid Payment Mode");
     }
 
     const { MERCHANT_ID, URL, API_USER_NAME, API_PASSWORD } =
       payment_credential.data;
 
     if (!MERCHANT_ID || !URL || !API_USER_NAME || !API_PASSWORD) {
-      return res.send({
-        status: false,
-        message: "Missing Payment Data",
-        data: payment_credential.data,
-      });
+      return sendResponse(res, 400, "Missing Payment Data");
     }
     let paymentCurrency =
       event_data && event_data[0] ? event_data[0].curr_code : "";
@@ -10628,11 +9838,7 @@ async function mpgsPaymentCheckout(req, res) {
       .where({ curr_id: event_data[0].pay_currency_id, curr_is_active: "Y" });
 
     if (!getPaymentCurrencyData.length) {
-      return res.send({
-        status: false,
-        message: "Add Payment Currency in cinema",
-        data: [],
-      });
+      return sendResponse(res, 400, "Add Payment Currency in cinema");
     }
 
     paymentCurrency = getPaymentCurrencyData[0].curr_code;
@@ -10679,13 +9885,11 @@ async function mpgsPaymentCheckout(req, res) {
       });
 
       if (skipBookingData.status) {
-        return res.send({
-          status: true,
+        return sendResponse(res, 200, "Success", {
           data: `${skipBookingData.redirectTo}`,
         });
       } else {
-        return res.send({
-          status: true,
+        return sendResponse(res, 200, "Failed", {
           data: `${failed_frontend_url}`,
         });
       }
@@ -10766,40 +9970,21 @@ async function mpgsPaymentCheckout(req, res) {
           await global
             .knexConnection("ms_payment_booking_detail")
             .insert(insertPaymentDetail);
-
-          return res.send({
-            message: "MPGS Session created",
-            status: true,
+          return sendResponse(res, 200, "MPGS Session created", {
             payment_mode: "mpgs",
             data: sessionId,
           });
         } else {
-          return res.send({
-            message: "MPGS Error",
-            status: false,
-          });
+          return sendResponse(res, 400, "MPGS Session not created");
         }
       } else {
-        return res.send({
-          message: "MPGS Error",
-          status: false,
-        });
+        return sendResponse(res, 400, "MPGS Session not created");
       }
     } catch (error) {
-      winstonLogger$1.error("Error in mpgsPayment.js 0:", error);
-      console.log(error.response, "mpgs api error ");
-      return res.send({
-        status: false,
-        message: "Something went wrong",
-      });
+      return sendResponse(res, 400, "MPGS Session not created", error);
     }
   } catch (error) {
-    winstonLogger$1.error("Error in mpgsPayment.js 1:", error);
-    console.log(error, "mpgs error");
-    return res.send({
-      status: false,
-      message: "Something went wrong",
-    });
+    return sendResponse(res, 400, "Error in mpgsPayment.js", error);
   }
 }
 
@@ -10817,7 +10002,7 @@ async function confirmMpgsPayment(req, res) {
       .where({ reservation_id, event_is_active: "Y" });
 
     if (!detailPayment.length && !reservation_detail.length) {
-      return res.send({ status: false, message: "Detail Not Found" });
+      return sendResponse(res, 400, "Detail Not Found");
     }
 
     const { success_frontend_url, failed_frontend_url } = detailPayment[0];
@@ -10832,10 +10017,7 @@ async function confirmMpgsPayment(req, res) {
     });
 
     if (payment_credential.false) {
-      return res.send({
-        status: false,
-        message: "Invalid Payment Mode",
-      });
+      return sendResponse(res, 400, "Invalid Payment Mode");
     }
     let getSuccessIndicator = JSON.parse(detailPayment[0].payment_request);
     const successIndicator =
