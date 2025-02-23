@@ -688,7 +688,6 @@ const storeInRedis = async (key, value, expiration) => {
   } catch (err) {
     winstonLogger$1.error("Error in redisHelper.js 2:", err);
     console.error("Error storing data in Redis:", err);
-    throw err;
   }
 };
 
