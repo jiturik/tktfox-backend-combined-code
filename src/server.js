@@ -6946,18 +6946,6 @@ const getReservationSeat = async (req, res) => {
       }
     });
 
-    if (
-      event_data.Records[0].event_booking_fees &&
-      event_data.Records[0].event_booking_fees > 0
-    ) {
-      obj.booking_fee_percent = event_data.Records[0].event_booking_fees + "%";
-      obj.booking_fee_value =
-        (parseFloat(event_data.Records[0].event_booking_fees) / 100) *
-        obj.totalprice;
-      obj.actualAmount = obj.totalprice;
-      obj.totalprice = obj.totalprice + obj.booking_fee_value;
-    }
-
     // Calculate time difference for reservation release
     obj.seconds =
       moment$1(obj.release_time).diff(
@@ -6977,6 +6965,19 @@ const getReservationSeat = async (req, res) => {
       obj.discountValue = parseFloat(
         getReservationDetail[0].voucher_discount_amount
       );
+    }
+
+    if (
+      event_data.Records[0].event_booking_fees &&
+      event_data.Records[0].event_booking_fees > 0 &&
+      obj.totalprice > 0
+    ) {
+      obj.booking_fee_percent = event_data.Records[0].event_booking_fees + "%";
+      obj.booking_fee_value =
+        (parseFloat(event_data.Records[0].event_booking_fees) / 100) *
+        obj.totalprice;
+      obj.actualAmount = obj.totalprice;
+      obj.totalprice = obj.totalprice + obj.booking_fee_value;
     }
 
     // Get cinema payment gateway information
@@ -9936,7 +9937,8 @@ async function mpgsPaymentCheckout(req, res) {
 
     if (
       event_data[0].event_booking_fees &&
-      event_data[0].event_booking_fees > 0
+      event_data[0].event_booking_fees > 0 &&
+      totalAmount > 0
     ) {
       let booking_fee_value =
         (parseFloat(event_data[0].event_booking_fees) / 100) * totalAmount;
