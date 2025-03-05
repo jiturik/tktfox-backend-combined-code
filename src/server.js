@@ -8140,6 +8140,12 @@ function WebsiteRoutes() {
     applyPass
   );
 
+  router$2.get(
+    "/downloadTicket/:booking_code",
+    checkWebsiteSessionExist,
+    downloadTicket
+  );
+
   return router$2;
 }
 
