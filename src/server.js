@@ -32,7 +32,6 @@ import { KnexConnection } from "./knex/knex.js";
 import Redis from "ioredis";
 import "knex";
 import "dotenv";
-import { send } from "process";
 
 // Ensure the logs directory exists
 const logsDir = path.resolve("src/winston-logs");
