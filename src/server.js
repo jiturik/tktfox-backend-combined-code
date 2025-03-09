@@ -1,35 +1,35 @@
-import http from "http";
-import express, { Router } from "express";
-import cors from "cors";
-import bodyParser from "body-parser";
-import helmet from "helmet";
-import { jwtDecode } from "jwt-decode";
-import jwt_token from "jsonwebtoken";
-import winston from "winston";
-import path, { dirname } from "path";
-import fs from "fs";
-import { v4 } from "uuid";
-import bcrypt from "bcryptjs";
-import moment$1 from "moment";
-import nodemailer from "nodemailer";
-import momentTimeZone from "moment-timezone";
-import _ from "lodash";
-import NodeCache from "node-cache";
-import zlib from "zlib";
-import multer from "multer";
-import excel from "exceljs";
-import ejs from "ejs";
-import pdf from "html-pdf";
-import QRCode from "qrcode";
-import { SeatsioClient, Region } from "seatsio";
-import { createHash } from "crypto";
-import axios$1 from "axios";
-import { fileURLToPath } from "url";
-import { attachPaginate } from "knex-paginate";
-import { KnexConnection } from "./knex/knex.js";
-import Redis from "ioredis";
-import "knex";
-import "dotenv";
+import http from 'http';
+import express, { Router } from 'express';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+import helmet from 'helmet';
+import { jwtDecode } from 'jwt-decode';
+import jwt_token from 'jsonwebtoken';
+import winston from 'winston';
+import path, { dirname } from 'path';
+import fs from 'fs';
+import { v4 } from 'uuid';
+import bcrypt from 'bcryptjs';
+import moment$1 from 'moment';
+import nodemailer from 'nodemailer';
+import momentTimeZone from 'moment-timezone';
+import _ from 'lodash';
+import NodeCache from 'node-cache';
+import zlib from 'zlib';
+import multer from 'multer';
+import excel from 'exceljs';
+import ejs from 'ejs';
+import pdf from 'html-pdf';
+import QRCode from 'qrcode';
+import { SeatsioClient, Region } from 'seatsio';
+import { createHash } from 'crypto';
+import axios$1 from 'axios';
+import { fileURLToPath } from 'url';
+import { attachPaginate } from 'knex-paginate';
+import { KnexConnection } from './knex/knex.js';
+import Redis from 'ioredis';
+import 'knex';
+import 'dotenv';
 
 // Ensure the logs directory exists
 const logsDir = path.resolve("src/winston-logs");
@@ -586,7 +586,7 @@ function sendEmailClient(from, subject, body, attachment) {
       html: body,
     };
 
-    if (attachment);
+    if (attachment) ;
 
     mail.sendMail(mailOptions, (error, info) => {
       if (error) {
@@ -1239,6 +1239,7 @@ async function addEditEvent(req, res) {
       selectable_max_seats,
       event_prefix_code,
       type,
+      event_booking_fees,
     } = reqbody;
 
     let cinemaOrgId = org_id || user_info.org_id;
@@ -1258,6 +1259,7 @@ async function addEditEvent(req, res) {
       "selectable_max_seats",
       "event_prefix_code",
       "type",
+      "event_booking_fees",
     ];
 
     let validation = await checkValidation(requiredFields, reqbody);
@@ -1366,6 +1368,7 @@ async function addEditEvent(req, res) {
       org_id: cinemaOrgId || null,
       event_prefix_code: event_prefix_code || "TKT",
       type: type,
+      event_booking_fees: event_booking_fees || 0,
       ...dataReturnUpdate(user_info, isUpdate),
     };
 
@@ -2375,11 +2378,7 @@ function ScannerRoutes() {
     checkSessionExist,
     getScannedTicketById
   );
-  router$8.get(
-    "/getScannedTicketList",
-    checkSessionExist,
-    getScannedTicketList
-  );
+  router$8.get("/getScannedTicketList", checkSessionExist, getScannedTicketList);
 
   // POST Routes
   router$8.post(
@@ -4736,7 +4735,11 @@ var opts = {
   },
 };
 
-async function createQRCode(qrcode_data, returnType = "buffer", logo = null) {
+async function createQRCode(
+  qrcode_data,
+  returnType = "buffer",
+  logo = null
+) {
   return new Promise(async (resolve, reject) => {
     try {
       if (!qrcode_data) {
@@ -4820,10 +4823,7 @@ const CreateInvSendTicketEmail = async (reqbody) => {
             console.log("QR Code generated:", booking.booking_code);
           })
           .catch((error) => {
-            winstonLogger$1.error(
-              "Error in CreateInvSendTicketEmail 1:",
-              error
-            );
+            winstonLogger$1.error("Error in CreateInvSendTicketEmail 1:", error);
             console.error("error in qr generation", error.message);
           });
 
@@ -4990,9 +4990,9 @@ const createInvoicePdf = async (emailData) => {
   });
 };
 
-var CreateInvSendTicketEmail$1 = /*#__PURE__*/ Object.freeze({
+var CreateInvSendTicketEmail$1 = /*#__PURE__*/Object.freeze({
   __proto__: null,
-  CreateInvSendTicketEmail: CreateInvSendTicketEmail,
+  CreateInvSendTicketEmail: CreateInvSendTicketEmail
 });
 
 async function getTransactionList(req, res) {
@@ -5685,11 +5685,7 @@ function ReportRoutes() {
     checkSessionExist,
     getReservationBookingList
   );
-  router$4.get(
-    "/getEventHomeDataById",
-    checkSessionExist,
-    getEventHomeDataById
-  );
+  router$4.get("/getEventHomeDataById", checkSessionExist, getEventHomeDataById);
   router$4.get("/exportBookingReport", checkSessionExist, exportBookingReport);
   router$4.get(
     "/exportReservationReport",
@@ -6893,6 +6889,9 @@ const getReservationSeat = async (req, res) => {
       backend_api_route: null,
       currentDateTime: currentDateTimeNew,
       pass_applied: false,
+      booking_fee_value: 0,
+      actualAmount: 0,
+      booking_fee_percent: "",
     };
 
     // Fetch event data
@@ -6942,15 +6941,11 @@ const getReservationSeat = async (req, res) => {
 
     // Calculate time difference for reservation release
     obj.seconds =
-      moment$1(obj.release_time).diff(
-        moment$1(obj.currentDateTime),
-        "seconds"
-      ) % 60;
+      moment$1(obj.release_time).diff(moment$1(obj.currentDateTime), "seconds") %
+      60;
     obj.minutes =
-      moment$1(obj.release_time).diff(
-        moment$1(obj.currentDateTime),
-        "minutes"
-      ) % 60;
+      moment$1(obj.release_time).diff(moment$1(obj.currentDateTime), "minutes") %
+      60;
 
     // add voucher discount details in response if available
     if (getReservationDetail[0].voucher_applied == "Y") {
@@ -6959,6 +6954,19 @@ const getReservationSeat = async (req, res) => {
       obj.discountValue = parseFloat(
         getReservationDetail[0].voucher_discount_amount
       );
+    }
+
+    if (
+      event_data.Records[0].event_booking_fees &&
+      event_data.Records[0].event_booking_fees > 0 &&
+      obj.totalprice > 0
+    ) {
+      obj.booking_fee_percent = event_data.Records[0].event_booking_fees + "%";
+      obj.booking_fee_value =
+        (parseFloat(event_data.Records[0].event_booking_fees) / 100) *
+        obj.totalprice;
+      obj.actualAmount = obj.totalprice;
+      obj.totalprice = obj.totalprice + obj.booking_fee_value;
     }
 
     // Get cinema payment gateway information
@@ -7617,15 +7625,11 @@ const getReservePassDetails = async (req, res) => {
 
     // Calculate time remaining for release
     obj.seconds =
-      moment$1(obj.release_time).diff(
-        moment$1(obj.currentDateTime),
-        "seconds"
-      ) % 60;
+      moment$1(obj.release_time).diff(moment$1(obj.currentDateTime), "seconds") %
+      60;
     obj.minutes =
-      moment$1(obj.release_time).diff(
-        moment$1(obj.currentDateTime),
-        "minutes"
-      ) % 60;
+      moment$1(obj.release_time).diff(moment$1(obj.currentDateTime), "minutes") %
+      60;
 
     // Format pass validity date
     obj.pass_validity_to = moment$1()
@@ -8007,6 +8011,59 @@ async function getCustomerTicketHistory(req, res) {
     );
   }
 }
+async function downloadTicket(req, res) {
+  try {
+    const reqbody = { ...req.query, ...req.body, ...req.params };
+    const { booking_code } = reqbody;
+
+    // Validate Booking Code
+    if (!booking_code) {
+      return sendResponse(res, 400, "Booking Code is required!");
+    }
+    const filePrefix = booking_code;
+    const directoryPath = path.normalize(global.__base + "/public/uploads");
+    fs.readdir(directoryPath, (err, files) => {
+      if (err) {
+        return sendResponse(
+          res,
+          500,
+          "An error occurred while fetching the ticket history.",
+          err
+        );
+      }
+
+      const matchingFiles = files.filter(
+        (file) => file.startsWith(filePrefix) && file.endsWith(".pdf")
+      );
+
+      if (matchingFiles.length === 0) {
+        return sendResponse(res, 404, "No matching files found");
+      }
+
+      res.setHeader("Content-Type", "application/pdf");
+
+      matchingFiles.forEach((file) => {
+        const filePath = path.join(directoryPath, file);
+        const fileStream = fs.createReadStream(filePath);
+        fileStream.pipe(res, { end: false }); // Prevents ending response after first file
+        fileStream.on("end", () => {
+          res.write("\n"); // Separator between files
+        });
+      });
+
+      res.on("finish", () => {
+        res.end();
+      });
+    });
+  } catch (error) {
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while fetching the ticket history.",
+      error
+    );
+  }
+}
 
 const router$2 = Router();
 
@@ -8079,11 +8136,7 @@ function WebsiteRoutes() {
 
   // POST Routes
   router$2.post("/signup-customer", checkWebsiteSessionExist, addWebCustomer);
-  router$2.post(
-    "/verify-otp",
-    checkWebsiteSessionExist,
-    verifyOTPAndUpdateUser
-  );
+  router$2.post("/verify-otp", checkWebsiteSessionExist, verifyOTPAndUpdateUser);
 
   router$2.post("/signIn", checkWebsiteSessionExist, customerSignIn);
 
@@ -8119,6 +8172,12 @@ function WebsiteRoutes() {
     "/applyPass/:reservation_id",
     checkWebsiteSessionExist,
     applyPass
+  );
+
+  router$2.get(
+    "/downloadTicket/:booking_code",
+
+    downloadTicket
   );
 
   return router$2;
@@ -8346,6 +8405,12 @@ async function createTransation(req, res) {
       };
       transaction_array.push({ ...obj });
     });
+
+    if (event_data.event_booking_fees && event_data.event_booking_fees > 0) {
+      let booking_fee_value =
+        (parseFloat(event_data.event_booking_fees) / 100) * totalAmount;
+      totalAmount = totalAmount + booking_fee_value;
+    }
 
     if (event_data.event_seating_type === "N") {
       console.log(totalSeats, "totalSeats");
@@ -9910,6 +9975,16 @@ async function mpgsPaymentCheckout(req, res) {
       }
     }
 
+    if (
+      event_data[0].event_booking_fees &&
+      event_data[0].event_booking_fees > 0 &&
+      totalAmount > 0
+    ) {
+      let booking_fee_value =
+        (parseFloat(event_data[0].event_booking_fees) / 100) * totalAmount;
+      totalAmount = totalAmount + booking_fee_value;
+    }
+
     let mpgsObj = {
       apiOperation: "INITIATE_CHECKOUT",
       interaction: {
@@ -10273,7 +10348,7 @@ Promise.all([KnexConnection()])
       });
 
     //cron scripts
-    import("./index-B8jbhj46.js");
+    import('./index-B8jbhj46.js');
 
     //start server
     httpServer.listen(EXPRESS_PORT, () => {
