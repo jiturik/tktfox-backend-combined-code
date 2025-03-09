@@ -1,37 +1,38 @@
-import http from 'http';
-import express, { Router } from 'express';
-import cors from 'cors';
-import bodyParser from 'body-parser';
-import helmet from 'helmet';
-import { jwtDecode } from 'jwt-decode';
-import jwt_token from 'jsonwebtoken';
-import winston from 'winston';
-import path, { dirname } from 'path';
-import fs from 'fs';
-import { v4 } from 'uuid';
-import bcrypt from 'bcryptjs';
-import moment$1 from 'moment';
-import nodemailer from 'nodemailer';
-import momentTimeZone from 'moment-timezone';
-import _ from 'lodash';
-import NodeCache from 'node-cache';
-import zlib from 'zlib';
-import multer from 'multer';
-import excel from 'exceljs';
-import ejs from 'ejs';
-import pdf from 'html-pdf';
-import QRCode from 'qrcode';
-import { SeatsioClient, Region } from 'seatsio';
-import { promisify } from 'util';
-import archiver from 'archiver';
-import { createHash } from 'crypto';
-import axios$1 from 'axios';
-import { fileURLToPath } from 'url';
-import { attachPaginate } from 'knex-paginate';
-import { KnexConnection } from './knex/knex.js';
-import Redis from 'ioredis';
-import 'knex';
-import 'dotenv';
+import http from "http";
+import express, { Router } from "express";
+import cors from "cors";
+import bodyParser from "body-parser";
+import helmet from "helmet";
+import { jwtDecode } from "jwt-decode";
+import jwt_token from "jsonwebtoken";
+import winston from "winston";
+import path, { dirname } from "path";
+import fs from "fs";
+import { v4 } from "uuid";
+import bcrypt from "bcryptjs";
+import moment$1 from "moment";
+import nodemailer from "nodemailer";
+import momentTimeZone from "moment-timezone";
+import _ from "lodash";
+import NodeCache from "node-cache";
+import zlib from "zlib";
+import multer from "multer";
+import excel from "exceljs";
+import ejs from "ejs";
+import pdf from "html-pdf";
+import QRCode from "qrcode";
+import { SeatsioClient, Region } from "seatsio";
+import { promisify } from "util";
+import archiver from "archiver";
+import { createHash } from "crypto";
+import axios$1 from "axios";
+import { fileURLToPath } from "url";
+import { attachPaginate } from "knex-paginate";
+import { KnexConnection } from "./knex/knex.js";
+import Redis from "ioredis";
+import "knex";
+import "dotenv";
+import { send } from "process";
 
 // Ensure the logs directory exists
 const logsDir = path.resolve("src/winston-logs");
@@ -588,7 +589,7 @@ function sendEmailClient(from, subject, body, attachment) {
       html: body,
     };
 
-    if (attachment) ;
+    if (attachment);
 
     mail.sendMail(mailOptions, (error, info) => {
       if (error) {
@@ -2380,7 +2381,11 @@ function ScannerRoutes() {
     checkSessionExist,
     getScannedTicketById
   );
-  router$8.get("/getScannedTicketList", checkSessionExist, getScannedTicketList);
+  router$8.get(
+    "/getScannedTicketList",
+    checkSessionExist,
+    getScannedTicketList
+  );
 
   // POST Routes
   router$8.post(
@@ -4737,11 +4742,7 @@ var opts = {
   },
 };
 
-async function createQRCode(
-  qrcode_data,
-  returnType = "buffer",
-  logo = null
-) {
+async function createQRCode(qrcode_data, returnType = "buffer", logo = null) {
   return new Promise(async (resolve, reject) => {
     try {
       if (!qrcode_data) {
@@ -4825,7 +4826,10 @@ const CreateInvSendTicketEmail = async (reqbody) => {
             console.log("QR Code generated:", booking.booking_code);
           })
           .catch((error) => {
-            winstonLogger$1.error("Error in CreateInvSendTicketEmail 1:", error);
+            winstonLogger$1.error(
+              "Error in CreateInvSendTicketEmail 1:",
+              error
+            );
             console.error("error in qr generation", error.message);
           });
 
@@ -4992,9 +4996,9 @@ const createInvoicePdf = async (emailData) => {
   });
 };
 
-var CreateInvSendTicketEmail$1 = /*#__PURE__*/Object.freeze({
+var CreateInvSendTicketEmail$1 = /*#__PURE__*/ Object.freeze({
   __proto__: null,
-  CreateInvSendTicketEmail: CreateInvSendTicketEmail
+  CreateInvSendTicketEmail: CreateInvSendTicketEmail,
 });
 
 async function getTransactionList(req, res) {
@@ -5687,7 +5691,11 @@ function ReportRoutes() {
     checkSessionExist,
     getReservationBookingList
   );
-  router$4.get("/getEventHomeDataById", checkSessionExist, getEventHomeDataById);
+  router$4.get(
+    "/getEventHomeDataById",
+    checkSessionExist,
+    getEventHomeDataById
+  );
   router$4.get("/exportBookingReport", checkSessionExist, exportBookingReport);
   router$4.get(
     "/exportReservationReport",
@@ -6946,11 +6954,15 @@ const getReservationSeat = async (req, res) => {
 
     // Calculate time difference for reservation release
     obj.seconds =
-      moment$1(obj.release_time).diff(moment$1(obj.currentDateTime), "seconds") %
-      60;
+      moment$1(obj.release_time).diff(
+        moment$1(obj.currentDateTime),
+        "seconds"
+      ) % 60;
     obj.minutes =
-      moment$1(obj.release_time).diff(moment$1(obj.currentDateTime), "minutes") %
-      60;
+      moment$1(obj.release_time).diff(
+        moment$1(obj.currentDateTime),
+        "minutes"
+      ) % 60;
 
     // add voucher discount details in response if available
     if (getReservationDetail[0].voucher_applied == "Y") {
@@ -7630,11 +7642,15 @@ const getReservePassDetails = async (req, res) => {
 
     // Calculate time remaining for release
     obj.seconds =
-      moment$1(obj.release_time).diff(moment$1(obj.currentDateTime), "seconds") %
-      60;
+      moment$1(obj.release_time).diff(
+        moment$1(obj.currentDateTime),
+        "seconds"
+      ) % 60;
     obj.minutes =
-      moment$1(obj.release_time).diff(moment$1(obj.currentDateTime), "minutes") %
-      60;
+      moment$1(obj.release_time).diff(
+        moment$1(obj.currentDateTime),
+        "minutes"
+      ) % 60;
 
     // Format pass validity date
     obj.pass_validity_to = moment$1()
@@ -8016,7 +8032,7 @@ async function getCustomerTicketHistory(req, res) {
     );
   }
 }
-async function downloadTicket(req, res) {
+export async function downloadTicket(req, res) {
   try {
     const reqbody = { ...req.query, ...req.body, ...req.params };
     const { booking_code } = reqbody;
@@ -8033,17 +8049,20 @@ async function downloadTicket(req, res) {
     );
 
     // Check if directory exists
+
     await access(directoryPath, fs.constants.R_OK);
 
-    // Read directory
+    // Read directory and filter files
     const files = await readdir(directoryPath);
-    const matchingFiles = files.filter((file) => file.startsWith(filePrefix));
+    const matchingFiles = files.filter(
+      (file) => file.startsWith(filePrefix) && file.endsWith(".pdf")
+    );
 
     if (matchingFiles.length === 0) {
       return sendResponse(res, 404, "No matching files found");
     }
 
-    // Create a ZIP file in memory and send it
+    // Set ZIP response headers
     res.setHeader("Content-Type", "application/zip");
     res.setHeader(
       "Content-Disposition",
@@ -8053,17 +8072,20 @@ async function downloadTicket(req, res) {
     const archive = archiver("zip", { zlib: { level: 9 } });
     archive.pipe(res);
 
+    // Handle archive errors before finalizing
+    archive.on("error", (err) => {
+      console.error("Archive error:", err);
+      return sendResponse(res, 500, "Error creating ZIP file");
+    });
+
+    // Add files to the archive
     for (const file of matchingFiles) {
       const filePath = path.join(directoryPath, file);
       archive.file(filePath, { name: file });
     }
 
-    archive.finalize();
-
-    archive.on("error", (err) => {
-      console.error("Archive error:", err);
-      return sendResponse(res, 500, "Error creating ZIP file", err);
-    });
+    // Finalize archive after all files are added
+    await archive.finalize();
   } catch (error) {
     console.error("Server error:", error);
     return sendResponse(
@@ -8146,7 +8168,11 @@ function WebsiteRoutes() {
 
   // POST Routes
   router$2.post("/signup-customer", checkWebsiteSessionExist, addWebCustomer);
-  router$2.post("/verify-otp", checkWebsiteSessionExist, verifyOTPAndUpdateUser);
+  router$2.post(
+    "/verify-otp",
+    checkWebsiteSessionExist,
+    verifyOTPAndUpdateUser
+  );
 
   router$2.post("/signIn", checkWebsiteSessionExist, customerSignIn);
 
@@ -10358,7 +10384,7 @@ Promise.all([KnexConnection()])
       });
 
     //cron scripts
-    import('./index-BIAkKMo7.js');
+    import("./index-BIAkKMo7.js");
 
     //start server
     httpServer.listen(EXPRESS_PORT, () => {
