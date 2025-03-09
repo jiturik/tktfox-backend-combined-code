@@ -30,7 +30,9 @@ import { KnexConnection } from "./knex/knex.js";
 import Redis from "ioredis";
 import "knex";
 import "dotenv";
-
+import { promisify } from "util";
+const readdir = promisify(fs.readdir);
+const access = promisify(fs.access);
 // Ensure the logs directory exists
 const logsDir = path.resolve("src/winston-logs");
 if (!fs.existsSync(logsDir)) {
@@ -8026,59 +8028,66 @@ async function getCustomerTicketHistory(req, res) {
     );
   }
 }
-async function downloadTicket(req, res) {
+export async function downloadTicket(req, res) {
   try {
     const reqbody = { ...req.query, ...req.body, ...req.params };
     const { booking_code } = reqbody;
 
     // Validate Booking Code
     if (!booking_code) {
-      return sendResponse(res, 400, "Booking Code is required!");
+      return res.status(400).json({ message: "Booking Code is required!" });
     }
+
     const filePrefix = booking_code;
-    const directoryPath = path.normalize(
-      global.__base + "/public/uploads/ticketInvoice"
+    const directoryPath = path.join(
+      global.__base,
+      "/public/uploads/ticketInvoice"
     );
-    console.log(directoryPath, "dire", filePrefix);
-    fs.readdir(directoryPath, (err, files) => {
-      if (err) {
-        return sendResponse(
-          res,
-          500,
-          "An error occurred while fetching the ticket history.",
-          err
-        );
-      }
 
-      const matchingFiles = files.filter((file) => file.startsWith(filePrefix));
+    console.log(directoryPath, "directory path", filePrefix);
 
-      if (matchingFiles.length === 0) {
-        return sendResponse(res, 404, "No matching files found");
-      }
+    // Check if directory exists
+    try {
+      await access(directoryPath, fs.constants.R_OK);
+    } catch (err) {
+      return res
+        .status(500)
+        .json({ message: "Directory does not exist or is not accessible." });
+    }
 
-      res.setHeader("Content-Type", "application/pdf");
+    // Read directory
+    const files = await readdir(directoryPath);
+    const matchingFiles = files.filter(
+      (file) => file.startsWith(filePrefix) && file.endsWith(".pdf")
+    );
 
-      matchingFiles.forEach((file) => {
-        const filePath = path.join(directoryPath, file);
-        console.log(filePath, "filePath");
-        const fileStream = fs.createReadStream(filePath);
-        fileStream.pipe(res, { end: false }); // Prevents ending response after first file
-        fileStream.on("end", () => {
-          res.write("\n"); // Separator between files
-        });
-      });
+    if (matchingFiles.length === 0) {
+      return res.status(404).json({ message: "No matching files found" });
+    }
 
-      res.on("finish", () => {
-        res.end();
-      });
+    // If multiple files exist, send only the first matching one
+    const filePath = path.join(directoryPath, matchingFiles[0]);
+    console.log(filePath, "filePath");
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${matchingFiles[0]}"`
+    );
+
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+
+    fileStream.on("error", (err) => {
+      console.error("Error streaming file:", err);
+      return res.status(500).json({ message: "Error sending the file" });
     });
   } catch (error) {
-    return sendResponse(
-      res,
-      500,
-      "An error occurred while fetching the ticket history.",
-      error
-    );
+    console.error("Server error:", error);
+    return res.status(500).json({
+      message: "An error occurred while fetching the ticket history.",
+      error,
+    });
   }
 }
 
