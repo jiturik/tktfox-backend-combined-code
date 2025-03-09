@@ -8036,7 +8036,9 @@ async function downloadTicket(req, res) {
       return sendResponse(res, 400, "Booking Code is required!");
     }
     const filePrefix = booking_code;
-    const directoryPath = path.normalize(global.__base + "/public/uploads");
+    const directoryPath = path.normalize(
+      global.__base + "/public/uploads/ticketInvoice"
+    );
     console.log(directoryPath, "dire", filePrefix);
     fs.readdir(directoryPath, (err, files) => {
       if (err) {
