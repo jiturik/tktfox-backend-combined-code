@@ -58,7 +58,7 @@ async function KnexConnection() {
       resolve(knex(KnexConfig[ENVIRONMENT]));
     } catch (error) {
       console.log("database connection with knex failed=>", error);
-      winstonLogger.error("Error in knex.js 1:", error);
+
       reject("database connection with knex failed");
     }
   });

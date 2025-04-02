@@ -23,6 +23,8 @@ import 'ejs';
 import 'html-pdf';
 import 'qrcode';
 import 'seatsio';
+import 'util';
+import 'archiver';
 import 'crypto';
 import 'axios';
 import 'url';

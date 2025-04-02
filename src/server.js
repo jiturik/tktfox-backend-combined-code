@@ -22,6 +22,8 @@ import ejs from "ejs";
 import pdf from "html-pdf";
 import QRCode from "qrcode";
 import { SeatsioClient, Region } from "seatsio";
+import { promisify } from "util";
+import archiver from "archiver";
 import { createHash } from "crypto";
 import axios$1 from "axios";
 import { fileURLToPath } from "url";
@@ -6416,6 +6418,9 @@ async function getTransactionByCode(req, res) {
   }
 }
 
+const readdir = promisify(fs.readdir);
+const access = promisify(fs.access);
+
 const checkPriceData = (seatLayoutData, price_array) => {
   let price_data = {
     status: true,
@@ -8026,6 +8031,70 @@ async function getCustomerTicketHistory(req, res) {
     );
   }
 }
+export async function downloadTicket(req, res) {
+  try {
+    const reqbody = { ...req.query, ...req.body, ...req.params };
+    const { booking_code } = reqbody;
+
+    // Validate Booking Code
+    if (!booking_code) {
+      return sendResponse(res, 400, "Booking Code is required!");
+    }
+
+    const filePrefix = booking_code;
+    const directoryPath = path.join(
+      global.__base,
+      "/public/uploads/ticketInvoice"
+    );
+
+    // Check if directory exists
+
+    await access(directoryPath, fs.constants.R_OK);
+
+    // Read directory and filter files
+    const files = await readdir(directoryPath);
+    const matchingFiles = files.filter(
+      (file) => file.startsWith(filePrefix) && file.endsWith(".pdf")
+    );
+
+    if (matchingFiles.length === 0) {
+      return sendResponse(res, 404, "No matching files found");
+    }
+
+    // Set ZIP response headers
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${filePrefix}_tickets.zip"`
+    );
+
+    const archive = archiver("zip", { zlib: { level: 9 } });
+    archive.pipe(res);
+
+    // Handle archive errors before finalizing
+    archive.on("error", (err) => {
+      console.error("Archive error:", err);
+      return sendResponse(res, 500, "Error creating ZIP file");
+    });
+
+    // Add files to the archive
+    for (const file of matchingFiles) {
+      const filePath = path.join(directoryPath, file);
+      archive.file(filePath, { name: file });
+    }
+
+    // Finalize archive after all files are added
+    await archive.finalize();
+  } catch (error) {
+    console.error("Server error:", error);
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while downloading ticket",
+      error
+    );
+  }
+}
 
 const router$2 = Router();
 
@@ -8138,6 +8207,12 @@ function WebsiteRoutes() {
     "/applyPass/:reservation_id",
     checkWebsiteSessionExist,
     applyPass
+  );
+
+  router$2.get(
+    "/downloadTicket/:booking_code",
+
+    downloadTicket
   );
 
   return router$2;
@@ -10308,7 +10383,7 @@ Promise.all([KnexConnection()])
       });
 
     //cron scripts
-    import("./index-KMxU6T37.js");
+    import("./index-BIAkKMo7.js");
 
     //start server
     httpServer.listen(EXPRESS_PORT, () => {
