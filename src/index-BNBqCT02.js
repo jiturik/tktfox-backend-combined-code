@@ -22,7 +22,7 @@ import { CronJob } from 'cron';
     async () => {
       console.log("Running CheckReleaseSeats cron every 1 minute");
       const { CheckReleaseSeats } = await import(
-        './CheckReleaseSeats-TGsLhsnF.js'
+        './CheckReleaseSeats-DEWK1UdI.js'
       );
       await CheckReleaseSeats();
     },

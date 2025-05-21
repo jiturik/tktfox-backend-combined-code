@@ -1,7 +1,9 @@
 import knex from 'knex';
+import { attachPaginate } from 'knex-paginate';
 import dotenv from 'dotenv';
 
 dotenv.config();
+
 const KnexConfig = {
   development: {
     client: "mysql2",
@@ -51,14 +53,17 @@ const ENVIRONMENT = process.env.ENVIRONMENT;
 async function KnexConnection() {
   return new Promise(async (resolve, reject) => {
     try {
-      const [result] = await knex(KnexConfig[ENVIRONMENT]).raw(
-        "SELECT 1 + 1 AS sum"
-      );
+      const knexInstance = knex(KnexConfig[ENVIRONMENT]);
+
+      // attach pagination
+      attachPaginate(knexInstance);
+
+      const [result] = await knexInstance.raw("SELECT 1 + 1 AS sum");
       console.log("database connection with knex successful=>", result);
-      resolve(knex(KnexConfig[ENVIRONMENT]));
+
+      resolve(knexInstance);
     } catch (error) {
       console.log("database connection with knex failed=>", error);
-
       reject("database connection with knex failed");
     }
   });

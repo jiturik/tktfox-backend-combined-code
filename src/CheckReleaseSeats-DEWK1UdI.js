@@ -28,9 +28,9 @@ import 'archiver';
 import 'crypto';
 import 'axios';
 import 'url';
-import 'knex-paginate';
 import './knex/knex.js';
 import 'knex';
+import 'knex-paginate';
 import 'dotenv';
 import 'ioredis';
 
