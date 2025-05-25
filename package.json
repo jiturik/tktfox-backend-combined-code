@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "nodemon -r dotenv/config ./src/server.js",
     "build": "rollup -c rollup.config.js",
-    "start": "nodemon -r dotenv/config ./src/server.js"
+    "start": "nodemon -r dotenv/config ./dist/server.js"
   },
   "keywords": [
     "Nodejs",
@@ -23,7 +23,6 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "archiver": "^7.0.1",
     "axios": "^1.7.7",
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.3",

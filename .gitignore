@@ -1,5 +1,15 @@
+# Environment variables
 .env
+
+# node modules
 node_modules/
 
-# uploads folder inside src
-src/public/uploads/
+# Rollup configuration file
+rollup.config.js
+
+# source code
+src/
+
+# winston logs
+dist/winston-logs/
+
