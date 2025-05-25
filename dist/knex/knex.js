@@ -1,6 +1,6 @@
-import knex from "knex";
-import { attachPaginate } from "knex-paginate";
-import dotenv from "dotenv";
+import knex from 'knex';
+import { attachPaginate } from 'knex-paginate';
+import dotenv from 'dotenv';
 
 dotenv.config();
 
