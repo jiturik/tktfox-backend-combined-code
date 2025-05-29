@@ -1467,7 +1467,7 @@ async function addEditEvent(req, res) {
               event_sch_id: schedule_id,
               sct_id: seatType.sct_id || null,
               available_seats: seatType.available_seats || null,
-              price_per_seat: seatType.price_per_seat || null,
+              price_per_seat: seatType.price_per_seat || 0,
             })
           );
           await global
