@@ -8640,6 +8640,7 @@ const skipPaymentGateway = async (reqbody) => {
       redirectTo: redirectToUrl,
     };
   } catch (error) {
+    console.log(error, "error in skipping payment");
     return {
       status: false,
       message: "Something went wrong in skipping payment.",
