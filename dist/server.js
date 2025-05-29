@@ -10390,7 +10390,12 @@ async function cinemaainFreePaymentCheckout(req, res) {
       );
     }
   } catch (error) {
-    return sendResponse(res, 500, "Error in mpgsPayment.js", error);
+    return sendResponse(
+      res,
+      500,
+      "Error in cinemaainfreeticketcheckout",
+      error
+    );
   }
 }
 
