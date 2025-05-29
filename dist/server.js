@@ -8640,7 +8640,10 @@ const skipPaymentGateway = async (reqbody) => {
       redirectTo: redirectToUrl,
     };
   } catch (error) {
-    return sendResponse(res, 500, "Transaction creation failed", error);
+    return {
+      status: false,
+      message: "Something went wrong in skipping payment.",
+    };
   }
 };
 
