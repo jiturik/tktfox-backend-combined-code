@@ -303,12 +303,7 @@ const CREATE_TOKEN_FOR_USER = async ({ user_id, role_id, org_id }) => {
     );
     return token;
   } catch (error) {
-    return sendResponse(
-      res,
-      500,
-      "An error occurred while generating the user token.",
-      error
-    );
+    throw error;
   }
 };
 
@@ -343,7 +338,6 @@ async function validateUserPassword(user_name, password) {
       return { error: "User not found" };
     }
   } catch (error) {
-    // Just throw the error, let the caller handle it
     throw error;
   }
 }
