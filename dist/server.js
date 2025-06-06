@@ -227,55 +227,53 @@ async function validateToken(req, res) {
   }
 }
 
-const checkValidation = (validateArray, reqObj) => {
-  return new Promise((resolve, reject) => {
-    try {
-      for (const key of validateArray) {
-        // Check if key exists in the object
-        if (!reqObj.hasOwnProperty(key)) {
-          return reject({
-            status: false,
-            message: `${key} key does not exist`,
-          });
-        }
-
-        const value = reqObj[key];
-
-        // Skip validation for boolean or number 0
-        if (
-          typeof value === "boolean" ||
-          (typeof value === "number" && value === 0)
-        ) {
-          continue;
-        }
-
-        // Check for invalid or empty values
-        if (
-          value === "" ||
-          value === null ||
-          value === undefined ||
-          value === "undefined" ||
-          value === "null"
-        ) {
-          return reject({
-            status: false,
-            message: `${key} cannot be empty, undefined, or null`,
-          });
-        }
+const checkValidation = async (validateArray, reqObj) => {
+  try {
+    for (const key of validateArray) {
+      // Check if key exists in the object
+      if (!reqObj.hasOwnProperty(key)) {
+        throw {
+          status: false,
+          message: `${key} key does not exist`,
+        };
       }
 
-      // If all validations pass
-      resolve({ status: true, message: "Validation successful" });
-    } catch (error) {
-      // Handle unexpected errors
-      console.error("Error during validation:", error);
-      winstonLogger.error("Error in checkValidation.js 1:", error);
-      reject({
-        status: false,
-        message: "An unexpected error occurred during validation",
-      });
+      const value = reqObj[key];
+
+      // Skip validation for boolean or number 0
+      if (
+        typeof value === "boolean" ||
+        (typeof value === "number" && value === 0)
+      ) {
+        continue;
+      }
+
+      // Check for invalid or empty values
+      if (
+        value === "" ||
+        value === null ||
+        value === undefined ||
+        value === "undefined" ||
+        value === "null"
+      ) {
+        throw {
+          status: false,
+          message: `${key} cannot be empty, undefined, or null`,
+        };
+      }
     }
-  });
+
+    // If all validations pass
+    return { status: true, message: "Validation successful" };
+  } catch (error) {
+    // Handle unexpected errors
+    console.error("Error during validation:", error);
+    winstonLogger.error("Error in checkValidation.js 1:", error);
+    throw {
+      status: false,
+      message: "An unexpected error occurred during validation",
+    };
+  }
 };
 
 // Function to create a token for the user
