@@ -313,9 +313,10 @@ const CREATE_TOKEN_FOR_USER = async ({ user_id, role_id, org_id }) => {
 };
 
 // Function to validate user password
+
 async function validateUserPassword(user_name, password) {
   try {
-    const user = await global
+    const users = await global
       .knexConnection("users")
       .select([
         "user_name",
@@ -335,14 +336,15 @@ async function validateUserPassword(user_name, password) {
         builder.orWhere({ email: user_name });
       });
 
-    if (user.length) {
-      const isPasswordValid = await bcrypt.compare(password, user[0].password);
-      return { user: user[0], isPasswordValid };
+    if (users.length) {
+      const isPasswordValid = await bcrypt.compare(password, users[0].password);
+      return { user: users[0], isPasswordValid };
     } else {
       return { error: "User not found" };
     }
   } catch (error) {
-    return sendResponse(res, 500, "An error occurred during login.", error);
+    // Just throw the error, let the caller handle it
+    throw error;
   }
 }
 
