@@ -70,7 +70,7 @@ const logger = winston.createLogger({
 });
 
 // Utility function to log messages
-const winstonLogger$1 = {
+const winstonLogger = {
   info: (message) => logger.info(message),
   error: (message, error) => logger.error(message + ": " + error),
   warn: (message) => logger.warn(message),
@@ -87,7 +87,7 @@ const sendResponse = (
 ) => {
   if (statusCode === 500 && data) {
     let errorMessage = data?.message || data?.error;
-    winstonLogger$1.error(`${message}=>`, errorMessage);
+    winstonLogger.error(`${message}=>`, errorMessage);
   }
   if (
     statusCode === 400 ||
@@ -268,7 +268,7 @@ const checkValidation = async (validateArray, reqObj) => {
   } catch (error) {
     // Handle unexpected errors
     console.error("Error during validation:", error);
-    winstonLogger.error("Error in checkValidation.js 1:", error);
+
     throw {
       status: false,
       message: "An unexpected error occurred during validation",
@@ -459,7 +459,7 @@ const currentDateTime = (
     return currentDateTime;
   } catch (error) {
     console.error("Error in currentDateTime:", error);
-    winstonLogger$1.error("Error in helper.js 1:", error);
+    winstonLogger.error("Error in helper.js 1:", error);
     return null; // Return a fallback or null in case of error
   }
 };
@@ -498,7 +498,7 @@ const PaymentCredentialFunction = async ({ org_id, setting_key }) => {
     return { status: false, data: {}, message: "No active credentials found" };
   } catch (error) {
     console.error("Error in PaymentCredentialFunction:", error);
-    winstonLogger$1.error("Error in helper.js 2:", error);
+    winstonLogger.error("Error in helper.js 2:", error);
     return { status: false, data: {}, message: "An error occurred" };
   }
 };
@@ -524,7 +524,7 @@ const SeatsIoCredentialFunction = async ({ org_id, setting_key }) => {
     return { status: false, data: {}, message: "No active credentials found" };
   } catch (error) {
     console.error("Error in SeatsIoCredentialFunction:", error);
-    winstonLogger$1.error("Error in helper.js 3:", error);
+    winstonLogger.error("Error in helper.js 3:", error);
     return { status: false, data: {}, message: "An error occurred" };
   }
 };
@@ -566,7 +566,7 @@ function sendEmail(to, subject, body, attachment) {
       });
     } catch (error) {
       console.error("Unexpected error in sendEmail:", error);
-      winstonLogger$1.error("Error in helper.js 4:", error);
+      winstonLogger.error("Error in helper.js 4:", error);
       reject({ status: false, message: "Unexpected error occurred" });
     }
   });
@@ -592,7 +592,7 @@ function sendEmailClient(from, subject, body, attachment) {
       }
     });
   } catch (error) {
-    winstonLogger$1.error("Error in helper.js 5:", error);
+    winstonLogger.error("Error in helper.js 5:", error);
     console.error("Unexpected error in sendEmailClient:", error);
   }
 }
@@ -633,7 +633,7 @@ function pagination(perPage, currentPage) {
 
     return paginate;
   } catch (error) {
-    winstonLogger$1.error("Error in pagination.js 1:", error);
+    winstonLogger.error("Error in pagination.js 1:", error);
     console.error("Error in pagination function:", error.message);
     return {
       error: true,
@@ -662,7 +662,7 @@ const getFromRedis = async (cacheKey) => {
     }
     return null;
   } catch (error) {
-    winstonLogger$1.error("Error in redisHelper.js 1:", error);
+    winstonLogger.error("Error in redisHelper.js 1:", error);
     console.error("Error fetching data from Redis:", error);
     return null;
   }
@@ -684,7 +684,7 @@ const storeInRedis = async (key, value, expiration) => {
     }
     console.log(`Data stored in Redis: ${cacheKeyNew}`);
   } catch (err) {
-    winstonLogger$1.error("Error in redisHelper.js 2:", err);
+    winstonLogger.error("Error in redisHelper.js 2:", err);
     console.error("Error storing data in Redis:", err);
   }
 };
@@ -704,7 +704,7 @@ const removeFromRedis = async (key) => {
       console.log(`Key not found in Redis: ${cacheKeyNew}`);
     }
   } catch (err) {
-    winstonLogger$1.error("Error in redisHelper.js 3:", err);
+    winstonLogger.error("Error in redisHelper.js 3:", err);
     console.error("Error removing data from Redis:", err);
     throw err;
   }
@@ -4158,7 +4158,7 @@ const storage = multer.diskStorage({
       cb(null, uploadDir);
     } catch (error) {
       console.error("Error creating upload directory:", error);
-      winstonLogger$1.error("Error in multerHelper.js 1:", error);
+      winstonLogger.error("Error in multerHelper.js 1:", error);
       cb(new Error("Failed to create upload directory"), null);
     }
   },
@@ -4178,7 +4178,7 @@ const validateFileType = (file, allowedExtensions, callback) => {
     callback(null, true);
   } catch (error) {
     console.error("Error validating file type:", error);
-    winstonLogger$1.error("Error in multerHelper.js 2:", error);
+    winstonLogger.error("Error in multerHelper.js 2:", error);
     callback("Error validating file type");
   }
 };
@@ -4808,7 +4808,7 @@ async function createQRCode(
           resolve(qrcode);
         })
         .catch((error) => {
-          winstonLogger$1.error("Error in QrcodeGenerator.js 1:", error);
+          winstonLogger.error("Error in QrcodeGenerator.js 1:", error);
           console.error("Error creating QR code:", error.message);
           reject(
             new Error(
@@ -4817,7 +4817,7 @@ async function createQRCode(
           );
         });
     } catch (error) {
-      winstonLogger$1.error("Error in QrcodeGenerator.js 2:", error);
+      winstonLogger.error("Error in QrcodeGenerator.js 2:", error);
       console.error("Error creating QR code:", error.message);
       reject(
         new Error(
@@ -4879,7 +4879,7 @@ const CreateInvSendTicketEmail = async (reqbody) => {
             console.log("QR Code generated:", booking.booking_code);
           })
           .catch((error) => {
-            winstonLogger$1.error("Error in CreateInvSendTicketEmail 1:", error);
+            winstonLogger.error("Error in CreateInvSendTicketEmail 1:", error);
             console.error("error in qr generation", error.message);
           });
 
@@ -4937,7 +4937,7 @@ const CreateInvSendTicketEmail = async (reqbody) => {
             .update({ ticket_sent: "N" });
         }
       } catch (error) {
-        winstonLogger$1.error("Error in CreateInvSendTicketEmail 2:", error);
+        winstonLogger.error("Error in CreateInvSendTicketEmail 2:", error);
         console.error(
           "Error processing booking:",
           booking.booking_code,
@@ -4949,7 +4949,7 @@ const CreateInvSendTicketEmail = async (reqbody) => {
       }
     }
   } catch (error) {
-    winstonLogger$1.error("Error in CreateInvSendTicketEmail 3:", error);
+    winstonLogger.error("Error in CreateInvSendTicketEmail 3:", error);
     console.error("Error in CreateInvSendTicketEmail:", error);
   }
 };
@@ -4977,7 +4977,7 @@ const sendTicketEmail = async (emailData) => {
       .knexConnection("ms_booking")
       .where({ booking_id: emailData.booking_id })
       .update({ ticket_sent: "N" });
-    winstonLogger$1.error("Error in sendTicketEmail 4:", error);
+    winstonLogger.error("Error in sendTicketEmail 4:", error);
   }
 };
 
@@ -8975,7 +8975,7 @@ async function confirmTapPayment(req, res) {
       return res.redirect(failed_frontend_url);
     }
   } catch (error) {
-    winstonLogger$1.error("Error in payonePayment.js 2:", error);
+    winstonLogger.error("Error in payonePayment.js 2:", error);
     console.error("Error in confirmTapPayment:", error);
 
     // If an error occurs, update payment capture and redirect to failure URL
@@ -9321,7 +9321,7 @@ async function confirmPayonePayment(req, res) {
       );
     }
   } catch (error) {
-    winstonLogger$1.error("Error in payonePayment.js 2:", error);
+    winstonLogger.error("Error in payonePayment.js 2:", error);
     console.error("Error during Payone payment confirmation:", error.message);
     await global
       .knexConnection("ms_payment_booking_detail")
@@ -9682,7 +9682,7 @@ async function confirmPassPayonePayment(req, res) {
       );
     }
   } catch (error) {
-    winstonLogger$1.error("Error in payonePassPayment.js 5:", error);
+    winstonLogger.error("Error in payonePassPayment.js 5:", error);
     console.error("Error during payment confirmation:", error);
     await global
       .knexConnection("ms_payment_booking_detail")
@@ -10235,7 +10235,7 @@ async function confirmMpgsPayment(req, res) {
       return res.redirect(`${failed_redirect_url}`);
     }
   } catch (error) {
-    winstonLogger$1.error("Error in mpgsPayment.js 2:", error);
+    winstonLogger.error("Error in mpgsPayment.js 2:", error);
     console.log("error in confirmMpgsPayment=>", error);
   }
 }
@@ -10547,7 +10547,7 @@ async function startServer() {
       console.log(`Server running on port ${EXPRESS_PORT}`);
     });
   } catch (error) {
-    winstonLogger$1.error("❌ Failed to start server:", error);
+    winstonLogger.error("❌ Failed to start server:", error);
     console.error("Critical error during startup:", error);
     process.exit(1);
   }
@@ -10555,4 +10555,4 @@ async function startServer() {
 
 startServer();
 
-export { CreateInvSendTicketEmail$1 as C, winstonLogger$1 as w };
+export { CreateInvSendTicketEmail$1 as C, winstonLogger as w };
