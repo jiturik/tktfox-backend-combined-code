@@ -28,7 +28,7 @@ import { createHash } from 'crypto';
 import axios$1 from 'axios';
 import { fileURLToPath } from 'url';
 import { KnexConnection } from './knex/knex.js';
-import Redis from 'ioredis';
+import 'ioredis';
 import 'knex';
 import 'knex-paginate';
 import 'dotenv';
@@ -10511,34 +10511,6 @@ app.use(
   })
 );
 
-const redisConnection = () => {
-  return new Promise((resolve, reject) => {
-    try {
-      const redis = new Redis({
-        host: process.env.REDIS_HOST || "127.0.0.1",
-        port: process.env.REDIS_PORT || 6379,
-        password: process.env.REDIS_PASSWORD || undefined,
-        retryStrategy: (times) => Math.min(times * 50, 2000), // Retry connection on failure
-      });
-
-      redis.on("connect", () => {
-        console.log("Redis connection established.");
-        resolve(redis);
-      });
-
-      redis.on("error", (error) => {
-        winstonLogger$1.error("Error in redis.js 1:", error);
-        console.error("Redis connection error:", error);
-        resolve(null);
-      });
-    } catch (error) {
-      winstonLogger$1.error("Error in redis.js 2:", error);
-      console.error("Error initializing Redis connection:", error);
-      resolve(null);
-    }
-  });
-};
-
 const EXPRESS_PORT = process.env.EXPRESS_PORT || 3000;
 const httpServer = http.createServer(app);
 
@@ -10547,23 +10519,24 @@ async function startServer() {
     const db = await KnexConnection();
     global.knexConnection = db;
 
-    try {
-      const redis = await redisConnection();
-      if (redis) {
-        global.redisCache = redis;
-        console.log("Redis connection established.");
-      } else {
-        global.redisCache = null;
-        console.warn("Redis connection failed. Continuing without Redis.");
-      }
-    } catch (redisError) {
-      global.redisCache = null;
-      console.warn("Redis unavailable:", redisError.message);
-      winstonLogger$1.warn(
-        "Redis connection failed, continuing execution.",
-        redisError
-      );
-    }
+    // try {
+    //   const redis = await redisConnection();
+    //   if (redis) {
+    //     global.redisCache = redis;
+    //     console.log("Redis connection established.");
+    //   } else {
+    //     global.redisCache = null;
+    //     console.warn("Redis connection failed. Continuing without Redis.");
+    //   }
+    // } catch (redisError) {
+    //   global.redisCache = null;
+    //   console.warn("Redis unavailable:", redisError.message);
+    //   winstonLogger.warn(
+    //     "Redis connection failed, continuing execution.",
+    //     redisError
+    //   );
+    // }
+    global.redisCache = null;
 
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = dirname(__filename);
