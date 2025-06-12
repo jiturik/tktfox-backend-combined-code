@@ -648,67 +648,11 @@ function pagination(perPage, currentPage) {
 //redisCache:activeWebsiteEventList
 //redisCache:activeWebsiteBannerList
 const getFromRedis = async (cacheKey) => {
-  try {
-    let redisOrgKey = process.env.REDIS_CLIENT_NAME;
-    if (!redisOrgKey) {
-      console.log("Redis client name is not set.");
-      return;
-    }
-    let cacheKeyNew = `${redisOrgKey}:${cacheKey}`;
-    // Fetch the data from Redis
-    const cachedData = await global.redisCache.get(cacheKeyNew);
-
-    if (cachedData) {
-      return JSON.parse(cachedData);
-    }
-    return null;
-  } catch (error) {
-    winstonLogger.error("Error in redisHelper.js 1:", error);
-    console.error("Error fetching data from Redis:", error);
-    return null;
-  }
 };
 const storeInRedis = async (key, value, expiration) => {
-  try {
-    let redisOrgKey = process.env.REDIS_CLIENT_NAME;
-    if (!redisOrgKey) {
-      console.log("Redis client name is not set.");
-      return;
-    }
-    let cacheKeyNew = `${redisOrgKey}:${key}`;
-
-    const stringValue = JSON.stringify(value);
-    if (expiration) {
-      await global.redisCache.set(cacheKeyNew, stringValue, "EX", expiration);
-    } else {
-      await global.redisCache.set(cacheKeyNew, stringValue);
-    }
-    console.log(`Data stored in Redis: ${cacheKeyNew}`);
-  } catch (err) {
-    winstonLogger.error("Error in redisHelper.js 2:", err);
-    console.error("Error storing data in Redis:", err);
-  }
 };
 
 const removeFromRedis = async (key) => {
-  try {
-    let redisOrgKey = process.env.REDIS_CLIENT_NAME;
-    if (!redisOrgKey) {
-      console.log("Redis client name is not set.");
-      return;
-    }
-    let cacheKeyNew = `${redisOrgKey}:${key}`;
-    const result = await global.redisCache.del(cacheKeyNew);
-    if (result === 1) {
-      console.log(`Data removed from Redis: ${cacheKeyNew}`);
-    } else {
-      console.log(`Key not found in Redis: ${cacheKeyNew}`);
-    }
-  } catch (err) {
-    winstonLogger.error("Error in redisHelper.js 3:", err);
-    console.error("Error removing data from Redis:", err);
-    throw err;
-  }
 };
 
 // Add or edit cinema information
@@ -836,7 +780,7 @@ async function getCinemaList(req, res) {
   const isWebsiteUser = req["is_website_user"] || false;
 
   if (isWebsiteUser) {
-    const redisData = await getFromRedis("websiteCinemaList");
+    const redisData = await getFromRedis();
     if (redisData) {
       return sendResponse(res, 200, "Cinema List Fetched From Redis", {
         Records: redisData,
