@@ -6616,9 +6616,16 @@ const addReservationSeat = async (req, res) => {
     });
 
     // Wait for all seat validations to complete
-    let arrayData = await Promise.all(seatValidationPromises).catch((error) => {
-      return sendResponse(res, 400, "Error in adding reservation seat");
-    });
+
+    let arrayData;
+    try {
+      arrayData = await Promise.all(seatValidationPromises);
+    } catch (error) {
+      return sendResponse(res, 400, "Error in adding reservation seat", error);
+    }
+    // let arrayData = await Promise.all(seatValidationPromises).catch((error) => {
+    //   return sendResponse(res, 400, "Error in adding reservation seat");
+    // });
 
     // Generate unique reservation ID
     let reservation_id = v4();
@@ -6726,9 +6733,16 @@ const addReservationSeatWithoutSeatlayout = async (req, res) => {
     });
 
     // Wait for all seat validations to complete
-    let arrayData = await Promise.all(seatValidationPromises).catch((error) => {
-      return sendResponse(res, 400, "Error in adding reservation seat");
-    });
+
+    let arrayData;
+    try {
+      arrayData = await Promise.all(seatValidationPromises);
+    } catch (error) {
+      return sendResponse(res, 400, "Error in adding reservation seat", error);
+    }
+    // let arrayData = await Promise.all(seatValidationPromises).catch((error) => {
+    //   return sendResponse(res, 400, "Error in adding reservation seat");
+    // });
 
     // Check seat availability
     let checkSeatExist = await checkSeatsAvailableWithoutSL({
