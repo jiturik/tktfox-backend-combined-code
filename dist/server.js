@@ -598,49 +598,25 @@ function sendEmailClient(from, subject, body, attachment) {
   }
 }
 
-function pagination(perPage, currentPage) {
-  try {
-    // Default pagination settings
-    const paginate = {
-      perPage: 100, // Default items per page
-      currentPage: 1, // Default current page
-      search: null,
-      sort: null,
-    };
+function pagination(perPage = 100, currentPage = 1) {
+  const paginate = {
+    perPage: 100,
+    currentPage: 1,
+  };
 
-    // Validate and parse currentPage
-    if (currentPage) {
-      const parsedCurrentPage = parseInt(currentPage, 10);
-      if (isNaN(parsedCurrentPage) || parsedCurrentPage <= 0) {
-        throw new Error(
-          "Invalid value for currentPage. It must be a positive integer."
-        );
-      }
-      paginate.currentPage = parsedCurrentPage;
-    }
-
-    // Validate and parse perPage
-    if (perPage) {
-      const parsedPerPage = parseInt(perPage, 10);
-      if (isNaN(parsedPerPage) || parsedPerPage <= 0) {
-        throw new Error(
-          "Invalid value for perPage. It must be a positive integer."
-        );
-      }
-      paginate.perPage = parsedPerPage;
-    }
-
-    console.log(paginate);
-
-    return paginate;
-  } catch (error) {
-    winstonLogger.error("Error in pagination.js 1:", error);
-    console.error("Error in pagination function:", error.message);
-    return {
-      error: true,
-      message: error.message,
-    };
+  // Validate and assign currentPage
+  const parsedCurrentPage = parseInt(currentPage, 10);
+  if (!isNaN(parsedCurrentPage) && parsedCurrentPage > 0) {
+    paginate.currentPage = parsedCurrentPage;
   }
+
+  // Validate and assign perPage
+  const parsedPerPage = parseInt(perPage, 10);
+  if (!isNaN(parsedPerPage) && parsedPerPage > 0) {
+    paginate.perPage = parsedPerPage;
+  }
+
+  return paginate;
 }
 
 //keys Used in project
