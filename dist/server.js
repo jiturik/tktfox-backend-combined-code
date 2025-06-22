@@ -6738,7 +6738,12 @@ const addReservationSeatWithoutSeatlayout = async (req, res) => {
     try {
       arrayData = await Promise.all(seatValidationPromises);
     } catch (error) {
+      console.error("Seat validation error:", error);
       return sendResponse(res, 400, "Error in adding reservation seat", error);
+    }
+
+    if (!Array.isArray(arrayData) || !arrayData.length) {
+      return sendResponse(res, 400, "Invalid or empty seat data.");
     }
     // let arrayData = await Promise.all(seatValidationPromises).catch((error) => {
     //   return sendResponse(res, 400, "Error in adding reservation seat");
@@ -6816,6 +6821,10 @@ const addReservationSeatWithoutSeatlayout = async (req, res) => {
       ...z,
       ...duplicateData,
     }));
+
+    if (!insertData || !insertData.length) {
+      return sendResponse(res, 400, "No reservation data to insert.");
+    }
 
     // Use transaction to ensure consistency
     await global.knexConnection.transaction(async (trx) => {
