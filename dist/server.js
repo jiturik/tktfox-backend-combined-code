@@ -10674,6 +10674,15 @@ async function reserveShopItems(req, res) {
       return sendResponse(res, 400, "Reservation id is required");
     }
 
+    const checkReservation = await global
+      .knexConnection("reservations")
+      .where({ reservation_id })
+      .first();
+
+    if (!checkReservation) {
+      return sendResponse(res, 400, "Invalid reservation id");
+    }
+
     if (!items_array || items_array.length === 0) {
       return sendResponse(res, 400, "Items array is required");
     }
