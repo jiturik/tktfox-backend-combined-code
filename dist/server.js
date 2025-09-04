@@ -10627,6 +10627,7 @@ async function getShopItems(req, res) {
       limit = 100,
       currentPage = 1,
       search,
+      item_category_id,
     } = reqbody;
     const isWebsiteUser = req.is_website_user || false;
 
@@ -10637,6 +10638,8 @@ async function getShopItems(req, res) {
         if (item_id) builder.where("shop_items.item_id", "=", item_id);
         if (item_is_active)
           builder.where("item_is_active", "=", item_is_active);
+        if (item_category_id)
+          builder.where("item_category_id", "=", item_category_id);
         if (search) {
           builder.whereRaw(`concat_ws(' ', item_name, item_name) LIKE ?`, [
             `%${search}%`,
@@ -10789,7 +10792,7 @@ function ShopRoutes() {
   // GET Routes
   router$1.get("/get-shopitems", getShopItems);
   router$1.get("/get-shopCategory", getShopCategory);
-  router$1.post("/reserve-shop-items:reservation_id", reserveShopItems);
+  router$1.post("/reserve-shop-items/:reservation_id", reserveShopItems);
   router$1.post("/direct-shop", directShop);
 
   return router$1;
