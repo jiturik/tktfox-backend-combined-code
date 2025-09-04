@@ -404,16 +404,16 @@ async function checkLogin(req, res) {
   }
 }
 
-const router$c = Router();
+const router$d = Router();
 
 function LoginRoutes() {
   // POST Routes
-  router$c.post("/login", login);
+  router$d.post("/login", login);
 
   // GET Routes
-  router$c.get("/check-login-access", checkSessionExist, checkLogin);
+  router$d.get("/check-login-access", checkSessionExist, checkLogin);
 
-  return router$c;
+  return router$d;
 }
 
 // Function to generate JWT
@@ -832,16 +832,16 @@ async function getCinemaList(req, res) {
   }
 }
 
-const router$b = Router();
+const router$c = Router();
 
 function CinemaRoutes() {
   // POST Routes
-  router$b.post("/add-edit-cinema", checkSessionExist, addEditCinema);
+  router$c.post("/add-edit-cinema", checkSessionExist, addEditCinema);
 
   // GET Routes
-  router$b.get("/getcinemalist", checkSessionExist, getCinemaList);
+  router$c.get("/getcinemalist", checkSessionExist, getCinemaList);
 
-  return router$b;
+  return router$c;
 }
 
 // Add  Customer
@@ -1115,16 +1115,16 @@ async function getCustomer(req, res) {
   }
 }
 
-const router$a = Router();
+const router$b = Router();
 
 function CustomerRoutes() {
   // POST Routes
-  router$a.post("/add-edit-customer", checkSessionExist, addWebCustomer);
+  router$b.post("/add-edit-customer", checkSessionExist, addWebCustomer);
 
   // GET Routes
-  router$a.get("/getcustomerlist", checkSessionExist, getCustomer);
+  router$b.get("/getcustomerlist", checkSessionExist, getCustomer);
 
-  return router$a;
+  return router$b;
 }
 
 async function addEditEvent(req, res) {
@@ -2001,22 +2001,22 @@ const EVENT_DATA = async (reqbody) => {
   };
 };
 
-const router$9 = Router();
+const router$a = Router();
 
 function EventRoutes() {
   // POST Routes
-  router$9.post("/add-edit-event", checkSessionExist, addEditEvent);
-  router$9.post("/add-edit-eventExtra", checkSessionExist, addEditEventExtra);
+  router$a.post("/add-edit-event", checkSessionExist, addEditEvent);
+  router$a.post("/add-edit-eventExtra", checkSessionExist, addEditEventExtra);
 
   // GET Routes
-  router$9.get("/getEventList", checkSessionExist, getEventList);
-  router$9.get(
+  router$a.get("/getEventList", checkSessionExist, getEventList);
+  router$a.get(
     "/get-event-extraInfoList",
     checkSessionExist,
     getEventExtraInfoList
   );
 
-  return router$9;
+  return router$a;
 }
 
 async function getTransactionByCodeScanner(req, res) {
@@ -2283,30 +2283,30 @@ async function addEditScanTicket(req, res) {
   }
 }
 
-const router$8 = Router();
+const router$9 = Router();
 
 function ScannerRoutes() {
   // GET Routes
-  router$8.get(
+  router$9.get(
     "/getTransactionByCode/:booking_code",
     checkSessionExist,
     getTransactionByCodeScanner
   );
-  router$8.get(
+  router$9.get(
     "/getScannedTicketById/:booking_id",
     checkSessionExist,
     getScannedTicketById
   );
-  router$8.get("/getScannedTicketList", checkSessionExist, getScannedTicketList);
+  router$9.get("/getScannedTicketList", checkSessionExist, getScannedTicketList);
 
   // POST Routes
-  router$8.post(
+  router$9.post(
     "/add-edit-scanTicket/:booking_id",
     checkSessionExist,
     addEditScanTicket
   );
 
-  return router$8;
+  return router$9;
 }
 
 async function addEditGuest(req, res) {
@@ -2495,16 +2495,16 @@ async function addSubscriber(req, res) {
   }
 }
 
-const router$7 = Router();
+const router$8 = Router();
 
 function GuestRoutes() {
   // POST Routes
-  router$7.post("/add-edit-guest", checkSessionExist, addEditGuest);
+  router$8.post("/add-edit-guest", checkSessionExist, addEditGuest);
 
   // GET Routes
-  router$7.get("/getGuestList", checkSessionExist, getGuestList);
+  router$8.get("/getGuestList", checkSessionExist, getGuestList);
 
-  return router$7;
+  return router$8;
 }
 
 const eventCache = new NodeCache();
@@ -4266,47 +4266,47 @@ async function uploadImageController(req, res) {
   }
 }
 
-const router$6 = Router();
+const router$7 = Router();
 
 function MasterRoutes() {
   // POST Routes
-  router$6.post("/add-edit-countries", checkSessionExist, addEditCountries);
-  router$6.post("/add-edit-cities", checkSessionExist, addEditCities);
-  router$6.post("/add-edit-languages", checkSessionExist, addEditLanguages);
-  router$6.post("/add-edit-genres", checkSessionExist, addEditGenre);
-  router$6.post("/add-edit-seattype", checkSessionExist, addEditSeatType);
-  router$6.post("/add-edit-currency", checkSessionExist, addEditCurrency);
-  router$6.post("/add-edit-banner", checkSessionExist, addEditBanner);
-  router$6.post("/add-edit-seatlayout", addEditSeatLayout);
-  router$6.post("/add-edit-roles", checkSessionExist, addEditRoles);
-  router$6.post("/add-edit-org", checkSessionExist, addEditOrg);
-  router$6.post("/add-edit-vouchers", checkSessionExist, addEditVouchers);
-  router$6.post("/add-edit-orgwebsite", checkSessionExist, addEditOrgWebsite);
-  router$6.post("/add-edit-blockseats", checkSessionExist, addEditBlockedSeats);
-  router$6.route("/uploadimage").post(uploadImageController);
+  router$7.post("/add-edit-countries", checkSessionExist, addEditCountries);
+  router$7.post("/add-edit-cities", checkSessionExist, addEditCities);
+  router$7.post("/add-edit-languages", checkSessionExist, addEditLanguages);
+  router$7.post("/add-edit-genres", checkSessionExist, addEditGenre);
+  router$7.post("/add-edit-seattype", checkSessionExist, addEditSeatType);
+  router$7.post("/add-edit-currency", checkSessionExist, addEditCurrency);
+  router$7.post("/add-edit-banner", checkSessionExist, addEditBanner);
+  router$7.post("/add-edit-seatlayout", addEditSeatLayout);
+  router$7.post("/add-edit-roles", checkSessionExist, addEditRoles);
+  router$7.post("/add-edit-org", checkSessionExist, addEditOrg);
+  router$7.post("/add-edit-vouchers", checkSessionExist, addEditVouchers);
+  router$7.post("/add-edit-orgwebsite", checkSessionExist, addEditOrgWebsite);
+  router$7.post("/add-edit-blockseats", checkSessionExist, addEditBlockedSeats);
+  router$7.route("/uploadimage").post(uploadImageController);
 
   // GET Routes
-  router$6.get("/getcountrylist", checkSessionExist, getCountryList);
-  router$6.get("/getcitylist", checkSessionExist, getCityList);
-  router$6.get("/getlanguageslist", checkSessionExist, getLanguageList);
-  router$6.get("/getgenreslist", checkSessionExist, getGenreList);
-  router$6.get("/getseattypelist", getSeatTypeList);
-  router$6.get("/getcurrencylist", checkSessionExist, getCurrencyList);
-  router$6.get("/getbannerlist", checkSessionExist, getBannerList);
-  router$6.get("/getSeatLayoutList", getSeatLayoutList);
-  router$6.get("/gettimezonelist", checkSessionExist, getTimeZoneList);
-  router$6.get("/getroleslist", checkSessionExist, getRolesList);
-  router$6.get("/getOrgList", checkSessionExist, getOrgList);
-  router$6.get("/getVoucherList", checkSessionExist, getVoucherList);
-  router$6.get("/getContactUsList", checkSessionExist, getContactUsList);
-  router$6.post("/cancelBooking", checkSessionExist, cancelBooking);
-  router$6.get(
+  router$7.get("/getcountrylist", checkSessionExist, getCountryList);
+  router$7.get("/getcitylist", checkSessionExist, getCityList);
+  router$7.get("/getlanguageslist", checkSessionExist, getLanguageList);
+  router$7.get("/getgenreslist", checkSessionExist, getGenreList);
+  router$7.get("/getseattypelist", getSeatTypeList);
+  router$7.get("/getcurrencylist", checkSessionExist, getCurrencyList);
+  router$7.get("/getbannerlist", checkSessionExist, getBannerList);
+  router$7.get("/getSeatLayoutList", getSeatLayoutList);
+  router$7.get("/gettimezonelist", checkSessionExist, getTimeZoneList);
+  router$7.get("/getroleslist", checkSessionExist, getRolesList);
+  router$7.get("/getOrgList", checkSessionExist, getOrgList);
+  router$7.get("/getVoucherList", checkSessionExist, getVoucherList);
+  router$7.get("/getContactUsList", checkSessionExist, getContactUsList);
+  router$7.post("/cancelBooking", checkSessionExist, cancelBooking);
+  router$7.get(
     "/getEventBlockedSeats/:event_id/:event_sch_id",
     checkSessionExist,
     getEventBlockedSeats
   );
 
-  return router$6;
+  return router$7;
 }
 
 async function addEditPass(req, res) {
@@ -4682,22 +4682,22 @@ async function getPassDiscountList(req, res) {
   }
 }
 
-const router$5 = Router();
+const router$6 = Router();
 
 function PassRoutes() {
   // POST Routes
-  router$5.post("/add-edit-pass", checkSessionExist, addEditPass);
-  router$5.post(
+  router$6.post("/add-edit-pass", checkSessionExist, addEditPass);
+  router$6.post(
     "/add-edit-pass-discount",
     checkSessionExist,
     addEditPassDiscount
   );
 
   // GET Routes
-  router$5.get("/getPassList", checkSessionExist, getPassList);
-  router$5.get("/getPassDiscountList", checkSessionExist, getPassDiscountList);
+  router$6.get("/getPassList", checkSessionExist, getPassList);
+  router$6.get("/getPassDiscountList", checkSessionExist, getPassDiscountList);
 
-  return router$5;
+  return router$6;
 }
 
 var opts = {
@@ -4966,11 +4966,6 @@ const createInvoicePdf = async (emailData) => {
     }
   });
 };
-
-var CreateInvSendTicketEmail$1 = /*#__PURE__*/Object.freeze({
-  __proto__: null,
-  CreateInvSendTicketEmail: CreateInvSendTicketEmail
-});
 
 async function getTransactionList(req, res) {
   try {
@@ -5647,37 +5642,37 @@ async function getPassTransactionList(req, res) {
   }
 }
 
-const router$4 = Router();
+const router$5 = Router();
 
 function ReportRoutes() {
   // GET Routes
-  router$4.get("/getTransactionList", checkSessionExist, getTransactionList);
-  router$4.get(
+  router$5.get("/getTransactionList", checkSessionExist, getTransactionList);
+  router$5.get(
     "/getPassTransactionList",
     checkSessionExist,
     getPassTransactionList
   );
-  router$4.get(
+  router$5.get(
     "/getReservationBookingList",
     checkSessionExist,
     getReservationBookingList
   );
-  router$4.get("/getEventHomeDataById", checkSessionExist, getEventHomeDataById);
-  router$4.get("/exportBookingReport", checkSessionExist, exportBookingReport);
-  router$4.get(
+  router$5.get("/getEventHomeDataById", checkSessionExist, getEventHomeDataById);
+  router$5.get("/exportBookingReport", checkSessionExist, exportBookingReport);
+  router$5.get(
     "/exportReservationReport",
     checkSessionExist,
     exportReservationReport
   );
 
   // POST Routes
-  router$4.post(
+  router$5.post(
     "/resend-ticket-customer",
     checkSessionExist,
     resendTicketCustomer
   );
 
-  return router$4;
+  return router$5;
 }
 
 async function addEdtUser(req, res) {
@@ -6291,16 +6286,16 @@ async function getUserList(req, res) {
   }
 }
 
-const router$3 = Router();
+const router$4 = Router();
 
 function UserRoutes() {
   // POST Routes
-  router$3.post("/add-edit-users", checkSessionExist, addEdtUser);
+  router$4.post("/add-edit-users", checkSessionExist, addEdtUser);
 
   // GET Routes
-  router$3.get("/getuserlist", checkSessionExist, getUserList);
+  router$4.get("/getuserlist", checkSessionExist, getUserList);
 
-  return router$3;
+  return router$4;
 }
 
 async function getTransactionByCode(req, res) {
@@ -8073,122 +8068,122 @@ async function downloadTicket(req, res) {
   }
 }
 
-const router$2 = Router();
+const router$3 = Router();
 
 function WebsiteRoutes() {
   // GET Routes
-  router$2.get("/getCountryList", checkWebsiteSessionExist, getCountryList);
-  router$2.get("/getBannerList", checkWebsiteSessionExist, getBannerList);
-  router$2.get("/getLanguageList", checkWebsiteSessionExist, getLanguageList);
-  router$2.get("/getEventList", checkWebsiteSessionExist, getActiveEventList);
-  router$2.get(
+  router$3.get("/getCountryList", checkWebsiteSessionExist, getCountryList);
+  router$3.get("/getBannerList", checkWebsiteSessionExist, getBannerList);
+  router$3.get("/getLanguageList", checkWebsiteSessionExist, getLanguageList);
+  router$3.get("/getEventList", checkWebsiteSessionExist, getActiveEventList);
+  router$3.get(
     "/getEventListById/:event_id",
     checkWebsiteSessionExist,
     getEventList
   );
-  router$2.get("/getCustomerDetail", checkWebsiteSessionExist, getCustomer);
-  router$2.get(
+  router$3.get("/getCustomerDetail", checkWebsiteSessionExist, getCustomer);
+  router$3.get(
     "/getReservationDetails/:reservation_id",
     checkWebsiteSessionExist,
     getReservationSeat
   );
-  router$2.get(
+  router$3.get(
     "/resetReserveTimer/:reservation_id",
     checkWebsiteSessionExist,
     resetReserveTime
   );
-  router$2.get(
+  router$3.get(
     "/seatRelease/:reservation_id",
     checkWebsiteSessionExist,
     releaseSeats
   );
-  router$2.get(
+  router$3.get(
     "/getAllBlockedSeatsBySchedule/:event_sch_id",
     checkWebsiteSessionExist,
     allReserveSeatBySchedule
   );
-  router$2.get(
+  router$3.get(
     "/getTransactionByCode/:booking_code",
     checkWebsiteSessionExist,
     getTransactionByCode
   );
-  router$2.get(
+  router$3.get(
     "/get-event-extraInfoList/:event_id",
     checkWebsiteSessionExist,
     getEventExtraInfoList
   );
-  router$2.get(
+  router$3.get(
     "/getCustomerPassById",
     checkWebsiteSessionExist,
     getCustomerPassById
   );
-  router$2.get(
+  router$3.get(
     "/getCustomerPassHistory/:customer_id",
     checkWebsiteSessionExist,
     getCustomerPassHistory
   );
-  router$2.get(
+  router$3.get(
     "/getCustomerTicketHistory/:customer_id",
     checkWebsiteSessionExist,
     getCustomerTicketHistory
   );
-  router$2.get("/getcinemalist", checkWebsiteSessionExist, getCinemaList);
-  router$2.get("/getPassList", checkWebsiteSessionExist, getPassList);
-  router$2.get("/getPassById/:pass_id", checkWebsiteSessionExist, getPassList);
-  router$2.get("/reservePass/:pass_id", checkWebsiteSessionExist, reservePass);
-  router$2.get(
+  router$3.get("/getcinemalist", checkWebsiteSessionExist, getCinemaList);
+  router$3.get("/getPassList", checkWebsiteSessionExist, getPassList);
+  router$3.get("/getPassById/:pass_id", checkWebsiteSessionExist, getPassList);
+  router$3.get("/reservePass/:pass_id", checkWebsiteSessionExist, reservePass);
+  router$3.get(
     "/getPassReservationDetails/:reservation_id",
     checkWebsiteSessionExist,
     getReservePassDetails
   );
 
   // POST Routes
-  router$2.post("/signup-customer", checkWebsiteSessionExist, addWebCustomer);
-  router$2.post("/verify-otp", checkWebsiteSessionExist, verifyOTPAndUpdateUser);
+  router$3.post("/signup-customer", checkWebsiteSessionExist, addWebCustomer);
+  router$3.post("/verify-otp", checkWebsiteSessionExist, verifyOTPAndUpdateUser);
 
-  router$2.post("/signIn", checkWebsiteSessionExist, customerSignIn);
+  router$3.post("/signIn", checkWebsiteSessionExist, customerSignIn);
 
-  router$2.post("/reserveSeats", checkWebsiteSessionExist, addReservationSeat);
-  router$2.post(
+  router$3.post("/reserveSeats", checkWebsiteSessionExist, addReservationSeat);
+  router$3.post(
     "/reserveSeatsIo",
     checkWebsiteSessionExist,
     addReservationSeatsIo
   );
-  router$2.post(
+  router$3.post(
     "/reserveSeats-no-sl",
     checkWebsiteSessionExist,
     addReservationSeatWithoutSeatlayout
   );
-  router$2.post("/guestCheckout", checkWebsiteSessionExist, addEditGuest);
-  router$2.post("/customerSubscribe", checkWebsiteSessionExist, addSubscriber);
-  router$2.post(
+  router$3.post("/guestCheckout", checkWebsiteSessionExist, addEditGuest);
+  router$3.post("/customerSubscribe", checkWebsiteSessionExist, addSubscriber);
+  router$3.post(
     "/applyVoucher/:reservation_id",
     checkWebsiteSessionExist,
     applyVoucher
   );
-  router$2.post(
+  router$3.post(
     "/removeVoucher/:reservation_id",
     checkWebsiteSessionExist,
     removeVoucher
   );
-  router$2.post(
+  router$3.post(
     "/removePass/:reservation_id",
     checkWebsiteSessionExist,
     removePass
   );
-  router$2.post(
+  router$3.post(
     "/applyPass/:reservation_id",
     checkWebsiteSessionExist,
     applyPass
   );
 
-  router$2.get(
+  router$3.get(
     "/downloadTicket/:booking_code",
 
     downloadTicket
   );
 
-  return router$2;
+  return router$3;
 }
 
 async function createTransation(req, res) {
@@ -9024,12 +9019,12 @@ async function payonePaymentCheckout(req, res) {
         : 1;
 
       //check for voucher discount here
-      if (z.voucher_applied == "Y") {
+      if (z?.voucher_applied == "Y") {
         totalAmount -= parseFloat(z.voucher_discount_amount || 0);
       }
 
       //check for pass discount here
-      if (z.pass_applied == "Y") {
+      if (z?.pass_applied == "Y") {
         totalAmount -= parseFloat(z.pass_discount_amount || 0);
       }
     });
@@ -9067,7 +9062,15 @@ async function payonePaymentCheckout(req, res) {
     }
 
     const paymentCurrencyIso = paymentCurrencyData[0].curr_iso;
+    const [BACKEND_URL] = await global
+      .knexConnection("global_options")
+      .where({ go_key: "BASE_URL_BACKEND" });
 
+    if (!BACKEND_URL) {
+      throw new Error("Backend URL not found");
+    }
+
+    const BASEURL = BACKEND_URL.go_value;
     // Create payment object
     const redirectUrl = `${BASEURL}/payment/confirmPayonePayment?reservation_id_token=${reservation_id}///${webtoken}`;
     const PaymentObject = {
@@ -9077,7 +9080,11 @@ async function payonePaymentCheckout(req, res) {
       MerchantID: MERCHANT_ID,
       MessageID: 1,
       ResponseBackURL: redirectUrl,
-      TransactionID: "RESERVEID" + reservation_id,
+      TransactionID:
+        "RESERVEID" +
+        reservation[0].r_id +
+        Math.floor(Math.random() * 900) +
+        100,
     };
 
     // Generate hash code for security
@@ -10341,58 +10348,449 @@ async function cinemaainFreePaymentCheckout(req, res) {
   }
 }
 
-const router$1 = Router();
+const router$2 = Router();
 
 function PaymentAndBookingRoutes() {
   // TapPay Routes
-  router$1.post(
+  router$2.post(
     "/tapPaymentCheckout",
     checkWebsiteSessionExist,
     tapPaymentCheckout
   );
-  router$1.get("/confirmTapPayment", confirmTapPayment);
+  router$2.get("/confirmTapPayment", confirmTapPayment);
 
   // Payone Routes
-  router$1.post(
+  router$2.post(
     "/payonePaymentCheckout",
     checkWebsiteSessionExist,
     payonePaymentCheckout
   );
-  router$1.post("/confirmPayonePayment", confirmPayonePayment);
-  router$1.post(
+  router$2.post("/confirmPayonePayment", confirmPayonePayment);
+  router$2.post(
     "/payonePassPaymentCheckout",
     checkWebsiteSessionExist,
     payonePassPaymentCheckout
   );
-  router$1.post("/confirmPassPayonePayment", confirmPassPayonePayment);
+  router$2.post("/confirmPassPayonePayment", confirmPassPayonePayment);
 
   //MPgs or network payment
 
-  router$1.post(
+  router$2.post(
     "/mpgsPaymentCheckout",
     checkWebsiteSessionExist,
     mpgsPaymentCheckout
   );
 
-  router$1.post(
+  router$2.post(
     "/cinemaainFreePaymentCheckout",
     checkWebsiteSessionExist,
     cinemaainFreePaymentCheckout
   );
 
-  router$1.get("/confirmMpgsPayment", confirmMpgsPayment);
+  router$2.get("/confirmMpgsPayment", confirmMpgsPayment);
 
   // Other Payment Linked Routes
-  router$1.post(
+  router$2.post(
     "/createTransation/:reservation_id",
     checkWebsiteSessionExist,
     createTransation
   );
-  router$1.post(
+  router$2.post(
     "/createPassTransation/:reservation_id",
     checkWebsiteSessionExist,
     createPassTransation
   );
+
+  return router$2;
+}
+
+async function addEditShopCategory(req, res) {
+  let reqbody = req.body;
+  const { user_info } = req;
+  const { category_id, category_name, category_is_active } = reqbody;
+  const isUpdate = category_id ? true : false;
+  let checkFields = [];
+  if (isUpdate) {
+    checkFields = ["category_name"];
+  } else {
+    checkFields = ["category_name"];
+  }
+
+  try {
+    let result = await checkValidation(checkFields, reqbody);
+    if (!result.status) {
+      return sendResponse(res, 400, "Invalid Request Data", result);
+    }
+
+    let checkUserExist = await global
+      .knexConnection("shop_categories")
+      .select(["category_name"])
+
+      .where((builder) => {
+        builder.where({ category_name });
+      })
+      .andWhere((builder) => {
+        if (isUpdate) {
+          builder.whereNotIn("category_id", [category_id]);
+        }
+      });
+
+    if (checkUserExist.length) {
+      return sendResponse(res, 400, "User Already Exist");
+    } else {
+      let obj = {
+        category_name: category_name || null,
+        category_is_active: category_is_active || null,
+
+        ...dataReturnUpdate(user_info, isUpdate),
+      };
+
+      if (isUpdate) {
+        await global
+          .knexConnection("shop_categories")
+          .update(obj)
+          .where({ category_id });
+      } else {
+        await global.knexConnection("shop_categories").insert(obj);
+      }
+
+      return sendResponse(res, 200, "Category Created Successfully");
+    }
+  } catch (error) {
+    return sendResponse(
+      res,
+      500,
+      "An unexpected error occurred in addEditShopCategory",
+      error
+    );
+  }
+}
+
+async function getShopCategory(req, res) {
+  try {
+    const { query: reqbody, user_info } = req;
+    const {
+      category_id,
+      category_is_active = "Y",
+      limit = 100,
+      currentPage = 1,
+      search,
+    } = reqbody;
+    const isWebsiteUser = req.is_website_user || false;
+
+    const itemList = await global
+      .knexConnection("shop_categories")
+
+      .where((builder) => {
+        if (category_id)
+          builder.where("shop_categories.category_id", "=", category_id);
+        if (category_is_active)
+          builder.where("category_is_active", "=", category_is_active);
+        if (search) {
+          builder.whereRaw(
+            `concat_ws(' ', category_name, category_name) LIKE ?`,
+            [`%${search}%`]
+          );
+        }
+      })
+      .orderBy("shop_categories.category_id", "desc")
+      .paginate(pagination(limit, currentPage));
+
+    return sendResponse(res, 200, "Shop Category List Retrieved Successfully", {
+      Records: itemList,
+    });
+  } catch (error) {
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while fetching the category list.",
+      error
+    );
+  }
+}
+async function addEdtShopItems(req, res) {
+  let reqbody = req.body;
+  const { user_info } = req;
+  const {
+    item_name,
+    item_unique_code,
+    item_short_description,
+    item_long_description,
+    item_price,
+    item_category_id,
+    item_min_quantity,
+    item_max_quantity,
+    item_total_quantity,
+    item_image,
+    item_is_active,
+    item_id,
+    item_order,
+  } = reqbody;
+  const isUpdate = item_id ? true : false;
+  let checkFields = [];
+  if (isUpdate) {
+    checkFields = [
+      "item_name",
+      "item_short_description",
+      // "item_long_description",
+      "item_price",
+      "item_category_id",
+      "item_min_quantity",
+      "item_max_quantity",
+      "item_total_quantity",
+      "item_image",
+      "item_is_active",
+      "item_unique_code",
+    ];
+  } else {
+    checkFields = [
+      "item_name",
+      "item_short_description",
+      // "item_long_description",
+      "item_price",
+      "item_category_id",
+      "item_min_quantity",
+      "item_max_quantity",
+      "item_total_quantity",
+      "item_image",
+      "item_is_active",
+      "item_unique_code",
+    ];
+  }
+
+  try {
+    let result = await checkValidation(checkFields, reqbody);
+    if (!result.status) {
+      return sendResponse(res, 400, "Invalid Request Data", result);
+    }
+
+    let checkUserExist = await global
+      .knexConnection("shop_items")
+      .select(["item_name"])
+      .where((builder) => {
+        builder.where({ item_name: item_name });
+        builder.orWhere({ item_unique_code: item_unique_code });
+      })
+      .andWhere((builder) => {
+        if (isUpdate) {
+          builder.whereNotIn("item_id", [item_id]);
+        }
+      });
+
+    if (checkUserExist.length) {
+      return sendResponse(res, 400, "Item Already Exist");
+    } else {
+      let obj = {
+        item_name: item_name || null,
+        item_short_description: item_short_description || null,
+        item_long_description: item_long_description || null,
+        item_price: item_price || 0,
+        item_category_id: item_category_id || null,
+        item_min_quantity: item_min_quantity || 1,
+        item_max_quantity: item_max_quantity || 10,
+        item_total_quantity: item_total_quantity || 0,
+
+        item_image: item_image || null,
+        item_is_active: item_is_active || "Y",
+        item_unique_code: item_unique_code || null,
+        item_order: item_order || null,
+        ...dataReturnUpdate(user_info, isUpdate),
+      };
+
+      if (isUpdate) {
+        await global
+          .knexConnection("shop_items")
+          .update(obj)
+          .where({ item_id });
+      } else {
+        await global.knexConnection("shop_items").insert(obj);
+      }
+
+      return sendResponse(res, 200, "Item Created Successfully");
+    }
+  } catch (error) {
+    return sendResponse(
+      res,
+      500,
+      "An unexpected error occurred in addEdtShopItems",
+      error
+    );
+  }
+}
+
+async function getShopItems(req, res) {
+  try {
+    const { query: reqbody, user_info } = req;
+    const {
+      item_id,
+      item_is_active = "Y",
+      limit = 100,
+      currentPage = 1,
+      search,
+    } = reqbody;
+    const isWebsiteUser = req.is_website_user || false;
+
+    const itemList = await global
+      .knexConnection("shop_items")
+
+      .where((builder) => {
+        if (item_id) builder.where("shop_items.item_id", "=", item_id);
+        if (item_is_active)
+          builder.where("item_is_active", "=", item_is_active);
+        if (search) {
+          builder.whereRaw(`concat_ws(' ', item_name, item_name) LIKE ?`, [
+            `%${search}%`,
+          ]);
+        }
+      })
+      .orderBy("shop_items.item_id", "desc")
+      .paginate(pagination(limit, currentPage));
+
+    return sendResponse(res, 200, "Shop Item List Retrieved Successfully", {
+      Records: itemList,
+    });
+  } catch (error) {
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while fetching the item list.",
+      error
+    );
+  }
+}
+
+async function reserveShopItems(req, res) {
+  try {
+    const { reservation_id, items_array } = {
+      ...req.body,
+      ...req.query,
+      ...req.params,
+    };
+
+    if (!reservation_id) {
+      return sendResponse(res, 400, "Reservation id is required");
+    }
+
+    if (!items_array || items_array.length === 0) {
+      return sendResponse(res, 400, "Items array is required");
+    }
+
+    for (let i of items_array) {
+      if (!i.item_id) {
+        return sendResponse(res, 400, "Item id is required");
+        break;
+      }
+
+      const checkItem = await global
+        .knexConnection("shop_items")
+        .where({ item_id: i.item_id })
+        .first();
+
+      if (!checkItem) {
+        return sendResponse(res, 400, "Invalid item id");
+        break;
+      }
+
+      if (!i.item_quantity) {
+        return sendResponse(res, 400, "Item quantity is required");
+        break;
+      }
+
+      await global.knexConnection("reserve_shop_items").insert({
+        reservation_id,
+        item_id: i.item_id,
+        item_quantity: i.item_quantity,
+        item_price: checkItem.item_price,
+      });
+    }
+
+    return sendResponse(res, 200, "Shop Item Reserved Successfully", null);
+  } catch (error) {
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while reserving the item.",
+      error
+    );
+  }
+}
+
+async function directShop(req, res) {
+  try {
+    const { items_array } = {
+      ...req.body,
+      ...req.query,
+      ...req.params,
+    };
+
+    if (!items_array || items_array.length === 0) {
+      return sendResponse(res, 400, "Items array is required");
+    }
+
+    const reservation_id = v4();
+
+    const reservationData = {
+      reservation_id,
+    };
+
+    await global.knexConnection("ms_reservation").insert(reservationData);
+
+    for (let i of items_array) {
+      if (!i.item_id) {
+        return sendResponse(res, 400, "Item id is required");
+        break;
+      }
+
+      const checkItem = await global
+        .knexConnection("shop_items")
+        .where({ item_id: i.item_id })
+        .first();
+
+      if (!checkItem) {
+        return sendResponse(res, 400, "Invalid item id");
+        break;
+      }
+
+      if (!i.item_quantity) {
+        return sendResponse(res, 400, "Item quantity is required");
+        break;
+      }
+
+      await global.knexConnection("reserve_shop_items").insert({
+        reservation_id,
+        item_id: i.item_id,
+        item_quantity: i.item_quantity,
+        item_price: checkItem.item_price,
+      });
+    }
+
+    return sendResponse(res, 200, "Shop Item Reserved Successfully", null);
+  } catch (error) {
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while reserving the item.",
+      error
+    );
+  }
+}
+
+const router$1 = Router();
+
+function ShopRoutes() {
+  // POST Routes
+  router$1.post("/add-edit-shopitems", checkSessionExist, addEdtShopItems);
+  router$1.post(
+    "/add-edit-shopCategories",
+    checkSessionExist,
+    addEditShopCategory
+  );
+
+  // GET Routes
+  router$1.get("/get-shopitems", getShopItems);
+  router$1.get("/get-shopCategory", getShopCategory);
+  router$1.post("/reserve-shop-items:reservation_id", reserveShopItems);
+  router$1.post("/direct-shop", directShop);
 
   return router$1;
 }
@@ -10407,6 +10805,7 @@ const adminRoutes = [
   EventRoutes,
   ReportRoutes,
   PassRoutes,
+  ShopRoutes,
 ];
 const router = Router();
 
@@ -10422,6 +10821,7 @@ function RootRouter() {
 
   // Register all website routes
   router.use("/api", WebsiteRoutes());
+  router.use("/shop", ShopRoutes());
 
   // Register all payments routes
   router.use("/payment", PaymentAndBookingRoutes());
@@ -10485,7 +10885,7 @@ async function startServer() {
       globalOptions.map((row) => [row.go_key, row.go_value])
     );
 
-    import('./index-BNBqCT02.js');
+    import('./index-C08pTiYk.js');
 
     httpServer.listen(EXPRESS_PORT, () => {
       console.log(`Server running on port ${EXPRESS_PORT}`);
@@ -10498,5 +10898,3 @@ async function startServer() {
 }
 
 startServer();
-
-export { CreateInvSendTicketEmail$1 as C, winstonLogger as w };
