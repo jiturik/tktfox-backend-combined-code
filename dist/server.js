@@ -6973,6 +6973,33 @@ const getReservationSeat = async (req, res) => {
       obj.backend_api_route = apiRoute.PAYMENT_API_ROUTE;
     }
 
+    // get reserved shop items
+
+    const getReservedShopItems = await global
+      .knexConnection("reserve_shop_items")
+      .select(
+        "item_quantity",
+        "item_price",
+        "item_id",
+        "shop_items.item_name",
+        "shop_items.item_image"
+      )
+      .join(
+        "shop_items",
+        "reserve_shop_items.item_id",
+        "=",
+        "shop_items.item_id"
+      )
+      .where({ reservation_id })
+      .where({ is_reserved: "Y" });
+
+    if (getReservedShopItems.length > 0) {
+      for (let i of getReservedShopItems) {
+        obj.totalprice +=
+          parseFloat(i.item_price) * parseFloat(i.item_quantity);
+      }
+    }
+
     // Merge event data with the calculated reservation details
     event_data.Records[0] = {
       ...event_data.Records[0],
@@ -6981,6 +7008,7 @@ const getReservationSeat = async (req, res) => {
     return sendResponse(res, 200, "Success", {
       Records: [...event_data.Records],
       getReservationDetail,
+      reservedShopItems: getReservedShopItems,
     });
   } catch (error) {
     return sendResponse(
@@ -10741,12 +10769,6 @@ async function directShop(req, res) {
 
     const reservation_id = v4();
 
-    const reservationData = {
-      reservation_id,
-    };
-
-    await global.knexConnection("ms_reservation").insert(reservationData);
-
     for (let i of items_array) {
       if (!i.item_id) {
         return sendResponse(res, 400, "Item id is required");
@@ -10776,7 +10798,9 @@ async function directShop(req, res) {
       });
     }
 
-    return sendResponse(res, 200, "Shop Item Reserved Successfully", null);
+    return sendResponse(res, 200, "Shop Item Reserved Successfully", {
+      reservation_id: reservation_id,
+    });
   } catch (error) {
     return sendResponse(
       res,
