@@ -10714,7 +10714,7 @@ async function reserveShopItems(req, res) {
     }
 
     const checkReservation = await global
-      .knexConnection("reservations")
+      .knexConnection("ms_reservation")
       .where({ reservation_id })
       .first();
 
