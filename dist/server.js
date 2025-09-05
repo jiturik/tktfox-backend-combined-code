@@ -6989,9 +6989,9 @@ const getReservationSeat = async (req, res) => {
     const getReservedShopItems = await global
       .knexConnection("reserve_shop_items")
       .select(
-        "item_quantity",
-        "item_price",
-        "item_id",
+        "reserve_shop_items.item_quantity",
+        "shop_items.item_price",
+        "reserve_shop_items.item_id",
         "shop_items.item_name",
         "shop_items.item_image"
       )
@@ -7002,7 +7002,7 @@ const getReservationSeat = async (req, res) => {
         "shop_items.item_id"
       )
       .where({ reservation_id })
-      .where({ is_reserved: "Y" });
+      .where({ "reserve_shop_items.is_reserved": "Y" });
 
     if (getReservedShopItems.length > 0) {
       for (let i of getReservedShopItems) {
