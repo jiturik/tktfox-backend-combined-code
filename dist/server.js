@@ -10798,14 +10798,14 @@ async function directShop(req, res) {
       });
     }
 
-    return sendResponse(res, 200, "Shop Item Reserved Successfully", {
+    return sendResponse(res, 200, "Direct Shop Item Reserved Successfully", {
       reservation_id: reservation_id,
     });
   } catch (error) {
     return sendResponse(
       res,
       500,
-      "An error occurred while reserving the item.",
+      "An error occurred while reserving the item in direct shop.",
       error
     );
   }
