@@ -6229,27 +6229,38 @@ async function getUserList(req, res) {
           },
         ],
       },
-      // {
-      //   name: 'Movie Banners',
-      //   subject: 'moviebanners',
-      //   action: [
-      //     {
-      //       text: 'view',
-      //       value: 'read',
-      //       status: false,
-      //     },
-      //     {
-      //       text: 'Add',
-      //       value: 'create',
-      //       status: false,
-      //     },
-      //     {
-      //       text: 'Update',
-      //       value: 'update',
-      //       status: false,
-      //     },
-      //   ],
-      // },
+      {
+        name: "Shop",
+        subject: "itemlist",
+        action: [
+          {
+            text: "view",
+            value: "read",
+            status: false,
+          },
+          {
+            text: "Add",
+            value: "create",
+            status: false,
+          },
+          {
+            text: "Update",
+            value: "update",
+            status: false,
+          },
+        ],
+      },
+      {
+        name: "Shop Order Reports",
+        subject: "orderList",
+        action: [
+          {
+            text: "view",
+            value: "read",
+            status: false,
+          },
+        ],
+      },
       // {
       //   name: 'Organization',
       //   subject: 'organizationlist',
