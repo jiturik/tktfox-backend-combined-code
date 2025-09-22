@@ -19,7 +19,7 @@ import zlib from 'zlib';
 import multer from 'multer';
 import excel from 'exceljs';
 import ejs from 'ejs';
-import pdf from 'html-pdf';
+import 'html-pdf';
 import QRCode from 'qrcode';
 import { SeatsioClient, Region } from 'seatsio';
 import { promisify } from 'util';
@@ -3204,6 +3204,7 @@ async function getBannerList(req, res) {
         "event_short_description",
         "event_image_medium",
         "event_image_large",
+        "event_image_small",
       ])
       .where((builder) => {
         if (b_id) builder.where("b_id", "=", b_id);
@@ -4842,7 +4843,7 @@ const CreateInvSendTicketEmail = async (reqbody) => {
         if (createInvResponse.status) {
           // Attach PDFs to the email
           for (const file of createInvResponse.data) {
-            const fileData = fs.readFileSync(file.filename);
+            const fileData = fs.readFileSync(file.path);
             emailData.attachments.push({
               filename: file.name,
               content: fileData,
@@ -4914,7 +4915,8 @@ const getSeatsArray = async (seats) => {
 };
 
 const createInvoicePdf = async (emailData) => {
-  const pdfArray = [];
+  let pdfArray = [];
+
   return new Promise(async (resolve, reject) => {
     if (!emailData.seats) {
       return reject({
@@ -4922,6 +4924,7 @@ const createInvoicePdf = async (emailData) => {
         message: "Seats data is missing",
       });
     }
+
     let seatsArray = emailData.seats.split(",");
     if (emailData.event_seating_type === "N") {
       seatsArray = await getSeatsArray(seatsArray);
@@ -4931,41 +4934,69 @@ const createInvoicePdf = async (emailData) => {
       }
     }
 
-    for (const seat of seatsArray) {
-      emailData.seats = seat;
-      const templatePath =
-        seat === "INV"
-          ? path.join(global.__base, "/modules/templetes/ticketInvoice.ejs")
-          : path.join(global.__base, "/modules/templetes/confirmTicket.ejs");
-      const invoiceTemplate = fs.readFileSync(templatePath, "utf8");
-
-      const invHtml = await ejs.render(invoiceTemplate, { emailData });
-      const options = { format: "A4", orientation: "portrait" };
-      const fileName = `${emailData.booking_code}-${seat}.pdf`;
-      const filePath = path.join(
-        global.__base,
-        "/public/uploads/ticketInvoice",
-        fileName
-      );
-
-      if (!fs.existsSync(path.dirname(filePath))) {
-        fs.mkdirSync(path.dirname(filePath), { recursive: true });
-      }
-
-      pdf.create(invHtml, options).toFile(filePath, (err, data) => {
-        if (err) {
-          reject({ status: false, message: "Error in createInvoicePdf" });
-        } else {
-          data.name = fileName;
-          pdfArray.push(data);
-          if (pdfArray.length === seatsArray.length) {
-            resolve({ status: true, message: "PDFs created", data: pdfArray });
-          }
-        }
+    try {
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
       });
+      const page = await browser.newPage();
+
+      for (const seat of seatsArray) {
+        emailData.seats = seat;
+
+        const templatePath =
+          seat === "INV"
+            ? path.join(global.__base, "/modules/templetes/ticketInvoice.ejs")
+            : path.join(global.__base, "/modules/templetes/confirmTicket.ejs");
+
+        const invoiceTemplate = fs.readFileSync(templatePath, "utf8");
+        const invHtml = await ejs.render(invoiceTemplate, { emailData });
+
+        const options = {
+          format: "A4",
+          landscape: false,
+          printBackground: true,
+        };
+
+        const fileName = `${emailData.booking_code}-${seat}.pdf`;
+        const filePath = path.join(
+          global.__base,
+          "/public/uploads/ticketInvoice",
+          fileName
+        );
+
+        if (!fs.existsSync(path.dirname(filePath))) {
+          fs.mkdirSync(path.dirname(filePath), { recursive: true });
+        }
+
+        await page.setContent(invHtml, { waitUntil: "networkidle0" });
+        const pdfBuffer = await page.pdf(options);
+
+        fs.writeFileSync(filePath, pdfBuffer);
+
+        pdfArray.push({ name: fileName, path: filePath });
+
+        if (pdfArray.length === seatsArray.length) {
+          console.log("PDFs created");
+          await browser.close();
+          return resolve({
+            status: true,
+            message: "PDFs created",
+            data: pdfArray,
+          });
+        }
+      }
+    } catch (err) {
+      console.log("Error in createInvoicePdf fn", err);
+      reject({ status: false, message: "Error in createInvoicePdf" });
     }
   });
 };
+
+var CreateInvSendTicketEmail$1 = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  CreateInvSendTicketEmail: CreateInvSendTicketEmail
+});
 
 async function getTransactionList(req, res) {
   try {
@@ -8772,6 +8803,16 @@ async function tapPaymentCheckout(req, res) {
       );
     }
 
+    if (
+      event_data[0].event_booking_fees &&
+      event_data[0].event_booking_fees > 0 &&
+      totalAmount > 0
+    ) {
+      let booking_fee_value =
+        (parseFloat(event_data[0].event_booking_fees) / 100) * totalAmount;
+      totalAmount = totalAmount + booking_fee_value;
+    }
+
     // Prepare the payment request object
     const tapPaymentObject = {
       amount: totalAmount.toFixed(2),
@@ -8811,7 +8852,7 @@ async function tapPaymentCheckout(req, res) {
     };
 
     // Make the API request to TapPay
-    const response = await axios.request(config);
+    const response = await axios$1.request(config);
 
     // Handle customer verification and insert payment details
     let currentDateTimeNew = currentDateTime(
@@ -8899,7 +8940,7 @@ async function confirmTapPayment(req, res) {
     }
 
     // Make the API request to TapPay to get payment status
-    const paymentStatusResponse = await axios.get(`${URL}/${tap_id}`, {
+    const paymentStatusResponse = await axios$1.get(`${URL}/${tap_id}`, {
       headers: {
         Authorization: `Bearer ${PAYTAP_SECRET_KEY}`,
         Accept: "application/json",
@@ -8924,7 +8965,7 @@ async function confirmTapPayment(req, res) {
         .where({ go_key: "BASE_URL_BACKEND" });
 
       const BASEURL = BACKEND_URL.go_value;
-      const transactionResponse = await axios.post(
+      const transactionResponse = await axios$1.post(
         `${BASEURL}/payment/createTransation/${reservation_id}`,
         {},
         { headers: { Authorization: event_token } }
@@ -10979,7 +11020,7 @@ async function startServer() {
       globalOptions.map((row) => [row.go_key, row.go_value])
     );
 
-    import('./index-C08pTiYk.js');
+    import('./index-BNBqCT02.js');
 
     httpServer.listen(EXPRESS_PORT, () => {
       console.log(`Server running on port ${EXPRESS_PORT}`);
@@ -10992,3 +11033,5 @@ async function startServer() {
 }
 
 startServer();
+
+export { CreateInvSendTicketEmail$1 as C, winstonLogger as w };
