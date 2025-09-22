@@ -4,9 +4,11 @@
 <style>
 </style>
 <body>
-<p>Hello <%= emailData.c_name %>,</p>
-<p> Attached is your ticket<%= emailData.invoice_content %>for the upcoming event <b><%= emailData.event_name %></b>, which will take place on <b><%= emailData.event_date_body %></b> at <b><%= emailData.event_time_body %> </b>, at <b><%= emailData.cinema_name %>,<%= emailData.city_name %></b>. </p>
-<p>Thank you for using <%= emailData.client_name %>, we hope you enjoy the show!</p>
+<p>Hi <%= emailData.c_name %>,</p>
+<p> We’re so excited to see you soon. Attached is your ticket to <b><%= emailData.event_name %></b>, on <b><%= emailData.event_date_body %></b> at <b><%= emailData.event_time_body %> </b></p>
+<p>The location is linked in your ticket.</p>
+<p>Thanks for supporting <%= emailData.client_name %>, and being part of the community we love.</p>
 </body>
 </html>
+
 
