@@ -21,6 +21,7 @@ import excel from 'exceljs';
 import ejs from 'ejs';
 import 'html-pdf';
 import QRCode from 'qrcode';
+import puppeteer from 'puppeteer';
 import { SeatsioClient, Region } from 'seatsio';
 import { promisify } from 'util';
 import archiver from 'archiver';
@@ -11020,7 +11021,7 @@ async function startServer() {
       globalOptions.map((row) => [row.go_key, row.go_value])
     );
 
-    import('./index-BNBqCT02.js');
+    import('./index-DgRUpW5q.js');
 
     httpServer.listen(EXPRESS_PORT, () => {
       console.log(`Server running on port ${EXPRESS_PORT}`);
