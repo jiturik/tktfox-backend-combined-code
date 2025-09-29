@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.createTable("movie_event_pass", (table) => {
     table.increments("pass_id").primary();

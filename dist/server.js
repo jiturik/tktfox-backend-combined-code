@@ -765,8 +765,7 @@ async function getCinemaList(req, res) {
     }
   }
 
-  let cinema_is_active =
-    reqbody.isMaster && reqbody.isMaster === "Y" ? null : "Y";
+  let cinema_is_active = isWebsiteUser ? "Y" : null;
 
   try {
     // Build query dynamically with filters
@@ -8995,7 +8994,7 @@ async function confirmTapPayment(req, res) {
       return res.redirect(failed_frontend_url);
     }
   } catch (error) {
-    winstonLogger.error("Error in payonePayment.js 2:", error);
+    winstonLogger.error("Error in tapPayment.js 2:", error);
     console.error("Error in confirmTapPayment:", error);
 
     // If an error occurs, update payment capture and redirect to failure URL

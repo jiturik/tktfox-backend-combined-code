@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.alterTable("ms_payment_mode", (table) => {
     table.string("backend_api_route").nullable();

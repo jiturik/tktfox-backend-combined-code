@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.createTable("event_manual_blocked_seats", (table) => {
     table.increments("block_id").primary();

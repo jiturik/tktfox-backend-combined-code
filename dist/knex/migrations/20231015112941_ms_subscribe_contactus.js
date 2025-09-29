@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.alterTable("ms_subscriber", (table) => {
     table.string("subscriber_name").after("subscriber_email").defaultTo(null);

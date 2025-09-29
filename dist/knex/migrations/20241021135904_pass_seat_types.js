@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.createTable("pass_seat_types", (table) => {
     table.increments("psct_id").primary();

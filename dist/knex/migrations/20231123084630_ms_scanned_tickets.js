@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.createTable("ms_scanned_tickets", (table) => {
     table.increments("scan_id").primary();

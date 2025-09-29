@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.alterTable("ms_booking", (table) => {
     table.enu("ticket_sent", ["Y", "N"]).defaultTo("N");

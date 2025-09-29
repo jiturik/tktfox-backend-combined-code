@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.alterTable("ms_booking", (table) => {
     table.integer("customer_id").after("is_guest").defaultTo(0);

@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.createTable("ms_event_extra_info", (table) => {
     table.increments("extra_info_id").primary();

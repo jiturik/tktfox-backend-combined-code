@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.alterTable("ms_pass_reservation", (table) => {
     table.float("pass_tax_percent").defaultTo(0);

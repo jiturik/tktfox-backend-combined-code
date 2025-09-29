@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.createTable("ms_reserve_pass", (table) => {
     table.increments("pass_r_id").primary();

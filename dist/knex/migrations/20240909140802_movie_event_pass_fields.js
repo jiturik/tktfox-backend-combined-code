@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.alterTable("movie_event_pass", (table) => {
     table.float("pass_amount").defaultTo(0).after("pass_validity_to");

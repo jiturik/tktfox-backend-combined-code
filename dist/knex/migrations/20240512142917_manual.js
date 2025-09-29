@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   // await knex.schema.dropTable('event_manual_blocked_seats');
   // await knex.schema.createTable('event_manual_blocked_seats', table => {

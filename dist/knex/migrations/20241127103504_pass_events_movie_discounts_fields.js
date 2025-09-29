@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.alterTable("pass_event_movie_discount", (table) => {
     table.integer("pass_id");

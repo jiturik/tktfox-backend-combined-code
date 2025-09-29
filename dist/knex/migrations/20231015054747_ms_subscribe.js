@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.createTable("ms_subscriber", (table) => {
     table.increments("subscriber_id").primary();

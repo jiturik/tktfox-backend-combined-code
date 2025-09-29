@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.alterTable("ms_reservation", (table) => {
     table.enu("voucher_applied", ["Y", "N"]).defaultTo(null);

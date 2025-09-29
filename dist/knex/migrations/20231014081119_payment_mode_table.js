@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.createTable("ms_payment_mode", (table) => {
     table.increments("pm_id").primary();

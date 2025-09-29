@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.alterTable("users", (table) => {
     table.integer("org_id").nullable();

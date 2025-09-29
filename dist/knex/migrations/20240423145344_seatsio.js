@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.raw(
     `ALTER TABLE ms_reservation 

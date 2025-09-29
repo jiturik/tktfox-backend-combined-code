@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.alterTable("ms_reservation", (table) => {
     table.string("voucher_code").after("voucher_applied").nullable();

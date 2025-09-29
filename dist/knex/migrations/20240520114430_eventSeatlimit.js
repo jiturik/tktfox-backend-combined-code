@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.alterTable("ms_event", (table) => {
     table.integer("selectable_max_seats").defaultTo(1);

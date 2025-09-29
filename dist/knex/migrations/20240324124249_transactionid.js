@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.alterTable("ms_payment_booking_detail", (table) => {
     table.string("payment_transaction_id").nullable();

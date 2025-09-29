@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.createTable("organization_setting", (table) => {
     table.increments("setting_id").primary();

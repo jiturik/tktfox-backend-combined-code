@@ -1,5 +1,3 @@
-import 'knex';
-
 async function up(knex) {
   await knex.schema.alterTable("ms_seat_layout", (table) => {
     table.enu("sl_is_active", ["Y", "N"]).defaultTo("Y");
