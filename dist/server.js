@@ -8,6 +8,7 @@ import jwt_token from 'jsonwebtoken';
 import winston from 'winston';
 import path, { dirname } from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { v4 } from 'uuid';
 import bcrypt from 'bcryptjs';
 import moment$1 from 'moment';
@@ -27,25 +28,44 @@ import { promisify } from 'util';
 import archiver from 'archiver';
 import { createHash } from 'crypto';
 import axios$1 from 'axios';
-import { fileURLToPath } from 'url';
 import { KnexConnection } from './knex/knex.js';
 import 'ioredis';
 import 'knex';
 import 'knex-paginate';
 import 'dotenv';
 
+// Fix __dirname for ES Modules
+const __filename$1 = fileURLToPath(import.meta.url);
+const __dirname$1 = path.dirname(__filename$1);
+
 // Ensure the logs directory exists
-const logsDir = path.resolve("src/winston-logs");
+const logsDir = path.resolve(__dirname$1, "winston-logs");
 if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir);
+  fs.mkdirSync(logsDir, { recursive: true });
 }
 
 // Function to get the log file name for the current month
 const getLogFileName = () => {
   const now = new Date();
   const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed
+  const month = String(now.getMonth() + 1).padStart(2, "0");
   return `logs-${year}-${month}.log`;
+};
+
+// Safe stringify function to handle circular references
+const safeStringify = (obj) => {
+  const seen = new WeakSet();
+  try {
+    return JSON.stringify(obj, function (key, value) {
+      if (typeof value === "object" && value !== null) {
+        if (seen.has(value)) return "[Circular]";
+        seen.add(value);
+      }
+      return value;
+    });
+  } catch {
+    return String(obj);
+  }
 };
 
 // Create and configure the logger
@@ -55,27 +75,30 @@ const logger = winston.createLogger({
     winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
     winston.format.printf(
       (info) =>
-        `${info.timestamp} [${info.level.toUpperCase()}]: ${info.message}`
+        `${info.timestamp} [${info.level.toUpperCase()}]: ${safeStringify(
+          info.message
+        )}`
     )
   ),
   transports: [
-    // Log to console
     new winston.transports.Console(),
-    // Log to file
     new winston.transports.File({
       filename: path.join(logsDir, getLogFileName()),
-      maxsize: 5 * 1024 * 1024, // 5MB max size per file
-      maxFiles: 12, // Retain logs for up to 12 months
+      maxsize: 5 * 1024 * 1024,
+      maxFiles: 12,
     }),
   ],
 });
 
-// Utility function to log messages
+// Utility function to stringify both message and error
+const formatLog = (message, error) => safeStringify({ message, error });
+
+// Exported logger utility
 const winstonLogger = {
-  info: (message) => logger.info(message),
-  error: (message, error) => logger.error(message + ": " + error),
-  warn: (message) => logger.warn(message),
-  debug: (message) => logger.debug(message),
+  info: (message) => logger.info(safeStringify(message)),
+  warn: (message) => logger.warn(safeStringify(message)),
+  debug: (message) => logger.debug(safeStringify(message)),
+  error: (message, error) => logger.error(formatLog(message, error)),
 };
 
 const sendResponse = (
@@ -11020,7 +11043,7 @@ async function startServer() {
       globalOptions.map((row) => [row.go_key, row.go_value])
     );
 
-    import('./index-DgRUpW5q.js');
+    import('./index-NEn0ZXhF.js');
 
     httpServer.listen(EXPRESS_PORT, () => {
       console.log(`Server running on port ${EXPRESS_PORT}`);
