@@ -29,7 +29,7 @@ import archiver from 'archiver';
 import { createHash } from 'crypto';
 import axios$1 from 'axios';
 import { KnexConnection } from './knex/knex.js';
-import 'ioredis';
+import Redis from 'ioredis';
 import 'knex';
 import 'knex-paginate';
 import 'dotenv';
@@ -680,16 +680,83 @@ function pagination(perPage = 100, currentPage = 1) {
   return paginate;
 }
 
-//keys Used in project
-//redisCache:activeWebsiteEventList
-//redisCache:activeWebsiteEventList
-//redisCache:activeWebsiteBannerList
+// Fetch data from Redis
 const getFromRedis = async (cacheKey) => {
-};
-const storeInRedis = async (key, value, expiration) => {
+  try {
+    const redisOrgKey = process.env.REDIS_CLIENT_NAME;
+    if (!redisOrgKey) {
+      console.log("Redis client name is not set.");
+      return null;
+    }
+
+    if (!global.redisCache) {
+      console.warn("Redis client is not initialized.");
+      return null;
+    }
+
+    const cacheKeyNew = `${redisOrgKey}:${cacheKey}`;
+    const cachedData = await global.redisCache.get(cacheKeyNew);
+
+    if (cachedData) {
+      try {
+        return JSON.parse(cachedData);
+      } catch (parseErr) {
+        winstonLogger.error(
+          `Error parsing cached data for key: ${cacheKeyNew}`,
+          parseErr
+        );
+        return null;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    winstonLogger.error("Error in redisHelper.js (getFromRedis):", error);
+    console.error("Error fetching data from Redis:", error);
+    return null;
+  }
 };
 
+// Store data in Redis
+const storeInRedis = async (key, value, expiration) => {
+  try {
+    const redisOrgKey = process.env.REDIS_CLIENT_NAME;
+    if (!redisOrgKey || !global.redisCache) return;
+
+    const cacheKeyNew = `${redisOrgKey}:${key}`;
+    const stringValue = JSON.stringify(value);
+
+    if (expiration) {
+      await global.redisCache.set(cacheKeyNew, stringValue, "EX", expiration);
+    } else {
+      await global.redisCache.set(cacheKeyNew, stringValue);
+    }
+
+    console.log(`Data stored in Redis: ${cacheKeyNew}`);
+  } catch (err) {
+    winstonLogger.error("Error in redisHelper.js (storeInRedis):", err);
+    console.error("Error storing data in Redis:", err);
+  }
+};
+
+// Remove key from Redis
 const removeFromRedis = async (key) => {
+  try {
+    const redisOrgKey = process.env.REDIS_CLIENT_NAME;
+    if (!redisOrgKey || !global.redisCache) return;
+
+    const cacheKeyNew = `${redisOrgKey}:${key}`;
+    const result = await global.redisCache.del(cacheKeyNew);
+
+    if (result === 1) {
+      console.log(`Data removed from Redis: ${cacheKeyNew}`);
+    } else {
+      console.log(`Key not found in Redis: ${cacheKeyNew}`);
+    }
+  } catch (err) {
+    winstonLogger.error("Error in redisHelper.js (removeFromRedis):", err);
+    console.error("Error removing data from Redis:", err);
+  }
 };
 
 // Add or edit cinema information
@@ -817,7 +884,7 @@ async function getCinemaList(req, res) {
   const isWebsiteUser = req["is_website_user"] || false;
 
   if (isWebsiteUser) {
-    const redisData = await getFromRedis();
+    const redisData = await getFromRedis("websiteCinemaList");
     if (redisData) {
       return sendResponse(res, 200, "Cinema List Fetched From Redis", {
         Records: redisData,
@@ -11044,49 +11111,86 @@ app.use(
   })
 );
 
+const redisConnection = () => {
+  return new Promise((resolve, reject) => {
+    try {
+      const redis = new Redis({
+        host: process.env.REDIS_HOST || "127.0.0.1",
+        port: process.env.REDIS_PORT || 6379,
+        password: process.env.REDIS_PASSWORD || undefined,
+        retryStrategy: (times) => Math.min(times * 50, 2000), // Retry connection on failure
+      });
+
+      redis.on("connect", () => {
+        console.log("Redis connection established.");
+        resolve(redis);
+      });
+
+      redis.on("error", (error) => {
+        winstonLogger.error("Error in redis.js 1:", error);
+        console.error("Redis connection error:", error);
+        resolve(null);
+      });
+    } catch (error) {
+      winstonLogger.error("Error in redis.js 2:", error);
+      console.error("Error initializing Redis connection:", error);
+      resolve(null);
+    }
+  });
+};
+
 const EXPRESS_PORT = process.env.EXPRESS_PORT || 3000;
 const httpServer = http.createServer(app);
 
 async function startServer() {
   try {
+    // Initialize DB
     const db = await KnexConnection();
     global.knexConnection = db;
 
-    // try {
-    //   const redis = await redisConnection();
-    //   if (redis) {
-    //     global.redisCache = redis;
-    //     console.log("Redis connection established.");
-    //   } else {
-    //     global.redisCache = null;
-    //     console.warn("Redis connection failed. Continuing without Redis.");
-    //   }
-    // } catch (redisError) {
-    //   global.redisCache = null;
-    //   console.warn("Redis unavailable:", redisError.message);
-    //   winstonLogger.warn(
-    //     "Redis connection failed, continuing execution.",
-    //     redisError
-    //   );
-    // }
-    global.redisCache = null;
+    // Initialize Redis
+    try {
+      const redis = await redisConnection();
+      if (redis) {
+        global.redisCache = redis;
+        console.log("✅ Redis connection established.");
+      } else {
+        global.redisCache = null;
+        console.warn("⚠️ Redis connection failed. Continuing without Redis.");
+        winstonLogger.warn(
+          "Redis connection returned null, continuing without Redis."
+        );
+      }
+    } catch (redisError) {
+      global.redisCache = null;
+      console.warn("⚠️ Redis unavailable:", redisError.message);
+      winstonLogger.warn(
+        "Redis connection failed, continuing execution.",
+        redisError
+      );
+    }
 
+    // Set global base path
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = dirname(__filename);
     global.__base = __dirname;
 
+    // Load global options
     const globalOptions = await global.knexConnection("global_options");
     global.globalOptions = Object.fromEntries(
       globalOptions.map((row) => [row.go_key, row.go_value])
     );
 
+    // Import cron jobs
     import('./index-NEn0ZXhF.js');
 
+    // Start HTTP server
     httpServer.listen(EXPRESS_PORT, () => {
       console.log(`Server running on port ${EXPRESS_PORT}`);
+      winstonLogger.info(`Server started on port ${EXPRESS_PORT}`);
     });
   } catch (error) {
-    winstonLogger.error("❌ Failed to start server:", error);
+    winstonLogger.error("Failed to start server:", error);
     console.error("Critical error during startup:", error);
     process.exit(1);
   }
