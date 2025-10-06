@@ -5,6 +5,9 @@ import bodyParser from 'body-parser';
 import helmet from 'helmet';
 import { jwtDecode } from 'jwt-decode';
 import jwt_token from 'jsonwebtoken';
+import winston from 'winston';
+import path, { dirname } from 'path';
+import fs from 'fs';
 import { v4 } from 'uuid';
 import bcrypt from 'bcryptjs';
 import moment$1 from 'moment';
@@ -13,8 +16,6 @@ import momentTimeZone from 'moment-timezone';
 import _ from 'lodash';
 import NodeCache from 'node-cache';
 import zlib from 'zlib';
-import path$1, { dirname } from 'path';
-import fs$1 from 'fs';
 import multer from 'multer';
 import excel from 'exceljs';
 import ejs from 'ejs';
@@ -33,10 +34,6 @@ import 'knex';
 import 'knex-paginate';
 import 'dotenv';
 
-const winston = require("winston");
-const path = require("path");
-const fs = require("fs");
-
 // Ensure the logs directory exists
 const logsDir = path.resolve("src/winston-logs");
 if (!fs.existsSync(logsDir)) {
@@ -51,52 +48,34 @@ const getLogFileName = () => {
   return `logs-${year}-${month}.log`;
 };
 
-// Safe stringify function to handle circular references
-const safeStringify = (obj) => {
-  const seen = new WeakSet();
-  try {
-    return JSON.stringify(obj, function (key, value) {
-      if (typeof value === "object" && value !== null) {
-        if (seen.has(value)) return "[Circular]";
-        seen.add(value);
-      }
-      return value;
-    });
-  } catch {
-    return String(obj);
-  }
-};
-
 // Create and configure the logger
 const logger = winston.createLogger({
   level: "info",
   format: winston.format.combine(
     winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
-    winston.format.printf((info) => {
-      return `${info.timestamp} [${info.level.toUpperCase()}]: ${safeStringify(
-        info.message
-      )}`;
-    })
+    winston.format.printf(
+      (info) =>
+        `${info.timestamp} [${info.level.toUpperCase()}]: ${info.message}`
+    )
   ),
   transports: [
+    // Log to console
     new winston.transports.Console(),
+    // Log to file
     new winston.transports.File({
       filename: path.join(logsDir, getLogFileName()),
-      maxsize: 5 * 1024 * 1024,
-      maxFiles: 12,
+      maxsize: 5 * 1024 * 1024, // 5MB max size per file
+      maxFiles: 12, // Retain logs for up to 12 months
     }),
   ],
 });
 
-// Utility function to stringify both message and error
-const formatLog = (message, error) => safeStringify({ message, error });
-
-// Exported logger utility
+// Utility function to log messages
 const winstonLogger = {
-  info: (message) => logger.info(safeStringify(message)),
-  warn: (message) => logger.warn(safeStringify(message)),
-  debug: (message) => logger.debug(safeStringify(message)),
-  error: (message, error) => logger.error(formatLog(message, error)),
+  info: (message) => logger.info(message),
+  error: (message, error) => logger.error(message + ": " + error),
+  warn: (message) => logger.warn(message),
+  debug: (message) => logger.debug(message),
 };
 
 const sendResponse = (
@@ -4093,10 +4072,10 @@ async function cancelBooking(req, res) {
 // Define storage configuration with error handling for directory creation
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path$1.normalize(global.__base + "/public/uploads");
+    const uploadDir = path.normalize(global.__base + "/public/uploads");
     try {
-      if (!fs$1.existsSync(uploadDir)) {
-        fs$1.mkdirSync(uploadDir, { recursive: true });
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
       }
       cb(null, uploadDir);
     } catch (error) {
@@ -4110,7 +4089,7 @@ const storage = multer.diskStorage({
 // Utility for file type validation
 const validateFileType = (file, allowedExtensions, callback) => {
   try {
-    const ext = path$1.extname(file.originalname).toLowerCase();
+    const ext = path.extname(file.originalname).toLowerCase();
     if (!allowedExtensions.includes(ext) && !file.mimetype.includes("image")) {
       return callback(
         `Only the following file types are allowed: ${allowedExtensions.join(
@@ -4217,13 +4196,13 @@ async function uploadImageController(req, res) {
 
       req.file.originalname = sanitizedFileName;
 
-      const targetDirectory = path$1.normalize(
+      const targetDirectory = path.normalize(
         `${global.__base}/public${SetPath}`
       );
 
       // Ensure target folder exists
-      if (!fs$1.existsSync(targetDirectory)) {
-        fs$1.mkdirSync(targetDirectory, { recursive: true });
+      if (!fs.existsSync(targetDirectory)) {
+        fs.mkdirSync(targetDirectory, { recursive: true });
       }
 
       const existingFile = `${global.__base}/public/uploads/${req.file.filename}`;
@@ -4231,9 +4210,9 @@ async function uploadImageController(req, res) {
       const storInto = `${SetPath}${newFileName}`;
 
       // Rename the file and move it
-      fs$1.rename(
+      fs.rename(
         existingFile,
-        path$1.normalize(`${global.__base}/public${storInto}`),
+        path.normalize(`${global.__base}/public${storInto}`),
         (error) => {
           if (error) {
             return sendResponse(res, 500, "Image uploading failed");
@@ -4247,7 +4226,7 @@ async function uploadImageController(req, res) {
               }
 
               // Clean up local file after successful upload to S3
-              fs$1.unlink(`${global.__base}/public${storInto}`, (unlinkError) => {
+              fs.unlink(`${global.__base}/public${storInto}`, (unlinkError) => {
                 if (unlinkError) {
                   console.error(
                     "Error deleting local file after S3 upload",
@@ -4864,7 +4843,7 @@ const CreateInvSendTicketEmail = async (reqbody) => {
         if (createInvResponse.status) {
           // Attach PDFs to the email
           for (const file of createInvResponse.data) {
-            const fileData = fs$1.readFileSync(file.path);
+            const fileData = fs.readFileSync(file.path);
             emailData.attachments.push({
               filename: file.name,
               content: fileData,
@@ -4899,11 +4878,11 @@ const CreateInvSendTicketEmail = async (reqbody) => {
 
 const sendTicketEmail = async (emailData) => {
   try {
-    const templatePath = path$1.join(
+    const templatePath = path.join(
       global.__base,
       "/modules/templetes/ticketBody.ejs"
     );
-    const ticketTemplate = fs$1.readFileSync(templatePath, "utf8");
+    const ticketTemplate = fs.readFileSync(templatePath, "utf8");
 
     const emailHtml = await ejs.render(ticketTemplate, { emailData });
     const attachments = emailData.attachments || [];
@@ -4967,10 +4946,10 @@ const createInvoicePdf = async (emailData) => {
 
         const templatePath =
           seat === "INV"
-            ? path$1.join(global.__base, "/modules/templetes/ticketInvoice.ejs")
-            : path$1.join(global.__base, "/modules/templetes/confirmTicket.ejs");
+            ? path.join(global.__base, "/modules/templetes/ticketInvoice.ejs")
+            : path.join(global.__base, "/modules/templetes/confirmTicket.ejs");
 
-        const invoiceTemplate = fs$1.readFileSync(templatePath, "utf8");
+        const invoiceTemplate = fs.readFileSync(templatePath, "utf8");
         const invHtml = await ejs.render(invoiceTemplate, { emailData });
 
         const options = {
@@ -4980,20 +4959,20 @@ const createInvoicePdf = async (emailData) => {
         };
 
         const fileName = `${emailData.booking_code}-${seat}.pdf`;
-        const filePath = path$1.join(
+        const filePath = path.join(
           global.__base,
           "/public/uploads/ticketInvoice",
           fileName
         );
 
-        if (!fs$1.existsSync(path$1.dirname(filePath))) {
-          fs$1.mkdirSync(path$1.dirname(filePath), { recursive: true });
+        if (!fs.existsSync(path.dirname(filePath))) {
+          fs.mkdirSync(path.dirname(filePath), { recursive: true });
         }
 
         await page.setContent(invHtml, { waitUntil: "networkidle0" });
         const pdfBuffer = await page.pdf(options);
 
-        fs$1.writeFileSync(filePath, pdfBuffer);
+        fs.writeFileSync(filePath, pdfBuffer);
 
         pdfArray.push({ name: fileName, path: filePath });
 
@@ -6444,8 +6423,8 @@ async function getTransactionByCode(req, res) {
   }
 }
 
-const readdir = promisify(fs$1.readdir);
-const access = promisify(fs$1.access);
+const readdir = promisify(fs.readdir);
+const access = promisify(fs.access);
 
 const checkPriceData = (seatLayoutData, price_array) => {
   let price_data = {
@@ -8111,13 +8090,13 @@ async function downloadTicket(req, res) {
     }
 
     const filePrefix = booking_code;
-    const directoryPath = path$1.join(
+    const directoryPath = path.join(
       global.__base,
       "/public/uploads/ticketInvoice"
     );
 
     // Check if directory exists
-    await access(directoryPath, fs$1.constants.R_OK);
+    await access(directoryPath, fs.constants.R_OK);
 
     // Read directory
     const files = await readdir(directoryPath);
@@ -8138,7 +8117,7 @@ async function downloadTicket(req, res) {
     archive.pipe(res);
 
     for (const file of matchingFiles) {
-      const filePath = path$1.join(directoryPath, file);
+      const filePath = path.join(directoryPath, file);
       archive.file(filePath, { name: file });
     }
 
@@ -11041,7 +11020,7 @@ async function startServer() {
       globalOptions.map((row) => [row.go_key, row.go_value])
     );
 
-    import('./index-kqf_m8t2.js');
+    import('./index-DgRUpW5q.js');
 
     httpServer.listen(EXPRESS_PORT, () => {
       console.log(`Server running on port ${EXPRESS_PORT}`);
