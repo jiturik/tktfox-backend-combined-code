@@ -8577,7 +8577,7 @@ async function createTransation(req, res) {
         ? parseFloat(event_data.exchange_rate)
         : 1;
 
-      totalBeforeDiscount += totalAmount;
+      totalBeforeDiscount = totalAmount;
 
       //check for voucher discount here
       if (z.voucher_applied == "Y") {
