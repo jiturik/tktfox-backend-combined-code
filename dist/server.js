@@ -9030,7 +9030,7 @@ async function tapPaymentCheckout(req, res) {
 }
 async function confirmTapPayment(req, res) {
   const { reservation_id, event_token, tap_id } = req.query;
-  const errorFailureUrl = null;
+  let errorFailureUrl = null;
 
   try {
     // Fetch payment and reservation details
@@ -9133,6 +9133,10 @@ async function confirmTapPayment(req, res) {
       .update({
         payment_capture: JSON.stringify(req.query),
       });
+
+    if (!errorFailureUrl) {
+      errorFailureUrl = process.env.FRONTENDURL;
+    }
 
     return res.redirect(errorFailureUrl);
   }
