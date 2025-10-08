@@ -9030,6 +9030,7 @@ async function tapPaymentCheckout(req, res) {
 }
 async function confirmTapPayment(req, res) {
   const { reservation_id, event_token, tap_id } = req.query;
+  const errorFailureUrl = null;
 
   try {
     // Fetch payment and reservation details
@@ -9047,6 +9048,7 @@ async function confirmTapPayment(req, res) {
     }
 
     const { success_frontend_url, failed_frontend_url } = detailPayment;
+    errorFailureUrl = failed_frontend_url;
     const { org_id } = reservationDetail;
 
     // Fetch payment credentials
@@ -9132,7 +9134,7 @@ async function confirmTapPayment(req, res) {
         payment_capture: JSON.stringify(req.query),
       });
 
-    return res.redirect(failed_frontend_url);
+    return res.redirect(errorFailureUrl);
   }
 }
 
