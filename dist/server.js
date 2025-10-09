@@ -5106,7 +5106,7 @@ const createInvoicePdf = async (emailData) => {
           waitUntil: "domcontentloaded",
           timeout: 0,
         });
-        await page.waitForTimeout(500); // small delay for rendering stability
+        await new Promise((resolve) => setTimeout(resolve, 500));
 
         const pdfBuffer = await page.pdf(options);
         fs.writeFileSync(filePath, pdfBuffer);
