@@ -1,38 +1,38 @@
-import http from "http";
-import express, { Router } from "express";
-import cors from "cors";
-import bodyParser from "body-parser";
-import helmet from "helmet";
-import { jwtDecode } from "jwt-decode";
-import jwt_token from "jsonwebtoken";
-import winston from "winston";
-import path, { dirname } from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
-import { v4 } from "uuid";
-import bcrypt from "bcryptjs";
-import moment$1 from "moment";
-import nodemailer from "nodemailer";
-import momentTimeZone from "moment-timezone";
-import _ from "lodash";
-import NodeCache from "node-cache";
-import zlib from "zlib";
-import multer from "multer";
-import excel from "exceljs";
-import ejs from "ejs";
-import "html-pdf";
-import QRCode from "qrcode";
-import puppeteer from "puppeteer";
-import { SeatsioClient, Region } from "seatsio";
-import { promisify } from "util";
-import archiver from "archiver";
-import { createHash } from "crypto";
-import axios$1 from "axios";
-import { KnexConnection } from "./knex/knex.js";
-import Redis from "ioredis";
-import "knex";
-import "knex-paginate";
-import "dotenv";
+import http from 'http';
+import express, { Router } from 'express';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+import helmet from 'helmet';
+import { jwtDecode } from 'jwt-decode';
+import jwt_token from 'jsonwebtoken';
+import winston from 'winston';
+import path, { dirname } from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import { v4 } from 'uuid';
+import bcrypt from 'bcryptjs';
+import moment$1 from 'moment';
+import nodemailer from 'nodemailer';
+import momentTimeZone from 'moment-timezone';
+import _ from 'lodash';
+import NodeCache from 'node-cache';
+import zlib from 'zlib';
+import multer from 'multer';
+import excel from 'exceljs';
+import ejs from 'ejs';
+import 'html-pdf';
+import QRCode from 'qrcode';
+import puppeteer from 'puppeteer';
+import { SeatsioClient, Region } from 'seatsio';
+import { promisify } from 'util';
+import archiver from 'archiver';
+import { createHash } from 'crypto';
+import axios$1 from 'axios';
+import { KnexConnection } from './knex/knex.js';
+import Redis from 'ioredis';
+import 'knex';
+import 'knex-paginate';
+import 'dotenv';
 
 // Fix __dirname for ES Modules
 const __filename$1 = fileURLToPath(import.meta.url);
@@ -644,7 +644,7 @@ function sendEmailClient(from, subject, body, attachment) {
       html: body,
     };
 
-    if (attachment);
+    if (attachment) ;
 
     mail.sendMail(mailOptions, (error, info) => {
       if (error) {
@@ -2424,11 +2424,7 @@ function ScannerRoutes() {
     checkSessionExist,
     getScannedTicketById
   );
-  router$9.get(
-    "/getScannedTicketList",
-    checkSessionExist,
-    getScannedTicketList
-  );
+  router$9.get("/getScannedTicketList", checkSessionExist, getScannedTicketList);
 
   // POST Routes
   router$9.post(
@@ -4844,7 +4840,11 @@ var opts = {
   },
 };
 
-async function createQRCode(qrcode_data, returnType = "buffer", logo = null) {
+async function createQRCode(
+  qrcode_data,
+  returnType = "buffer",
+  logo = null
+) {
   return new Promise(async (resolve, reject) => {
     try {
       if (!qrcode_data) {
@@ -5128,9 +5128,9 @@ const createInvoicePdf = async (emailData) => {
   });
 };
 
-var CreateInvSendTicketEmail$1 = /*#__PURE__*/ Object.freeze({
+var CreateInvSendTicketEmail$1 = /*#__PURE__*/Object.freeze({
   __proto__: null,
-  CreateInvSendTicketEmail: CreateInvSendTicketEmail,
+  CreateInvSendTicketEmail: CreateInvSendTicketEmail
 });
 
 async function getTransactionList(req, res) {
@@ -5735,12 +5735,11 @@ async function resendTicketCustomer(req, res) {
     // Assuming CreateInvSendTicketEmail returns data with status or error
     const data = await CreateInvSendTicketEmail(reqbody);
 
-    console.log("data", data);
-    if (data && data.status) {
-      return sendResponse(res, 200, "Email Ticket Sent");
-    } else {
-      return sendResponse(res, 400, "Failed to send email");
-    }
+    //if (data && data.status) {
+    return sendResponse(res, 200, "Email Ticket Sent");
+    // } else {
+    //   return sendResponse(res, 400, "Failed to send email");
+    // }
   } catch (error) {
     return sendResponse(
       res,
@@ -5824,11 +5823,7 @@ function ReportRoutes() {
     checkSessionExist,
     getReservationBookingList
   );
-  router$5.get(
-    "/getEventHomeDataById",
-    checkSessionExist,
-    getEventHomeDataById
-  );
+  router$5.get("/getEventHomeDataById", checkSessionExist, getEventHomeDataById);
   router$5.get("/exportBookingReport", checkSessionExist, exportBookingReport);
   router$5.get(
     "/exportReservationReport",
@@ -7121,15 +7116,11 @@ const getReservationSeat = async (req, res) => {
 
     // Calculate time difference for reservation release
     obj.seconds =
-      moment$1(obj.release_time).diff(
-        moment$1(obj.currentDateTime),
-        "seconds"
-      ) % 60;
+      moment$1(obj.release_time).diff(moment$1(obj.currentDateTime), "seconds") %
+      60;
     obj.minutes =
-      moment$1(obj.release_time).diff(
-        moment$1(obj.currentDateTime),
-        "minutes"
-      ) % 60;
+      moment$1(obj.release_time).diff(moment$1(obj.currentDateTime), "minutes") %
+      60;
 
     // add voucher discount details in response if available
     if (getReservationDetail[0].voucher_applied == "Y") {
@@ -7837,15 +7828,11 @@ const getReservePassDetails = async (req, res) => {
 
     // Calculate time remaining for release
     obj.seconds =
-      moment$1(obj.release_time).diff(
-        moment$1(obj.currentDateTime),
-        "seconds"
-      ) % 60;
+      moment$1(obj.release_time).diff(moment$1(obj.currentDateTime), "seconds") %
+      60;
     obj.minutes =
-      moment$1(obj.release_time).diff(
-        moment$1(obj.currentDateTime),
-        "minutes"
-      ) % 60;
+      moment$1(obj.release_time).diff(moment$1(obj.currentDateTime), "minutes") %
+      60;
 
     // Format pass validity date
     obj.pass_validity_to = moment$1()
@@ -8357,11 +8344,7 @@ function WebsiteRoutes() {
 
   // POST Routes
   router$3.post("/signup-customer", checkWebsiteSessionExist, addWebCustomer);
-  router$3.post(
-    "/verify-otp",
-    checkWebsiteSessionExist,
-    verifyOTPAndUpdateUser
-  );
+  router$3.post("/verify-otp", checkWebsiteSessionExist, verifyOTPAndUpdateUser);
 
   router$3.post("/signIn", checkWebsiteSessionExist, customerSignIn);
 
@@ -11213,7 +11196,7 @@ async function startServer() {
     );
 
     // Import cron jobs
-    import("./index-NEn0ZXhF.js");
+    import('./index-NEn0ZXhF.js');
 
     // Start HTTP server
     httpServer.listen(EXPRESS_PORT, () => {
