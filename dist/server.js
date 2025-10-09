@@ -5060,13 +5060,19 @@ const createInvoicePdf = async (emailData) => {
         seatsArray = await getSeatsArray(seatsArray);
       }
     }
-
     try {
       const browser = await puppeteer.launch({
         headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage", // fixes memory issues
+        ],
       });
+
       const page = await browser.newPage();
+      page.setDefaultNavigationTimeout(60000); // 60 sec timeout instead of 30
+      page.setDefaultTimeout(60000);
 
       for (const seat of seatsArray) {
         emailData.seats = seat;
@@ -5096,25 +5102,27 @@ const createInvoicePdf = async (emailData) => {
           fs.mkdirSync(path.dirname(filePath), { recursive: true });
         }
 
-        await page.setContent(invHtml, { waitUntil: "networkidle0" });
-        const pdfBuffer = await page.pdf(options);
+        await page.setContent(invHtml, {
+          waitUntil: "domcontentloaded",
+          timeout: 0,
+        });
+        await page.waitForTimeout(500); // small delay for rendering stability
 
+        const pdfBuffer = await page.pdf(options);
         fs.writeFileSync(filePath, pdfBuffer);
 
         pdfArray.push({ name: fileName, path: filePath });
-
-        if (pdfArray.length === seatsArray.length) {
-          console.log("PDFs created");
-          await browser.close();
-          return resolve({
-            status: true,
-            message: "PDFs created",
-            data: pdfArray,
-          });
-        }
       }
+
+      console.log("PDFs created");
+      await browser.close();
+      return resolve({
+        status: true,
+        message: "PDFs created",
+        data: pdfArray,
+      });
     } catch (err) {
-      console.log("Error in createInvoicePdf fn", err);
+      console.error("Error in createInvoicePdf fn", err);
       reject({ status: false, message: "Error in createInvoicePdf" });
     }
   });
