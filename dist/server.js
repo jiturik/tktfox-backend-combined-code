@@ -7102,6 +7102,7 @@ const getReservationSeat = async (req, res) => {
       //check for voucher discount here
       if (z.voucher_applied == "Y") {
         obj.totalprice -= parseFloat(z.voucher_discount_amount || 0);
+        obj.discountValue += parseFloat(z.voucher_discount_amount);
       }
 
       //check for pass discount here
@@ -7126,9 +7127,9 @@ const getReservationSeat = async (req, res) => {
     if (getReservationDetail[0].voucher_applied == "Y") {
       obj.voucher_code = getReservationDetail[0].voucher_code;
       obj.discountPercent = `${getReservationDetail[0].voucher_discount_percent}%`;
-      obj.discountValue = parseFloat(
-        getReservationDetail[0].voucher_discount_amount
-      );
+      // obj.discountValue = parseFloat(
+      //   getReservationDetail[0].voucher_discount_amount
+      // );
     }
 
     if (
