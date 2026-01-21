@@ -1881,7 +1881,7 @@ const ExtraDetail = async ({
       ? `concat(sch_date,' ',sch_time)>='${currentDateTimeNew}' and sch_is_active='Y'`
       : "";
 
-    const filterActive = isWebsiteUser ? `and is_active='Y'` : "";
+    const filterActive = isWebsiteUser ? `is_active='Y'` : "";
 
     const schedule_array = await global
       .knexConnection("event_schedule")
