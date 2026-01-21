@@ -1324,7 +1324,7 @@ async function addEditEvent(req, res) {
       return sendResponse(
         res,
         400,
-        "Event Start Date should be less than Event End Date"
+        "Event Start Date should be less than Event End Date",
       );
     }
 
@@ -1333,7 +1333,7 @@ async function addEditEvent(req, res) {
       for (let schedule of event_sch_array) {
         const scheduleValidation = await checkValidation(
           ["sch_date", "sch_time", "sch_is_active"],
-          schedule
+          schedule,
         );
         if (!scheduleValidation.status) {
           return sendResponse(res, 400, "Validation Error", scheduleValidation);
@@ -1345,13 +1345,13 @@ async function addEditEvent(req, res) {
             moment$1(event_start_date),
             moment$1(event_end_date),
             undefined,
-            "[]"
+            "[]",
           )
         ) {
           return sendResponse(
             res,
             400,
-            "Schedule Date should be between Event Start Date and End Date"
+            "Schedule Date should be between Event Start Date and End Date",
           );
         }
 
@@ -1363,7 +1363,7 @@ async function addEditEvent(req, res) {
           for (let seatType of schedule.sch_seat_type_array) {
             const seatValidation = await checkValidation(
               ["sct_id", "available_seats", "price_per_seat"],
-              seatType
+              seatType,
             );
             if (!seatValidation.status) {
               return sendResponse(res, 400, "Validation Error", seatValidation);
@@ -1510,7 +1510,8 @@ async function addEditEvent(req, res) {
               sct_id: seatType.sct_id || null,
               available_seats: seatType.available_seats || null,
               price_per_seat: seatType.price_per_seat || 0,
-            })
+              is_active: seatType.is_active || "Y",
+            }),
           );
           await global
             .knexConnection("event_sch_seat_type")
@@ -1524,7 +1525,7 @@ async function addEditEvent(req, res) {
       res,
       500,
       "An error occurred while processing the event",
-      error
+      error,
     );
   }
 }
@@ -1546,7 +1547,7 @@ async function getEventList(req, res) {
     //Check if event_id is present in redis cache
     if (req.is_website_user && reqbody.event_id) {
       const redisData = await getFromRedis(
-        `redisCache:activeWebsiteEventById-${reqbody.event_id}`
+        `redisCache:activeWebsiteEventById-${reqbody.event_id}`,
       );
 
       if (redisData) {
@@ -1554,7 +1555,7 @@ async function getEventList(req, res) {
           res,
           200,
           "Active event list By Id fetched from Redis cache",
-          { ...redisData }
+          { ...redisData },
         );
       }
     }
@@ -1566,7 +1567,7 @@ async function getEventList(req, res) {
       await storeInRedis(
         `redisCache:activeWebsiteEventById-${reqbody.event_id}`,
         getEventData,
-        3600
+        3600,
       );
     }
 
@@ -1578,7 +1579,7 @@ async function getEventList(req, res) {
       res,
       500,
       "Unable to fetch event list. Please try again later.",
-      error
+      error,
     );
   }
 }
@@ -1591,7 +1592,7 @@ async function getActiveEventList(req, res) {
         res,
         200,
         "Active event list fetched from Redis cache",
-        { data: redisData }
+        { data: redisData },
       );
     }
     const reqbody = { ...req.query, ...req.body };
@@ -1606,7 +1607,7 @@ async function getActiveEventList(req, res) {
       res,
       500,
       "Unable to fetch active event list. Please try again later.",
-      error
+      error,
     );
   }
 }
@@ -1672,7 +1673,7 @@ async function addEditEventExtra(req, res) {
       res,
       500,
       "Error in addEditEventExtra. Please try again later.",
-      error
+      error,
     );
   }
 }
@@ -1702,7 +1703,7 @@ async function getEventExtraInfoList(req, res) {
           builder.where(
             "extra_info_is_active",
             "=",
-            extra_info_is_active ? "Y" : "N"
+            extra_info_is_active ? "Y" : "N",
           );
         } else {
           builder.where("extra_info_is_active", "=", "Y"); // Default to active if not specified
@@ -1719,7 +1720,7 @@ async function getEventExtraInfoList(req, res) {
       res,
       500,
       "Error in getEventExtraInfoList. Please try again later.",
-      error
+      error,
     );
   }
 }
@@ -1761,30 +1762,30 @@ const getActiveListData = async (reqbody) => {
         "ms_cinemas.cinema_name",
         "ms_cities.city_name",
         global.knexConnection.raw(
-          `min(event_schedule.sch_date) as eventDatePlaceholder`
+          `min(event_schedule.sch_date) as eventDatePlaceholder`,
         ),
       ])
       .leftJoin("ms_event", "ms_event.event_id", "event_schedule.event_id")
       .leftJoin(
         "ms_cinemas",
         "ms_cinemas.cinema_id",
-        "ms_event.event_cinema_id"
+        "ms_event.event_cinema_id",
       )
       .leftJoin("ms_cities", "ms_cities.city_id", "ms_cinemas.city_id")
       .leftJoin(
         "ms_countries",
         "ms_countries.country_id",
-        "ms_cinemas.country_id"
+        "ms_cinemas.country_id",
       )
       .leftJoin(
         "ms_currencies",
         "ms_currencies.curr_id",
-        "ms_cinemas.currency_id"
+        "ms_cinemas.currency_id",
       )
       .leftJoin(
         "ms_time_zones",
         "ms_time_zones.tz_id",
-        "ms_cinemas.timezone_id"
+        "ms_cinemas.timezone_id",
       )
       .leftJoin("organizations", "organizations.org_id", "ms_cinemas.org_id")
       .where((builder) => {
@@ -1796,7 +1797,7 @@ const getActiveListData = async (reqbody) => {
         if (type) builder.where("ms_event.type", "=", type);
         if (search)
           builder.whereRaw(
-            `concat_ws(' ', cinema_name, cinema_email) LIKE '%${search}%'`
+            `concat_ws(' ', cinema_name, cinema_email) LIKE '%${search}%'`,
           );
       })
       .where({
@@ -1815,7 +1816,7 @@ const getActiveListData = async (reqbody) => {
         event_end_date: currentDateTime(event.event_end_date, "YYYY-MM-DD"),
         eventDatePlaceholder: currentDateTime(
           event.eventDatePlaceholder,
-          "YYYY-MM-DD"
+          "YYYY-MM-DD",
         ),
         event_start_date: currentDateTime(event.event_start_date, "YYYY-MM-DD"),
       };
@@ -1827,7 +1828,7 @@ const getActiveListData = async (reqbody) => {
       res,
       500,
       "Error in getActiveListData. Please try again later.",
-      error
+      error,
     );
   }
 };
@@ -1880,12 +1881,14 @@ const ExtraDetail = async ({
       ? `concat(sch_date,' ',sch_time)>='${currentDateTimeNew}' and sch_is_active='Y'`
       : "";
 
+    const filterActive = isWebsiteUser ? `and is_active='Y'` : "";
+
     const schedule_array = await global
       .knexConnection("event_schedule")
       .select(
         global.knexConnection.raw(
-          `event_schedule.*, concat(event_schedule.sch_date,' ',sch_time) as sch_date_time`
-        )
+          `event_schedule.*, concat(event_schedule.sch_date,' ',sch_time) as sch_date_time`,
+        ),
       )
       .where({ event_id })
       .whereRaw(filters)
@@ -1901,8 +1904,9 @@ const ExtraDetail = async ({
           .leftJoin(
             "ms_seat_class_type",
             "ms_seat_class_type.sct_id",
-            "event_sch_seat_type.sct_id"
+            "event_sch_seat_type.sct_id",
           )
+          .whereRaw(filterActive)
           .where({ event_sch_id: schedule.event_sch_id });
 
         return {
@@ -1910,7 +1914,7 @@ const ExtraDetail = async ({
           sch_seat_type_array: seatTypes,
           sch_date: currentDateTime(schedule.sch_date, "YYYY-MM-DD"), // Assuming `currentDateTime` is a date formatting function
         };
-      })
+      }),
     );
   }
 
@@ -1972,12 +1976,12 @@ const fetchEventList = async (reqbody, limit, currentPage) => {
     .leftJoin(
       "ms_countries",
       "ms_countries.country_id",
-      "ms_cinemas.country_id"
+      "ms_cinemas.country_id",
     )
     .leftJoin(
       "ms_currencies",
       "ms_currencies.curr_id",
-      "ms_cinemas.currency_id"
+      "ms_cinemas.currency_id",
     )
     .leftJoin("ms_time_zones", "ms_time_zones.tz_id", "ms_cinemas.timezone_id")
     .leftJoin("organizations", "organizations.org_id", "ms_cinemas.org_id")
@@ -1991,7 +1995,7 @@ const processEventDetails = async (
   event_id,
   isWebsiteUser,
   currentDateTimeNew,
-  event_sch_id
+  event_sch_id,
 ) => {
   let newArray = [];
   let scheduleStart = { days: 0, hours: 0, minute: 0, second: 0 };
@@ -2004,7 +2008,7 @@ const processEventDetails = async (
     currentDateTimeNew = currentDateTime(
       null,
       "YYYY-MM-DD HH:mm:ss",
-      obj.tz_name
+      obj.tz_name,
     );
 
     // Fetch additional details asynchronously
@@ -2022,21 +2026,21 @@ const processEventDetails = async (
       scheduleStart.second =
         moment$1(nextSchedule.sch_date_time).diff(
           moment$1(currentDateTimeNew),
-          "seconds"
+          "seconds",
         ) % 60;
       scheduleStart.minute =
         moment$1(nextSchedule.sch_date_time).diff(
           moment$1(currentDateTimeNew),
-          "minute"
+          "minute",
         ) % 60;
       scheduleStart.days = moment$1(nextSchedule.sch_date_time).diff(
         moment$1(currentDateTimeNew),
-        "days"
+        "days",
       );
       scheduleStart.hours =
         moment$1(nextSchedule.sch_date_time).diff(
           moment$1(currentDateTimeNew),
-          "hour"
+          "hour",
         ) % 24;
     }
 
@@ -2054,7 +2058,7 @@ const processEventSchedules = (newArray, isWebsiteUser) => {
 
     newArray[0].event_sch_array.forEach((z) => {
       let findIndex2 = array.findIndex(
-        (sch) => sch.schedule_date === z.sch_date
+        (sch) => sch.schedule_date === z.sch_date,
       );
       if (findIndex2 >= 0) {
         array[findIndex2].schedule_array.push({
@@ -2084,7 +2088,7 @@ const processEventSchedules = (newArray, isWebsiteUser) => {
       data.schedule_array = _.orderBy(
         data.schedule_array,
         ["sch_date_unix"],
-        ["ASC"]
+        ["ASC"],
       );
     });
 
@@ -2112,7 +2116,7 @@ const EVENT_DATA = async (reqbody) => {
     event_id,
     isWebsiteUser,
     currentDateTimeNew,
-    event_sch_id
+    event_sch_id,
   );
 
   // Step 3: Process event schedules if needed
