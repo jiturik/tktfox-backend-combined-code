@@ -8389,8 +8389,8 @@ async function getShopCategory(req, res) {
       .where((builder) => {
         if (category_id)
           builder.where("shop_categories.category_id", "=", category_id);
-        if (category_is_active)
-          builder.where("category_is_active", "=", category_is_active);
+        if (isWebsiteUser)
+          builder.where("category_is_active", "=", 'Y');
         if (search) {
           builder.whereRaw(
             `concat_ws(' ', category_name, category_name) LIKE ?`,
