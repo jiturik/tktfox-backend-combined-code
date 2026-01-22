@@ -6543,6 +6543,34 @@ async function getTransactionByCode(req, res) {
 
         obj["organiserData"] = organiserData;
 
+        // Fetch shop items using reservation_id from booking table
+        const shopItems = await global
+          .knexConnection("reserve_shop_items")
+          .select(
+            "reserve_shop_items.item_quantity",
+            "reserve_shop_items.item_price",
+            "reserve_shop_items.item_id",
+            "shop_items.item_name",
+            "shop_items.item_image"
+          )
+          .join(
+            "shop_items",
+            "reserve_shop_items.item_id",
+            "shop_items.item_id"
+          )
+          .where({ reservation_id: obj.reservation_id })
+          .where({ "reserve_shop_items.is_booked": "Y" });
+
+        let shopAmount = 0;
+        if (shopItems.length > 0) {
+          for (let item of shopItems) {
+            shopAmount +=
+              parseFloat(item.item_price) * parseFloat(item.item_quantity);
+          }
+        }
+
+        obj["shop_items"] = shopItems;
+        obj["shop_amount"] = shopAmount;
         return obj;
       })
     );
@@ -8619,6 +8647,21 @@ async function createTransation(req, res) {
       transaction_array.push({ ...obj });
     });
 
+    // Add reserved shop items amount once per reservation
+    const reservedShopItems = await global
+      .knexConnection("reserve_shop_items")
+      .select("item_quantity", "item_price")
+      .where({ reservation_id, is_reserved: "Y" });
+
+    if (reservedShopItems.length > 0) {
+      let shopItemsAmount = 0;
+      for (let item of reservedShopItems) {
+        shopItemsAmount +=
+          parseFloat(item.item_price) * parseFloat(item.item_quantity);
+      }
+      totalAmount += shopItemsAmount;
+    }
+
     if (event_data.event_booking_fees && event_data.event_booking_fees > 0) {
       let booking_fee_value =
         (parseFloat(event_data.event_booking_fees) / 100) * totalAmount;
@@ -8648,6 +8691,11 @@ async function createTransation(req, res) {
     // Update relevant tables after booking
     await global
       .knexConnection("ms_reservation")
+      .where({ reservation_id })
+      .update({ is_booked: "Y" });
+
+    await global
+      .knexConnection("reserve_shop_items")
       .where({ reservation_id })
       .update({ is_booked: "Y" });
 
@@ -8913,6 +8961,21 @@ async function tapPaymentCheckout(req, res) {
         totalAmount -= parseFloat(z.pass_discount_amount || 0);
       }
     });
+
+    // Add reserved shop items amount once per reservation (from reserve_shop_items only)
+    const reservedShopItems = await global
+      .knexConnection("reserve_shop_items")
+      .select("item_quantity", "item_price")
+      .where({ reservation_id, is_reserved: "Y" });
+
+    if (reservedShopItems.length > 0) {
+      let shopItemsAmount = 0;
+      for (let item of reservedShopItems) {
+        shopItemsAmount +=
+          parseFloat(item.item_price) * parseFloat(item.item_quantity);
+      }
+      totalAmount += shopItemsAmount;
+    }
 
     // Skip payment if total amount is zero
     if (totalAmount <= 0) {
@@ -10849,7 +10912,7 @@ async function getShopItems(req, res) {
     const { query: reqbody, user_info } = req;
     const {
       item_id,
-      item_is_active = "Y",
+      item_is_active,
       limit = 100,
       currentPage = 1,
       search,
@@ -10862,8 +10925,11 @@ async function getShopItems(req, res) {
 
       .where((builder) => {
         if (item_id) builder.where("shop_items.item_id", "=", item_id);
-        if (item_is_active)
-          builder.where("item_is_active", "=", item_is_active);
+        // For website users: only show active items (is_active = 'Y')
+        // For dashboard: show both active and inactive (no filter)
+        if (isWebsiteUser) {
+          builder.where("item_is_active", "=", "Y");
+        }
         if (item_category_id)
           builder.where("item_category_id", "=", item_category_id);
         if (search) {

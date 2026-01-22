@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "nodemon -r dotenv/config ./src/server.js",
     "build": "rollup -c rollup.config.js",
-    "start": "nodemon -r dotenv/config ./dist/server.js"
+    "start": "nodemon -r dotenv/config ./dist/server.js",
+    "migrate:make": "knex migrate:make --knexfile knexfile.js --migrations-directory ./src/knex/migrations",
+    "migrate:latest": "knex migrate:latest --knexfile knexfile.js"
   },
   "keywords": [
     "Nodejs",
