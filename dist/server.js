@@ -1286,6 +1286,7 @@ async function addEditEvent(req, res) {
       event_prefix_code,
       type,
       event_booking_fees,
+      has_shop,
     } = reqbody;
 
     let cinemaOrgId = org_id || user_info.org_id;
@@ -1415,6 +1416,7 @@ async function addEditEvent(req, res) {
       event_prefix_code: event_prefix_code || "TKT",
       type: type,
       event_booking_fees: event_booking_fees || 0,
+      has_shop: has_shop || "N",
       ...dataReturnUpdate(user_info, isUpdate),
     };
 
@@ -1759,6 +1761,7 @@ const getActiveListData = async (reqbody) => {
         "event_schedule.event_id",
         "event_start_date",
         "event_end_date",
+        "ms_event.has_shop",
         "ms_cinemas.cinema_name",
         "ms_cities.city_name",
         global.knexConnection.raw(
