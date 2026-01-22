@@ -8421,6 +8421,18 @@ function WebsiteRoutes() {
     downloadTicket
   );
 
+ //Shop Routes  Routes
+ router$3.get("/get-shopitems", checkWebsiteSessionExist, getShopItems);
+ router$3.get("/get-shopCategory", checkWebsiteSessionExist, getShopCategory);
+ router$3.post("/reserve-shop-items/:reservation_id", checkWebsiteSessionExist, reserveShopItems);
+ router$3.post("/direct-shop", checkWebsiteSessionExist, directShop);
+ router$3.get(
+   "/get-shop-reservation/:reservation_id",
+   checkWebsiteSessionExist,
+   getdirectShopReservedItems
+ );
+
+
   return router$3;
 }
 
@@ -10755,7 +10767,7 @@ async function addEditShopCategory(req, res) {
   }
 }
 
-async function getShopCategory(req, res) {
+async function getShopCategory$1(req, res) {
   try {
     const { query: reqbody, user_info } = req;
     const {
@@ -10907,7 +10919,7 @@ async function addEdtShopItems(req, res) {
   }
 }
 
-async function getShopItems(req, res) {
+async function getShopItems$1(req, res) {
   try {
     const { query: reqbody, user_info } = req;
     const {
@@ -10954,170 +10966,6 @@ async function getShopItems(req, res) {
   }
 }
 
-async function reserveShopItems(req, res) {
-  try {
-    const { reservation_id, items_array } = {
-      ...req.body,
-      ...req.query,
-      ...req.params,
-    };
-
-    if (!reservation_id) {
-      return sendResponse(res, 400, "Reservation id is required");
-    }
-
-    const checkReservation = await global
-      .knexConnection("ms_reservation")
-      .where({ reservation_id })
-      .first();
-
-    if (!checkReservation) {
-      return sendResponse(res, 400, "Invalid reservation id");
-    }
-
-    if (!items_array || items_array.length === 0) {
-      return sendResponse(res, 400, "Items array is required");
-    }
-
-    for (let i of items_array) {
-      if (!i.item_id) {
-        return sendResponse(res, 400, "Item id is required");
-        break;
-      }
-
-      const checkItem = await global
-        .knexConnection("shop_items")
-        .where({ item_id: i.item_id })
-        .first();
-
-      if (!checkItem) {
-        return sendResponse(res, 400, "Invalid item id");
-        break;
-      }
-
-      if (!i.item_quantity) {
-        return sendResponse(res, 400, "Item quantity is required");
-        break;
-      }
-
-      await global.knexConnection("reserve_shop_items").insert({
-        reservation_id,
-        item_id: i.item_id,
-        item_quantity: i.item_quantity,
-        item_price: checkItem.item_price,
-      });
-    }
-
-    return sendResponse(res, 200, "Shop Item Reserved Successfully", null);
-  } catch (error) {
-    return sendResponse(
-      res,
-      500,
-      "An error occurred while reserving the item.",
-      error
-    );
-  }
-}
-
-async function directShop(req, res) {
-  try {
-    const { items_array } = {
-      ...req.body,
-      ...req.query,
-      ...req.params,
-    };
-
-    if (!items_array || items_array.length === 0) {
-      return sendResponse(res, 400, "Items array is required");
-    }
-
-    const reservation_id = v4();
-
-    for (let i of items_array) {
-      if (!i.item_id) {
-        return sendResponse(res, 400, "Item id is required");
-        break;
-      }
-
-      const checkItem = await global
-        .knexConnection("shop_items")
-        .where({ item_id: i.item_id })
-        .first();
-
-      if (!checkItem) {
-        return sendResponse(res, 400, "Invalid item id");
-        break;
-      }
-
-      if (!i.item_quantity) {
-        return sendResponse(res, 400, "Item quantity is required");
-        break;
-      }
-
-      await global.knexConnection("reserve_shop_items").insert({
-        reservation_id,
-        item_id: i.item_id,
-        item_quantity: i.item_quantity,
-        item_price: checkItem.item_price,
-      });
-    }
-
-    return sendResponse(res, 200, "Direct Shop Item Reserved Successfully", {
-      reservation_id: reservation_id,
-    });
-  } catch (error) {
-    return sendResponse(
-      res,
-      500,
-      "An error occurred while reserving the item in direct shop.",
-      error
-    );
-  }
-}
-
-async function getdirectShopReservedItems(req, res) {
-  try {
-    const { reservation_id } = {
-      ...req.body,
-      ...req.query,
-      ...req.params,
-    };
-
-    if (!reservation_id) {
-      return sendResponse(res, 400, "Reservation id is required");
-    }
-    let totalAmount = 0;
-
-    const checkDirectReservationItems = await global
-      .knexConnection("reserve_shop_items")
-      .select(
-        "reserve_shop_items.*",
-        "shop_items.item_name",
-        "shop_items.item_image",
-        "shop_items.item_price",
-        "shop_items.item_short_description"
-      )
-      .join("shop_items", "reserve_shop_items.item_id", "shop_items.item_id")
-      .where({ reservation_id, is_reserved: "Y" });
-
-    for (let i of checkDirectReservationItems) {
-      totalAmount += i.item_price * i.item_quantity;
-    }
-
-    return sendResponse(res, 200, "Direct Shop Retrieved Successfully", {
-      directReservationItems: checkDirectReservationItems,
-      totalAmount: totalAmount,
-    });
-  } catch (error) {
-    return sendResponse(
-      res,
-      500,
-      "An error occurred while getting the direct shop items.",
-      error
-    );
-  }
-}
-
 const router$1 = Router();
 
 function ShopRoutes() {
@@ -11130,15 +10978,8 @@ function ShopRoutes() {
   );
 
   // GET Routes
-  router$1.get("/get-shopitems", getShopItems);
-  router$1.get("/get-shopCategory", getShopCategory);
-  router$1.post("/reserve-shop-items/:reservation_id", reserveShopItems);
-  router$1.post("/direct-shop", directShop);
-  router$1.get(
-    "/get-shop-reservation/:reservation_id",
-    getdirectShopReservedItems
-  );
-
+  router$1.get("/get-shopitems",checkSessionExist, getShopItems$1);
+  router$1.get("/get-shopCategory",checkSessionExist, getShopCategory$1);
   return router$1;
 }
 
