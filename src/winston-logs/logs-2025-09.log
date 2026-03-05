@@ -1,0 +1,11 @@
+2025-09-02 14:55:26 [ERROR]: ❌ Failed to start server:: database connection with knex failed
+2025-09-02 17:26:47 [ERROR]: An error occurred while fetching the category list.=>: select * from `shop_categories` where (`category_is_active` = 'Y') order by `shop_items`.`item_id` desc limit 10 - Unknown column 'shop_items.item_id' in 'order clause'
+2025-09-02 17:28:09 [ERROR]: An error occurred while fetching the category list.=>: CountryList is not defined
+2025-09-02 17:59:45 [ERROR]: An unexpected error occurred in addEdtShopItems=>: item_long_description cannot be empty, undefined, or null
+2025-09-02 18:00:15 [ERROR]: An unexpected error occurred in addEdtShopItems=>: item_category_id cannot be empty, undefined, or null
+2025-09-02 18:00:42 [ERROR]: An unexpected error occurred in addEdtShopItems=>: test key does not exist
+2025-09-02 18:01:19 [ERROR]: An unexpected error occurred in addEdtShopItems=>: shirt key does not exist
+2025-09-02 18:02:49 [ERROR]: An unexpected error occurred in addEdtShopItems=>: shirt key does not exist
+2025-09-02 18:04:08 [ERROR]: An unexpected error occurred in addEdtShopItems=>: select `item_name`, `shirt` from `users` where (`item_name` = 'shirt' or (`item_unique_code` = 'shirt')) - Unknown column 'item_name' in 'field list'
+2025-09-02 18:05:01 [ERROR]: An unexpected error occurred in addEdtShopItems=>: select `item_name`, `item_unique_code` from `users` where (`item_name` = 'shirt' or (`item_unique_code` = 'shirt')) - Unknown column 'item_name' in 'field list'
+2025-09-02 18:05:32 [ERROR]: An unexpected error occurred in addEdtShopItems=>: select `item_name` from `users` where (`item_name` = 'shirt' or (`item_unique_code` = 'shirt')) - Unknown column 'item_name' in 'field list'
