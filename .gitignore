@@ -5,10 +5,10 @@
 node_modules/
 
 # Rollup configuration file
-# rollup.config.js
+ rollup.config.js
 
 # source code
-# src/
+ src/
 
 # winston logs
 dist/winston-logs/
