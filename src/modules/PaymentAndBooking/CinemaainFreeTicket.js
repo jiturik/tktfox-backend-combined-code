@@ -40,13 +40,14 @@ export async function cinemaainFreePaymentCheckout(req, res) {
       .knexConnection("ms_payment_booking_detail")
       .where({
         reservation_id,
+        booking_type: "Normal",
       });
 
     if (paymentDetailC.length) {
       return sendResponse(
         res,
         400,
-        "Payment Already Initiated with reservation id"
+        "Payment Already Initiated with reservation id",
       );
     }
 
@@ -149,7 +150,7 @@ export async function cinemaainFreePaymentCheckout(req, res) {
       return sendResponse(
         res,
         400,
-        "Cinema only supports free tickets .Please contact support team!"
+        "Cinema only supports free tickets .Please contact support team!",
       );
     }
   } catch (error) {
@@ -157,7 +158,7 @@ export async function cinemaainFreePaymentCheckout(req, res) {
       res,
       500,
       "Error in cinemaainfreeticketcheckout",
-      error
+      error,
     );
   }
 }

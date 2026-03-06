@@ -46,13 +46,14 @@ export async function mpgsPaymentCheckout(req, res) {
       .knexConnection("ms_payment_booking_detail")
       .where({
         reservation_id,
+        booking_type: "Normal",
       });
 
     if (paymentDetailC.length) {
       return sendResponse(
         res,
         400,
-        "Payment Already Initiated with reservation id"
+        "Payment Already Initiated with reservation id",
       );
     }
 
@@ -198,7 +199,7 @@ export async function mpgsPaymentCheckout(req, res) {
     };
 
     const auth = Buffer.from(`${API_USER_NAME}:${API_PASSWORD}`).toString(
-      "base64"
+      "base64",
     );
 
     try {
@@ -221,7 +222,7 @@ export async function mpgsPaymentCheckout(req, res) {
           let currentDateTimeNew = currentDateTime(
             null,
             "YYYY-MM-DD HH:mm:ss",
-            event_data[0].tz_name
+            event_data[0].tz_name,
           );
 
           let checkGuest = is_guest;
@@ -247,6 +248,7 @@ export async function mpgsPaymentCheckout(req, res) {
             created_at: currentDateTimeNew,
             pm_id: 1,
             payment_request: JSON.stringify(mpgsObj),
+            booking_type: "Normal",
           };
 
           await global
@@ -276,7 +278,7 @@ export async function confirmMpgsPayment(req, res) {
 
     const detailPayment = await global
       .knexConnection("ms_payment_booking_detail")
-      .where({ reservation_id });
+      .where({ reservation_id, booking_type: "Normal" });
     const reservation_detail = await global
       .knexConnection("ms_reservation")
       .select("ms_reservation.*", "ms_event.org_id", "ms_event.event_is_active")
@@ -312,7 +314,7 @@ export async function confirmMpgsPayment(req, res) {
     ) {
       await global
         .knexConnection("ms_payment_booking_detail")
-        .where({ reservation_id })
+        .where({ reservation_id, booking_type: "Normal" })
         .update({
           is_paid: "Y",
           payment_capture: JSON.stringify(req.query),
@@ -342,7 +344,7 @@ export async function confirmMpgsPayment(req, res) {
         transactionResponse.data.status
       ) {
         return res.redirect(
-          `${success_redirect_url}/${transactionResponse.data.booking_code}`
+          `${success_redirect_url}/${transactionResponse.data.booking_code}`,
         );
       } else {
         return res.redirect(`${failed_redirect_url}`);
@@ -350,7 +352,7 @@ export async function confirmMpgsPayment(req, res) {
     } else {
       await global
         .knexConnection("ms_payment_booking_detail")
-        .where({ reservation_id })
+        .where({ reservation_id, booking_type: "Normal" })
         .update({
           payment_capture: JSON.stringify({
             queryData: req.query,

@@ -8,7 +8,12 @@ export const CheckPayoneInquiry = async (reqbody) => {
     // Step 1: Fetch pending payments
     const existingPayments = await global
       .knexConnection("ms_payment_booking_detail")
-      .where({ pm_id: 2, is_booked: "N", recheck_payment: "Y" })
+      .where({
+        pm_id: 2,
+        is_booked: "N",
+        recheck_payment: "Y",
+        booking_type: "Normal",
+      })
       .orderBy("pbd_id", "asc")
       .limit(10);
 
@@ -106,7 +111,10 @@ export const CheckPayoneInquiry = async (reqbody) => {
             if (!reservationDetails.length) {
               await global
                 .knexConnection("ms_payment_booking_detail")
-                .where({ reservation_id: item.reservation_id })
+                .where({
+                  reservation_id: item.reservation_id,
+                  booking_type: "Normal",
+                })
                 .update({
                   recheck_payment: "N",
                   is_paid: "Y",
@@ -118,7 +126,10 @@ export const CheckPayoneInquiry = async (reqbody) => {
 
             await global
               .knexConnection("ms_payment_booking_detail")
-              .where({ reservation_id: item.reservation_id })
+              .where({
+                reservation_id: item.reservation_id,
+                booking_type: "Normal",
+              })
               .update({
                 is_booked: "Y",
                 is_paid: "Y",
@@ -132,7 +143,10 @@ export const CheckPayoneInquiry = async (reqbody) => {
           } else if (parsedData.includes("Response.StatusCode=00072")) {
             await global
               .knexConnection("ms_payment_booking_detail")
-              .where({ reservation_id: item.reservation_id })
+              .where({
+                reservation_id: item.reservation_id,
+                booking_type: "Normal",
+              })
               .update({
                 recheck_payment: "Y",
                 payment_capture: JSON.stringify(response.data),
@@ -143,7 +157,10 @@ export const CheckPayoneInquiry = async (reqbody) => {
           } else {
             await global
               .knexConnection("ms_payment_booking_detail")
-              .where({ reservation_id: item.reservation_id })
+              .where({
+                reservation_id: item.reservation_id,
+                booking_type: "Normal",
+              })
               .update({
                 recheck_payment: "N",
                 payment_capture: JSON.stringify(response.data),
@@ -155,7 +172,10 @@ export const CheckPayoneInquiry = async (reqbody) => {
         } else {
           await global
             .knexConnection("ms_payment_booking_detail")
-            .where({ reservation_id: item.reservation_id })
+            .where({
+              reservation_id: item.reservation_id,
+              booking_type: "Normal",
+            })
             .update({
               payment_capture: "No response from payment gateway",
             });

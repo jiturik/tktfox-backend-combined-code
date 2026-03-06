@@ -9,7 +9,8 @@
     "build": "rollup -c rollup.config.js",
     "start": "nodemon -r dotenv/config ./dist/server.js",
     "migrate:make": "knex migrate:make --knexfile knexfile.js --migrations-directory ./src/knex/migrations",
-    "migrate:latest": "knex migrate:latest --knexfile knexfile.js"
+    "migrate:latest": "knex migrate:latest --knexfile knexfile.js",
+    "generate:schema": "node ./src/scripts/GenerateKnexSchema.js"
   },
   "keywords": [
     "Nodejs",
@@ -35,6 +36,7 @@
     "ejs": "^3.1.10",
     "exceljs": "^4.4.0",
     "express": "^4.21.1",
+    "glob": "^13.0.6",
     "helmet": "^8.0.0",
     "html-pdf": "^3.0.1",
     "ioredis": "^5.4.2",

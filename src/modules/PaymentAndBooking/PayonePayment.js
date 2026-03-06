@@ -47,12 +47,12 @@ export async function payonePaymentCheckout(req, res) {
     // Check if payment has already been initiated
     const paymentDetail = await global
       .knexConnection("ms_payment_booking_detail")
-      .where({ reservation_id });
+      .where({ reservation_id, booking_type: "Normal" });
     if (paymentDetail.length) {
       return sendResponse(
         res,
         400,
-        "Payment Already Initiated with reservation id"
+        "Payment Already Initiated with reservation id",
       );
     }
 
@@ -200,7 +200,7 @@ export async function payonePaymentCheckout(req, res) {
     const currentDateTimeNew = currentDateTime(
       null,
       "YYYY-MM-DD HH:mm:ss",
-      event_data[0].tz_name
+      event_data[0].tz_name,
     );
     let checkGuest = is_guest;
 
@@ -226,6 +226,7 @@ export async function payonePaymentCheckout(req, res) {
       pm_id: 2,
       payment_request: JSON.stringify(PaymentObject),
       payment_transaction_id: PaymentObject.TransactionID,
+      booking_type: "Normal",
     };
 
     await global
@@ -240,7 +241,7 @@ export async function payonePaymentCheckout(req, res) {
       res,
       400,
       "An error occurred in payonePayment.js",
-      error
+      error,
     );
   }
 }
@@ -256,7 +257,7 @@ export async function confirmPayonePayment(req, res) {
     // Get payment booking detail and reservation details
     const detailPayment = await global
       .knexConnection("ms_payment_booking_detail")
-      .where({ reservation_id });
+      .where({ reservation_id, booking_type: "Normal" });
 
     if (!detailPayment.length) {
       throw new Error("Payment detail not found");
@@ -303,7 +304,7 @@ export async function confirmPayonePayment(req, res) {
     ) {
       await global
         .knexConnection("ms_payment_booking_detail")
-        .where({ reservation_id })
+        .where({ reservation_id, booking_type: "Normal" })
         .update({
           is_paid: "Y",
           recheck_payment: "N",
@@ -333,7 +334,7 @@ export async function confirmPayonePayment(req, res) {
 
       if (transactionResponse.data && transactionResponse.data.status) {
         return res.redirect(
-          `${success_redirect_url}/${transactionResponse.data.booking_code}?message=${paymentMessage}`
+          `${success_redirect_url}/${transactionResponse.data.booking_code}?message=${paymentMessage}`,
         );
       } else {
         throw new Error("Transaction creation failed");
@@ -342,7 +343,7 @@ export async function confirmPayonePayment(req, res) {
       // If payment is not approved
       await global
         .knexConnection("ms_payment_booking_detail")
-        .where({ reservation_id })
+        .where({ reservation_id, booking_type: "Normal" })
         .update({
           recheck_payment: "N",
           payment_capture: JSON.stringify({
@@ -352,7 +353,7 @@ export async function confirmPayonePayment(req, res) {
         });
 
       return res.redirect(
-        `${failed_redirect_url}?message=${paymentMessage}&amount=${requestPaymentAmt}&transaction_id=${payment_transaction_id}&date=${transaction_date_frontend}`
+        `${failed_redirect_url}?message=${paymentMessage}&amount=${requestPaymentAmt}&transaction_id=${payment_transaction_id}&date=${transaction_date_frontend}`,
       );
     }
   } catch (error) {
@@ -360,7 +361,7 @@ export async function confirmPayonePayment(req, res) {
     console.error("Error during Payone payment confirmation:", error.message);
     await global
       .knexConnection("ms_payment_booking_detail")
-      .where({ reservation_id })
+      .where({ reservation_id, booking_type: "Normal" })
       .update({
         payment_capture: JSON.stringify(req.query),
       });
@@ -369,8 +370,8 @@ export async function confirmPayonePayment(req, res) {
       `${failed_redirect_url}?message=${error.message}&amount=${
         body["Response.Amount"]
       }&transaction_id=${body["Response.TransactionID"]}&date=${moment().format(
-        "DD/MM/YYYY, h:mm:ss"
-      )}`
+        "DD/MM/YYYY, h:mm:ss",
+      )}`,
     );
   }
 }

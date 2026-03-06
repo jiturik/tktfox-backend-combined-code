@@ -3,6 +3,7 @@ import { dataReturnUpdate } from "../../lib/helper.js";
 import { pagination } from "../../lib/pagination.js";
 import { v4 } from "uuid";
 import { sendResponse } from "../../lib/responseService.js";
+import { checkAvailability } from "../../lib/shopHelpers.js";
 
 export async function addEditShopCategory(req, res) {
   let reqbody = req.body;
@@ -264,69 +265,6 @@ export async function getShopItems(req, res) {
   }
 }
 
-async function checkAvailability(item_id, requestedQuantity) {
-  const item = await global
-    .knexConnection("shop_items")
-    .where({ item_id })
-    .first();
-
-  if (!item) {
-    return {
-      status: false,
-      message: "Invalid item id",
-    };
-  }
-
-  const quantity = Number(requestedQuantity);
-
-  if (!quantity || Number.isNaN(quantity)) {
-    return {
-      status: false,
-      message: "Item quantity is required",
-    };
-  }
-
-  const minQty = Number(item.item_min_quantity) || 0;
-  const maxQty = Number(item.item_max_quantity) || 0;
-
-  if (minQty && quantity < minQty) {
-    return {
-      status: false,
-      message: `Minimum quantity for this item is ${minQty}`,
-    };
-  }
-
-  if (maxQty && quantity > maxQty) {
-    return {
-      status: false,
-      message: `Maximum quantity for this item is ${maxQty}`,
-    };
-  }
-
-  const soldResult = await global
-    .knexConnection("reserve_shop_items")
-    .where({ item_id, is_reserved: "Y" })
-    .sum({ total_sold: "item_quantity" })
-    .first();
-
-  const soldQty = Number(soldResult?.total_sold) || 0;
-  const totalQty = Number(item.item_total_quantity) || 0;
-  const availableQty = totalQty - soldQty;
-
-  if (quantity > availableQty) {
-    return {
-      status: false,
-      message: "Insufficient quantity available for this item",
-    };
-  }
-
-  return {
-    status: true,
-    item,
-    availableQty,
-  };
-}
-
 export async function reserveShopItems(req, res) {
   try {
     const { reservation_id, items_array } = {
@@ -364,11 +302,18 @@ export async function reserveShopItems(req, res) {
         return sendResponse(res, 400, availability.message);
       }
 
+      // Always fetch the latest price from shop_items
+      const shopItem = await global
+        .knexConnection("shop_items")
+        .select("item_price")
+        .where({ item_id: i.item_id })
+        .first();
+
       await global.knexConnection("reserve_shop_items").insert({
         reservation_id,
         item_id: i.item_id,
         item_quantity: i.item_quantity,
-        item_price: availability.item.item_price,
+        item_price: shopItem?.item_price || 0,
       });
     }
 
@@ -400,7 +345,6 @@ export async function directShop(req, res) {
     for (let i of items_array) {
       if (!i.item_id) {
         return sendResponse(res, 400, "Item id is required");
-        break;
       }
 
       const availability = await checkAvailability(i.item_id, i.item_quantity);
@@ -409,11 +353,18 @@ export async function directShop(req, res) {
         return sendResponse(res, 400, availability.message);
       }
 
+      // Always fetch latest price from shop_items
+      const shopItem = await global
+        .knexConnection("shop_items")
+        .select("item_price")
+        .where({ item_id: i.item_id })
+        .first();
+
       await global.knexConnection("reserve_shop_items").insert({
         reservation_id,
         item_id: i.item_id,
         item_quantity: i.item_quantity,
-        item_price: availability.item.item_price,
+        item_price: shopItem?.item_price || 0,
       });
     }
 
@@ -437,6 +388,7 @@ export async function getdirectShopReservedItems(req, res) {
       ...req.query,
       ...req.params,
     };
+    let pg_api_route = null;
 
     if (!reservation_id) {
       return sendResponse(res, 400, "Reservation id is required");
@@ -459,15 +411,182 @@ export async function getdirectShopReservedItems(req, res) {
       totalAmount += i.item_price * i.item_quantity;
     }
 
+    //fetch cinema payment gateway
+    const cinemaPaymentGateway = await global
+      .knexConnection("organization_setting")
+      .where({ org_id: 1 })
+      .where((builder) => builder.where({ setting_key: "tap_pay_payment" }));
+
+    if (cinemaPaymentGateway.length) {
+      const apiRoute = JSON.parse(cinemaPaymentGateway[0].setting_data);
+      pg_api_route = apiRoute.PAYMENT_API_ROUTE_SHOP;
+    }
+
     return sendResponse(res, 200, "Direct Shop Retrieved Successfully", {
       directReservationItems: checkDirectReservationItems,
       totalAmount: totalAmount,
+      backend_api_route: pg_api_route,
     });
   } catch (error) {
     return sendResponse(
       res,
       500,
       "An error occurred while getting the direct shop items.",
+      error,
+    );
+  }
+}
+
+export async function getShopOrderDetails(req, res) {
+  try {
+    const { reservation_id } = {
+      ...req.body,
+      ...req.query,
+      ...req.params,
+    };
+
+    if (!reservation_id) {
+      return sendResponse(
+        res,
+        400,
+        "Reservation id or booking code is required",
+      );
+    }
+
+    const booking = await global
+      .knexConnection("ms_shop_booking")
+      .where({ reservation_id })
+      .first();
+
+    if (!booking) {
+      return sendResponse(res, 404, "Order not found");
+    }
+
+    const items = await global
+      .knexConnection("reserve_shop_items as r")
+      .select(
+        "r.*",
+        "s.item_name",
+        "s.item_image",
+        "s.item_short_description",
+        "bsi.booking_code",
+      )
+      .join("shop_items as s", "r.item_id", "s.item_id")
+      .leftJoin("booked_shop_items as bsi", function () {
+        this.on("bsi.reservation_id", "r.reservation_id").andOn(
+          "bsi.item_id",
+          "r.item_id",
+        );
+      })
+      .where({
+        "r.reservation_id": booking.reservation_id,
+        "r.is_booked": "Y",
+      });
+
+    const details = items.map((i) => {
+      const lineTotal =
+        Number(i.item_price || 0) * Number(i.item_quantity || 0);
+      return {
+        booking_code: i.booking_code,
+        reservation_id: booking.reservation_id,
+        customer_name: booking.c_name,
+        customer_email: booking.c_email,
+        customer_phone: booking.c_phone_number,
+        booking_date_time: booking.booking_date_time,
+        item_id: i.item_id,
+        item_name: i.item_name,
+        item_image: i.item_image,
+        item_short_description: i.item_short_description,
+        item_quantity: i.item_quantity,
+        item_price: i.item_price,
+        line_total: lineTotal,
+      };
+    });
+
+    const totalAmount = details.reduce(
+      (sum, d) => sum + Number(d.line_total || 0),
+      0,
+    );
+
+    return sendResponse(res, 200, "Shop order details fetched successfully", {
+      details,
+      totalAmount,
+    });
+  } catch (error) {
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while fetching the shop order details.",
+      error,
+    );
+  }
+}
+
+export async function getShopOrdersReport(req, res) {
+  try {
+    const {
+      limit = 50,
+      currentPage = 1,
+      item_name,
+      customer_email,
+      customer_mobile,
+      customer_name,
+      reservation_id,
+      booking_code,
+    } = req.query;
+
+    const query = global
+      .knexConnection("ms_shop_booking as b")
+      .join("reserve_shop_items as r", "b.reservation_id", "r.reservation_id")
+      .join("shop_items as s", "r.item_id", "s.item_id")
+      .leftJoin(
+        "ms_payment_booking_detail as pbd",
+        "b.reservation_id",
+        "pbd.reservation_id",
+      )
+      .where("r.is_booked", "Y");
+
+    if (reservation_id) {
+      query.where("b.reservation_id", "like", `%${reservation_id}%`);
+    }
+    if (booking_code) {
+      query.where("b.booking_code", "like", `%${booking_code}%`);
+    }
+    if (customer_email) {
+      query.where("b.c_email", "like", `%${customer_email}%`);
+    }
+    if (customer_mobile) {
+      query.where("b.c_phone_number", "like", `%${customer_mobile}%`);
+    }
+    if (customer_name) {
+      query.where("b.c_name", "like", `%${customer_name}%`);
+    }
+    if (item_name) {
+      query.where("s.item_name", "like", `%${item_name}%`);
+    }
+
+    const records = await query
+      .select(
+        "b.*", // all ms_shop_booking fields
+        "s.item_id",
+        "s.item_name",
+        "r.item_quantity",
+        "r.item_price",
+        "pbd.is_paid",
+        "pbd.payment_transaction_id",
+        "pbd.payment_capture",
+      )
+      .orderBy("b.booking_date_time", "desc")
+      .paginate(pagination(limit, currentPage));
+
+    return sendResponse(res, 200, "Shop orders report fetched successfully", {
+      Records: records,
+    });
+  } catch (error) {
+    return sendResponse(
+      res,
+      500,
+      "An error occurred while fetching the shop orders report.",
       error,
     );
   }

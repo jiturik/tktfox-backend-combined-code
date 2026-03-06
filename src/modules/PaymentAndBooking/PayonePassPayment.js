@@ -47,13 +47,13 @@ export async function payonePassPaymentCheckout(req, res) {
     // Check if payment already exists for the reservation
     const paymentDetailC = await global
       .knexConnection("ms_payment_booking_detail")
-      .where({ reservation_id });
+      .where({ reservation_id, booking_type: "Normal" });
 
     if (paymentDetailC.length) {
       return sendResponse(
         res,
         400,
-        "Payment already initiated with this reservation ID."
+        "Payment already initiated with this reservation ID.",
       );
     }
 
@@ -66,7 +66,7 @@ export async function payonePassPaymentCheckout(req, res) {
       return sendResponse(
         res,
         400,
-        "Reservation not found or pass already released."
+        "Reservation not found or pass already released.",
       );
     }
 
@@ -77,7 +77,7 @@ export async function payonePassPaymentCheckout(req, res) {
       .leftJoin(
         "ms_currencies",
         "ms_currencies.curr_id",
-        "movie_event_pass.pass_currency_id"
+        "movie_event_pass.pass_currency_id",
       )
       .where({
         "movie_event_pass.pass_id": checkReservation[0].pass_id,
@@ -118,13 +118,13 @@ export async function payonePassPaymentCheckout(req, res) {
       return sendResponse(
         res,
         400,
-        "No valid payment currency found for the pass."
+        "No valid payment currency found for the pass.",
       );
     }
 
     const paymentCurrencyIso = paymentCurrencyData[0].curr_iso;
     const redirectUrl = `${BASEURL}/payment/confirmPassPayonePayment?reservation_id_token=${reservation_id}///${req.header(
-      "authorization"
+      "authorization",
     )}`;
 
     let PaymentObject = {
@@ -192,7 +192,7 @@ export async function payonePassPaymentCheckout(req, res) {
     const currentDateTimeNew = currentDateTime(
       null,
       "YYYY-MM-DD HH:mm:ss",
-      "Pacific/Yap"
+      "Pacific/Yap",
     );
     const insertPaymentDetail = {
       reservation_id,
@@ -208,6 +208,7 @@ export async function payonePassPaymentCheckout(req, res) {
       pm_id: 2,
       payment_request: JSON.stringify(PaymentObject),
       payment_transaction_id: PaymentObject.TransactionID,
+      booking_type: "Normal",
     };
 
     await global
@@ -222,7 +223,7 @@ export async function payonePassPaymentCheckout(req, res) {
       res,
       500,
       "An unexpected error occurred in payone payment checkout.",
-      error
+      error,
     );
   }
 }
@@ -245,14 +246,14 @@ export async function confirmPassPayonePayment(req, res) {
   // Fetch payment details from the database
   let detailPayment = await global
     .knexConnection("ms_payment_booking_detail")
-    .where({ reservation_id })
+    .where({ reservation_id, booking_type: "Normal" })
     .first(); // Using `.first()` to directly get the single record
 
   if (!detailPayment) {
     return sendResponse(
       res,
       400,
-      "Payment details not found for this reservation."
+      "Payment details not found for this reservation.",
     );
   }
 
@@ -286,7 +287,7 @@ export async function confirmPassPayonePayment(req, res) {
       // Update payment status to "paid"
       await global
         .knexConnection("ms_payment_booking_detail")
-        .where({ reservation_id })
+        .where({ reservation_id, booking_type: "Normal" })
         .update({
           is_paid: "Y",
           recheck_payment: "N",
@@ -320,7 +321,7 @@ export async function confirmPassPayonePayment(req, res) {
           res,
           500,
           "Error during transaction API call.",
-          axiosError
+          axiosError,
         );
       }
 
@@ -330,19 +331,19 @@ export async function confirmPassPayonePayment(req, res) {
         transactionResponse.data.status
       ) {
         return res.redirect(
-          `${failed_redirect_url}?message=${paymentMessage}&amount=${requestPaymentAmt}&transaction_id=${payment_transaction_id}&date=${transaction_date_frontend}`
+          `${failed_redirect_url}?message=${paymentMessage}&amount=${requestPaymentAmt}&transaction_id=${payment_transaction_id}&date=${transaction_date_frontend}`,
         );
       } else {
         console.error("Transaction failed:", transactionResponse);
         return res.redirect(
-          `${failed_redirect_url}?message=Transaction Failed&amount=${requestPaymentAmt}&transaction_id=${payment_transaction_id}&date=${transaction_date_frontend}`
+          `${failed_redirect_url}?message=Transaction Failed&amount=${requestPaymentAmt}&transaction_id=${payment_transaction_id}&date=${transaction_date_frontend}`,
         );
       }
     } else {
       // Handle failed payment case
       await global
         .knexConnection("ms_payment_booking_detail")
-        .where({ reservation_id })
+        .where({ reservation_id, booking_type: "Normal" })
         .update({
           recheck_payment: "N",
           payment_capture: JSON.stringify({
@@ -352,7 +353,7 @@ export async function confirmPassPayonePayment(req, res) {
         });
 
       return res.redirect(
-        `${failed_redirect_url}?message=${paymentMessage}&amount=${requestPaymentAmt}&transaction_id=${payment_transaction_id}&date=${transaction_date_frontend}`
+        `${failed_redirect_url}?message=${paymentMessage}&amount=${requestPaymentAmt}&transaction_id=${payment_transaction_id}&date=${transaction_date_frontend}`,
       );
     }
   } catch (error) {
@@ -360,13 +361,13 @@ export async function confirmPassPayonePayment(req, res) {
     console.error("Error during payment confirmation:", error);
     await global
       .knexConnection("ms_payment_booking_detail")
-      .where({ reservation_id })
+      .where({ reservation_id, booking_type: "Normal" })
       .update({
         payment_capture: JSON.stringify(req.query),
       });
 
     return res.redirect(
-      `${failed_redirect_url}?message=${paymentMessage}&amount=${requestPaymentAmt}&transaction_id=${payment_transaction_id}&date=${transaction_date_frontend}`
+      `${failed_redirect_url}?message=${paymentMessage}&amount=${requestPaymentAmt}&transaction_id=${payment_transaction_id}&date=${transaction_date_frontend}`,
     );
   }
 }
@@ -414,23 +415,24 @@ export async function createPassTransation(req, res) {
           "payment_mode_name",
           "success_frontend_url",
           "failed_frontend_url",
-          "payment_transaction_id"
+          "payment_transaction_id",
         )
         .leftJoin(
           "ms_payment_mode",
           "ms_payment_mode.pm_id",
-          "ms_payment_booking_detail.pm_id"
+          "ms_payment_booking_detail.pm_id",
         )
         .where({
           reservation_id,
           is_paid: "Y",
+          booking_type: "Normal",
         });
 
       if (!getPaymentDetail.length) {
         return sendResponse(
           res,
           400,
-          "Payment not completed from the website."
+          "Payment not completed from the website.",
         );
       }
     }
@@ -438,7 +440,7 @@ export async function createPassTransation(req, res) {
     let currentDateTimeNew = currentDateTime(
       null,
       "YYYY-MM-DD HH:mm:ss",
-      "Asia/Bahrain"
+      "Asia/Bahrain",
     );
 
     let getPassDetail;
@@ -449,7 +451,7 @@ export async function createPassTransation(req, res) {
       .leftJoin(
         "ms_currencies",
         "ms_currencies.curr_id",
-        "movie_event_pass.pass_currency_id"
+        "movie_event_pass.pass_currency_id",
       )
       .where({
         "movie_event_pass.pass_id": getReservationDetail[0].pass_id,
@@ -519,7 +521,7 @@ export async function createPassTransation(req, res) {
       return sendResponse(
         res,
         400,
-        "Transaction already initiated for this reservation."
+        "Transaction already initiated for this reservation.",
       );
     }
 
@@ -544,7 +546,7 @@ export async function createPassTransation(req, res) {
 
     await global
       .knexConnection("ms_payment_booking_detail")
-      .where({ reservation_id })
+      .where({ reservation_id, booking_type: "Normal" })
       .update({
         is_booked: "Y",
       });
@@ -556,7 +558,7 @@ export async function createPassTransation(req, res) {
       res,
       500,
       "Error updating reservation and payment status.",
-      error
+      error,
     );
   }
 }

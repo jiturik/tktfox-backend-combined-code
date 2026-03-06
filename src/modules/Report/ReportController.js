@@ -36,8 +36,9 @@ export async function getTransactionList(req, res) {
       .leftJoin(
         "ms_payment_booking_detail as PBD",
         "ms_booking.reservation_id",
-        "PBD.reservation_id"
+        "PBD.reservation_id",
       )
+      .where("PBD.booking_type", "Normal")
       .where((builder) => {
         if (booking_id) builder.where("booking_id", "=", booking_id);
         if (event_ids && event_ids.length)
@@ -106,11 +107,12 @@ export async function getReservationBookingList(req, res) {
           PBD.payment_capture, PBD.is_guest, PBD.is_booked, 
           B.booking_code, B.booking_type_name, B.total_price as totalPaidAmount, 
           B.booking_date_time, B.currency as amountCurrency, E.event_name
-        `)
+        `),
       )
       .leftJoin("ms_reservation as R", "R.reservation_id", "PBD.reservation_id")
       .leftJoin("ms_event as E", "E.event_id", "R.event_id")
       .leftJoin("ms_booking as B", "R.reservation_id", "B.reservation_id")
+      .where("PBD.booking_type", "Normal")
       .where((builder) => {
         if (booking_id) builder.where("B.booking_id", "=", booking_id);
         if (event_ids && event_ids.length)
@@ -129,7 +131,7 @@ export async function getReservationBookingList(req, res) {
         if (search) {
           builder.whereRaw(
             `concat_ws(' ', PBD.c_name, PBD.phone_number) like ?`,
-            [`%${search}%`]
+            [`%${search}%`],
           );
         }
       })
@@ -177,8 +179,9 @@ export async function exportBookingReport(req, res) {
       .leftJoin(
         "ms_payment_booking_detail as PBD",
         "ms_booking.reservation_id",
-        "PBD.reservation_id"
+        "PBD.reservation_id",
       )
+      .where("PBD.booking_type", "Normal")
       .where((builder) => {
         if (booking_id) builder.where("booking_id", "=", booking_id);
         if (event_ids && event_ids.length)
@@ -253,11 +256,11 @@ export async function exportBookingReport(req, res) {
     const excelName = "Booking Report";
     res.setHeader(
       "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=${excelName}.xlsx`
+      `attachment; filename=${excelName}.xlsx`,
     );
 
     // Write the workbook and end the response
@@ -268,7 +271,7 @@ export async function exportBookingReport(req, res) {
       res,
       500,
       "An error occurred while generating the booking report.",
-      error
+      error,
     );
   }
 }
@@ -310,12 +313,13 @@ export async function exportReservationReport(req, res) {
           PBD.is_guest, PBD.is_booked, B.booking_code, 
           B.booking_type_name, B.total_price as totalPaidAmount, 
           B.booking_date_time, B.currency as amountCurrency, 
-          E.event_name`
-        )
+          E.event_name`,
+        ),
       )
       .leftJoin("ms_reservation as R", "R.reservation_id", "PBD.reservation_id")
       .leftJoin("ms_event as E", "E.event_id", "R.event_id")
       .leftJoin("ms_booking as B", "R.reservation_id", "B.reservation_id")
+      .where("PBD.booking_type", "Normal")
       .where((builder) => {
         if (booking_id) builder.where("B.booking_id", "=", booking_id);
         if (event_ids && event_ids.length)
@@ -335,7 +339,7 @@ export async function exportReservationReport(req, res) {
         if (search) {
           builder.whereRaw(
             `concat_ws(' ', PBD.c_name, PBD.phone_number) like ?`,
-            [`%${search}%`]
+            [`%${search}%`],
           );
         }
       })
@@ -378,11 +382,11 @@ export async function exportReservationReport(req, res) {
     const excelName = "Reservation Report";
     res.setHeader(
       "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=${excelName}.xlsx`
+      `attachment; filename=${excelName}.xlsx`,
     );
 
     // Write the workbook to the response stream
@@ -393,7 +397,7 @@ export async function exportReservationReport(req, res) {
       res,
       500,
       "An error occurred while generating the reservation report.",
-      error
+      error,
     );
   }
 }
@@ -423,7 +427,7 @@ export async function getEventHomeDataById(req, res) {
     // Process schedule data
     const { scheduleData, totalBookedSeats } = processScheduleData(
       seatTypes,
-      bookedSeats
+      bookedSeats,
     );
 
     // Prepare response object
@@ -441,7 +445,7 @@ export async function getEventHomeDataById(req, res) {
       res,
       500,
       "An error occurred while fetching home data.",
-      error
+      error,
     );
   }
 }
@@ -473,12 +477,12 @@ async function getAllBookedSeats(eventId) {
       "event_schedule.sch_date",
       "event_schedule.sch_time",
       "event_schedule.sch_max_capacity",
-      "event_schedule.event_sch_id"
+      "event_schedule.event_sch_id",
     )
     .leftJoin(
       "event_schedule",
       "event_schedule.event_sch_id",
-      "ms_reservation.event_sch_id"
+      "ms_reservation.event_sch_id",
     )
     .where({
       is_booked: "Y",
@@ -494,17 +498,17 @@ async function getEventSeatTypes(eventId) {
       "ms_seat_class_type.seat_class_name",
       "event_schedule.sch_date",
       "event_schedule.sch_time",
-      "event_schedule.sch_max_capacity"
+      "event_schedule.sch_max_capacity",
     )
     .leftJoin(
       "ms_seat_class_type",
       "ms_seat_class_type.sct_id",
-      "event_sch_seat_type.sct_id"
+      "event_sch_seat_type.sct_id",
     )
     .leftJoin(
       "event_schedule",
       "event_schedule.event_sch_id",
-      "event_sch_seat_type.event_sch_id"
+      "event_sch_seat_type.event_sch_id",
     )
     .where({
       "ms_seat_class_type.sct_is_active": "Y",
@@ -533,7 +537,7 @@ function processVoucherData(eventTransactions) {
         const existingObj = voucherSummaryArray.find(
           (obj) =>
             obj.VoucherCode.toLowerCase() ===
-              booking.voucher_code.toLowerCase() && obj.SeatType === seatType
+              booking.voucher_code.toLowerCase() && obj.SeatType === seatType,
         );
 
         if (existingObj) {
@@ -558,18 +562,18 @@ function processScheduleData(seatTypes, bookedSeats) {
 
   seatTypes.forEach((type) => {
     const scheduleIndex = scheduleData.findIndex(
-      (x) => x.event_sch_id === type.event_sch_id
+      (x) => x.event_sch_id === type.event_sch_id,
     );
 
     const bookedSeatTypes = bookedSeats.filter(
       (seat) =>
         seat.event_sch_id === type.event_sch_id &&
-        seat.seat_type === type.seat_class_name
+        seat.seat_type === type.seat_class_name,
     );
 
     const soldCount = bookedSeatTypes.reduce(
       (sum, seat) => sum + parseInt(seat.no_of_seats || 1, 10),
-      0
+      0,
     );
 
     const seatInfo = {
@@ -615,7 +619,7 @@ export async function resendTicketCustomer(req, res) {
       res,
       500,
       "An error occurred while sending the email",
-      error
+      error,
     );
   }
 }
@@ -657,7 +661,7 @@ export async function getPassTransactionList(req, res) {
     }
     if (search) {
       query.whereRaw(
-        `concat_ws(' ', c_name, c_phone_number) like '%${search}%'`
+        `concat_ws(' ', c_name, c_phone_number) like '%${search}%'`,
       );
     }
 
@@ -673,7 +677,7 @@ export async function getPassTransactionList(req, res) {
       res,
       500,
       "An error occurred while fetching pass transactions",
-      error
+      error,
     );
   }
 }

@@ -50,14 +50,14 @@ export async function createTransation(req, res) {
           "payment_mode_name",
           "success_frontend_url",
           "failed_frontend_url",
-          "payment_transaction_id"
+          "payment_transaction_id",
         )
         .leftJoin(
           "ms_payment_mode",
           "ms_payment_mode.pm_id",
-          "ms_payment_booking_detail.pm_id"
+          "ms_payment_booking_detail.pm_id",
         )
-        .where({ reservation_id, is_paid: "Y" });
+        .where({ reservation_id, is_paid: "Y", booking_type: "Normal" });
 
       if (!getPaymentDetail.length) {
         return sendResponse(res, 400, "Payment Not Done from Website");
@@ -67,7 +67,7 @@ export async function createTransation(req, res) {
     let currentDateTimeNew = currentDateTime(
       null,
       "YYYY-MM-DD HH:mm:ss",
-      getReservationDetail[0].timezone_name
+      getReservationDetail[0].timezone_name,
     );
 
     let event_data_all = await EVENT_DATA({
@@ -132,7 +132,7 @@ export async function createTransation(req, res) {
           });
         } else {
           bookSeatsArray.push(
-            z.seat_type + "-" + z.row_name + "-" + z.column_name
+            z.seat_type + "-" + z.row_name + "-" + z.column_name,
           );
         }
       });
@@ -154,7 +154,7 @@ export async function createTransation(req, res) {
         const bookResponse = await client.events.book(
           getReservationDetail[0].seatsio_eventkey,
           bookSeatsArray,
-          getReservationDetail[0].seatsio_holdtoken
+          getReservationDetail[0].seatsio_holdtoken,
         );
 
         for (const key in bookResponse.objects) {
@@ -286,7 +286,7 @@ export async function createTransation(req, res) {
 
     await global
       .knexConnection("ms_payment_booking_detail")
-      .where({ reservation_id })
+      .where({ reservation_id, booking_type: "Normal" })
       .update({ is_booked: "Y" });
 
     await global
@@ -306,6 +306,119 @@ export async function createTransation(req, res) {
 
     return sendResponse(res, 200, "Transaction created successfully", {
       booking_code: booking_code,
+    });
+  } catch (error) {
+    return sendResponse(res, 500, "Transaction creation failed", error);
+  }
+}
+
+export async function createTransactionShopOnly(req, res) {
+  let reqbody = { ...req.body, ...req.params };
+  const { user_info } = req;
+  const { reservation_id } = reqbody;
+  const checkFields = ["reservation_id"];
+
+  const result = await checkValidation(checkFields, reqbody);
+  if (!result.status) {
+    return sendResponse(res, 400, "Validation Error", result);
+  }
+
+  try {
+    const getPaymentDetail = await global
+      .knexConnection("ms_payment_booking_detail")
+      .select(
+        "c_name",
+        "email",
+        "phone_number",
+        "country_code",
+        "is_booked",
+        "is_guest",
+        "customer_id",
+        "payment_mode_name",
+        "payment_transaction_id",
+        "pm_id",
+      )
+      .leftJoin(
+        "ms_payment_mode",
+        "ms_payment_mode.pm_id",
+        "ms_payment_booking_detail.pm_id",
+      )
+      .where({ reservation_id, is_paid: "Y", booking_type: "Shop_only" });
+
+    if (!getPaymentDetail.length) {
+      return sendResponse(res, 400, "Payment Not Done for Shop Order");
+    }
+
+    const reservedShopItems = await global
+      .knexConnection("reserve_shop_items")
+      .select("reserve_id", "item_id", "item_quantity", "item_price")
+      .where({ reservation_id, is_reserved: "Y" });
+
+    if (!reservedShopItems.length) {
+      return sendResponse(res, 400, "No reserved shop items found");
+    }
+
+    const checkExistingBooking = await global
+      .knexConnection("booked_shop_items")
+      .where({ reservation_id });
+
+    if (checkExistingBooking && checkExistingBooking.length) {
+      return sendResponse(res, 400, "Transaction already initiated");
+    }
+
+    const paymentRow = getPaymentDetail[0];
+
+    // Create booked shop item entries and compute total amount
+    let totalAmount = 0;
+    let lastBookingCode = null;
+
+    for (const item of reservedShopItems) {
+      const item_total_price =
+        Number(item.item_price || 0) * Number(item.item_quantity || 0);
+      totalAmount += item_total_price;
+
+      const insertedIds = await global
+        .knexConnection("booked_shop_items")
+        .insert({
+          reserve_id: item.reserve_id || null,
+          reservation_id,
+          item_id: item.item_id,
+          item_quantity: item.item_quantity,
+          item_price: item.item_price,
+          total_price: item_total_price,
+          customer_name: paymentRow.c_name,
+          customer_email: paymentRow.email,
+          customer_phone: paymentRow.phone_number,
+          delivery_status: "PENDING",
+        });
+
+      const bookedId = Array.isArray(insertedIds)
+        ? insertedIds[0]
+        : insertedIds;
+
+      const booking_code =
+        "SHP" + (String(bookedId).padStart(5, "0") || bookedId);
+
+      await global
+        .knexConnection("booked_shop_items")
+        .where({ booked_id: bookedId })
+        .update({ booking_code });
+
+      lastBookingCode = booking_code;
+    }
+
+    await global
+      .knexConnection("reserve_shop_items")
+      .where({ reservation_id, is_reserved: "Y" })
+      .update({ is_booked: "Y" });
+
+    await global
+      .knexConnection("ms_payment_booking_detail")
+      .where({ reservation_id, booking_type: "Shop_only" })
+      .update({ is_booked: "Y" });
+
+    return sendResponse(res, 200, "Transaction created successfully", {
+      booking_code: lastBookingCode,
     });
   } catch (error) {
     return sendResponse(res, 500, "Transaction creation failed", error);
@@ -342,7 +455,7 @@ export const skipPaymentGateway = async (reqbody) => {
   const currentDateTimeNew = currentDateTime(
     null,
     "YYYY-MM-DD HH:mm:ss",
-    event_data[0].tz_name
+    event_data[0].tz_name,
   );
 
   // Check if the customer exists in the database
@@ -372,6 +485,7 @@ export const skipPaymentGateway = async (reqbody) => {
       pm_id: 1,
       is_booked: "Y",
       is_paid: "Y",
+      booking_type: "Normal",
     };
 
     await global

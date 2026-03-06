@@ -42,7 +42,7 @@ import {
   downloadTicket,
 } from "./WebsiteController.js";
 
-import { getShopItems, getShopCategory, reserveShopItems, directShop, getdirectShopReservedItems } from "../Shop/ShopController.js";
+import { getShopItems, getShopCategory, reserveShopItems, directShop, getdirectShopReservedItems, getShopOrderDetails } from "../Shop/ShopController.js";
 
 
 const router = Router();
@@ -170,6 +170,11 @@ export function WebsiteRoutes() {
    checkWebsiteSessionExist,
    getdirectShopReservedItems
  );
+  router.get(
+    "/get-shop-order-details",
+    checkWebsiteSessionExist,
+    getShopOrderDetails
+  );
 
 
   return router;

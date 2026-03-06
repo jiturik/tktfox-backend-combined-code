@@ -20,14 +20,15 @@ export const CreateInvSendTicketEmail = async (reqbody) => {
         "ms_booking.*",
         "ms_event.event_tnc",
         "ms_event.event_seating_type",
-        "ms_payment_booking_detail.success_frontend_url"
+        "ms_payment_booking_detail.success_frontend_url",
       )
       .join("ms_event", "ms_event.event_id", "ms_booking.event_id")
       .join(
         "ms_payment_booking_detail",
         "ms_payment_booking_detail.reservation_id",
-        "ms_booking.reservation_id"
+        "ms_booking.reservation_id",
       )
+      .where("ms_payment_booking_detail.booking_type", "Normal")
       .where((builder) => {
         if (BOOKINGID) {
           builder.where("ms_booking.booking_id", BOOKINGID);
@@ -68,7 +69,7 @@ export const CreateInvSendTicketEmail = async (reqbody) => {
           booking_id: booking.booking_id,
           booking_code: booking.booking_code,
           booking_date_time: moment(booking.booking_date_time).format(
-            "DD/MM/YYYY hh:mm:ss"
+            "DD/MM/YYYY hh:mm:ss",
           ),
           event_name: booking.event_name,
           event_tnc: booking.event_tnc,
@@ -79,7 +80,7 @@ export const CreateInvSendTicketEmail = async (reqbody) => {
           city_name: booking.city_name,
           country_name: booking.country_name,
           event_date_time: `${moment(booking.event_date).format(
-            "DD/MM/YYYY"
+            "DD/MM/YYYY",
           )} ${booking.event_time}`,
           event_date_body: moment(booking.event_date).format("DD/MM/YYYY"),
           event_time_body: booking.event_time,
@@ -122,7 +123,7 @@ export const CreateInvSendTicketEmail = async (reqbody) => {
           "Error processing booking:",
           booking.booking_code,
           "==",
-          error
+          error,
         );
         // Continue to the next iteration if an error occurs
         continue;
@@ -138,7 +139,7 @@ const sendTicketEmail = async (emailData) => {
   try {
     const templatePath = path.join(
       global.__base,
-      "/modules/templetes/ticketBody.ejs"
+      "/modules/templetes/ticketBody.ejs",
     );
     const ticketTemplate = fs.readFileSync(templatePath, "utf8");
 
@@ -149,7 +150,7 @@ const sendTicketEmail = async (emailData) => {
       emailData.customer_email,
       `${process.env.CLIENT_NAME} -: ${emailData.booking_code} - ${emailData.event_name}`,
       emailHtml,
-      attachments
+      attachments,
     );
   } catch (error) {
     console.error("Error in sending email:", error);
@@ -226,7 +227,7 @@ const createInvoicePdf = async (emailData) => {
         const filePath = path.join(
           global.__base,
           "/public/uploads/ticketInvoice",
-          fileName
+          fileName,
         );
 
         if (!fs.existsSync(path.dirname(filePath))) {
